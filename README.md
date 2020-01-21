@@ -2,6 +2,11 @@
 
 **README in construction**
 
+### TO DO (remaining implementation): 
+* regression case: computation of weights + mean square error. 
+* computation of attention weights
+* inference function (to see with Sylvain). 
+
 ### Download
 
 ```
