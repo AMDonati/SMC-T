@@ -1,5 +1,5 @@
 import tensorflow as tf
-from train.train_SMC_Transformer import categorical_crossentropy
+from train.train_SMC_Transformer_dummy_dataset import categorical_crossentropy
 
 # --- test of categorical_crossentropy function---
 

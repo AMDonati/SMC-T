@@ -75,6 +75,36 @@ def categorical_ce_with_particules(real, pred, sampling_weights):
   loss=tf.reduce_mean(loss_, axis=0)
   return loss
 
+def binary_ce_with_particules(real, pred, sampling_weights):
+  '''
+  :param real: targets tensor > shape (B,S)
+  :param pred: predictions (particules logits) > shape (B,P,S,1)
+  :param sampling_weights: re-sampling weights for last timestep > shape (B,P)
+  :return:
+  '''
+  # tiling the targets to have a shape (B,P,S)
+  num_particles=tf.shape(pred)[1]
+  if len(tf.shape(real))<3:
+    real=tf.expand_dims(real, axis=1)
+    real=tf.tile(real, multiples=[1, num_particles,1])
+  # creating the mask for masking padded sequences
+  mask = tf.math.logical_not(tf.math.equal(real, 0)) # shape (B,P,S)
+  loss_=loss_binary=tf.keras.losses.binary_crossentropy(
+    y_true=real,
+    y_pred=pred,
+    from_logits=False,
+    label_smoothing=0) # shape (B,P,S)
+  # masking over padded sequences
+  mask = tf.cast(mask, dtype=loss_.dtype)
+  loss_ *= mask
+  # mean over sequence elements
+  loss_=tf.reduce_mean(loss_, axis=-1) # shape (B,P)
+  # weighted sum over number of particles
+  loss_=tf.reduce_sum(sampling_weights*loss_, axis=-1)
+  # mean over batch elements
+  loss=tf.reduce_mean(loss_, axis=0)
+  return loss
+
 def mse_with_particles(real, pred, sampling_weights):
   #TODO: correct the formula with a rescaled mse when sigma (of the computation weights) is not equal to 1. (see with Sylvain.)
   '''

@@ -238,6 +238,7 @@ class Transformer(tf.keras.Model):
     # computing w0
     log_probas_initial = log_probas[:, :, 0, :]
     initial_word_tensor = tf.expand_dims(initial_word_id, axis=-1)
+    initial_word_tensor=tf.cast(initial_word_tensor, dtype=tf.int32)
     initial_weights = tf.gather(log_probas_initial, initial_word_tensor, axis=-1, batch_dims=1)
     initial_weights=tf.squeeze(initial_weights, axis=-1)
 
@@ -302,6 +303,8 @@ class Transformer(tf.keras.Model):
     elif self.data_type=='time_series':
       if len(tf.shape(inputs))==2: # shape(B,S)
         input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,1)
+      else:
+        input_tensor_processed=inputs
       # add the particle dimension
       input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,1)
       input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,1)
