@@ -1,19 +1,17 @@
-# SMC-RNN
-
-Code for the paper '"SMC Transformer". 
+# SMC-T
 
 **README in construction**
 
 ### Download
 
 ```
-git clone https://github.com/AMDonati/SMC-RNN---Transformers.git
+git clone https://github.com/AMDonati/SMC-T.git
 ```
 
 ### Requirements
 
-The code works on  python 3 and tensorflow 2.0.
-To install tensorflow 2.0, please follow the official instructions [here](https://www.tensorflow.org/install/pip?lang=python3)
+The code works on  python 3 and tensorflow 2.1.
+To install tensorflow 2.1, please follow the official instructions [here](https://www.tensorflow.org/install/pip?lang=python3)
 
 ### File architecture
 ```
