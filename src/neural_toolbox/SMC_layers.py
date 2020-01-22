@@ -7,6 +7,7 @@ from models.SMC_Transformer.self_attention_SMC import MultiHeadAttention_SMC
 from neural_toolbox.classic_layers import point_wise_feed_forward_network
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
+
 # original DecoderLayer from TF 2.0 tutorial on Tranformer
 class DecoderLayer(tf.keras.layers.Layer):
   '''adaptated version of the original Decoder Layer of the Transformer.
@@ -22,7 +23,7 @@ class DecoderLayer(tf.keras.layers.Layer):
   def __init__(self, d_model, num_heads, dff, num_particles, sigma, rate=0.1):
     super(DecoderLayer, self).__init__()
 
-    #self.dec_timestep = 0 # to remove???
+    # self.dec_timestep = 0 # to remove???
     self.num_particles = num_particles
 
     self.mha1 = MultiHeadAttention_classic(d_model=d_model,
@@ -50,13 +51,13 @@ class DecoderLayer(tf.keras.layers.Layer):
         -reparametrized gaussian noise for the current layer (to compute the loss)
     '''
     # preparing inputs_mha[x,x,x (x float] for mha class.
-    inputs_float=tf.cast(inputs, dtype=tf.float32)
-    inputs_mha=[inputs_float for _ in range(3)]
+    inputs_float = tf.cast(inputs, dtype=tf.float32)
+    inputs_mha = [inputs_float for _ in range(3)]
     # computing multi-head attention.
     (Z, K, V) = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # (batch_size, target_seq_len, d_model)
     # put a None as the decoding timestep instead?
     attn1 = self.dropout1(Z, training=training)
-    out1 = self.layernorm1(attn1 + inputs_float)
+    out1 = self.layernorm1(attn1 + inputs_float)  # TODO: Bug with multivariate
 
     ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
     ffn_output = self.dropout3(ffn_output, training=training)
@@ -326,19 +327,19 @@ class DecoderLayer(tf.keras.layers.Layer):
 ###------ ADD A MAIN FUNCTION HERE--------------------------------
 
 if __name__ == "__main__":
-  d_model=512
-  dff=2048
-  num_heads=8
-  num_particles=10
+  d_model = 512
+  dff = 2048
+  num_heads = 8
+  num_particles = 10
 
   sample_decoder_layer = DecoderLayer(d_model=d_model,
                                       dff=dff,
                                       num_heads=num_heads,
                                       num_particles=num_particles)
 
-  inputs_layer=tf.ones((64, 10, 50, 512), dtype=tf.int32)
-  seq_len=tf.shape(inputs_layer)[2]
-  mask=create_look_ahead_mask(seq_len)
+  inputs_layer = tf.ones((64, 10, 50, 512), dtype=tf.int32)
+  seq_len = tf.shape(inputs_layer)[2]
+  mask = create_look_ahead_mask(seq_len)
   sample_decoder_layer_output, stddev = sample_decoder_layer(inputs=inputs_layer, look_ahead_mask=mask, training=False)
   print('output of classic decoder layer', sample_decoder_layer_output.shape)  # (batch_size, target_seq_len, d_model)
 
@@ -357,9 +358,9 @@ if __name__ == "__main__":
   # V = tf.random.uniform((64, num_particles, 50, 512))
   # TARGET_WORD_ID = tf.constant(34, shape=(64, 1))
 
-  #(sample_decoder_layer_output, K, V), sampling_weights, ind_matrix, stddev = sample_decoder_layer(
-    #tf.random.uniform((64, num_particles, 50, 512)), PREV_SAMPL_WEIGHTS, K, V, TARGET_WORD_ID, training=False,
-    #look_ahead_mask=None, padding_mask=None)
+  # (sample_decoder_layer_output, K, V), sampling_weights, ind_matrix, stddev = sample_decoder_layer(
+  # tf.random.uniform((64, num_particles, 50, 512)), PREV_SAMPL_WEIGHTS, K, V, TARGET_WORD_ID, training=False,
+  # look_ahead_mask=None, padding_mask=None)
 
   # (z, K, V), sampling_weights= sample_decoder_layer(
   # tf.random.uniform((64, num_particles, 1, 512)), PREV_SAMPL_WEIGHTS, K, V, TARGET_WORD_ID, training=False)
@@ -367,4 +368,3 @@ if __name__ == "__main__":
   #
   # print('output of SMC decoder layer', z.shape)  # (batch_size, target_seq_len, d_model)
   # print('K',K.shape), print('V', V.shape)
-

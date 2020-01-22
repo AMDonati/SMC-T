@@ -82,18 +82,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
                         tf.TensorShape([self.num_particles, 1, self.d_model]))
 
-    super(SMC_Transf_Cell, self).__init__(**kwargs)
-
-  def build(self, input_shapes):
-    # replace this by the beginning of the init function of the SMC_layer.
-    # see if this is actually useful...
     self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model)
     if self.maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(self.maximum_position_encoding, self.d_model)
       self.pos_encoding_SMC = positional_encoding_SMC(self.maximum_position_encoding, self.d_model, self.num_particles)
     # to remove?
     self.dropout = tf.keras.layers.Dropout(self.rate)
-    self.built = True
+
+    super(SMC_Transf_Cell, self).__init__(**kwargs)
+
 
   def call(self, inputs, states):
     # x -> r
@@ -168,7 +165,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
       return w_squeezed  # shape (B,P)
 
-    # TODO: uncomment lines and solve the problem of tensor probability and tf 2.1
+    # TODO: use https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.random.normal.html
+    # TODO: or https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html#scipy.stats.norm
     def compute_w_regression(batch_size, num_particles):
       # tfd = tfp.distributions
       # #TODO: the 1. by a sigma which is a parameter.
@@ -225,17 +223,26 @@ if __name__ == "__main__":
   num_particles = 2
   seq_len = 4
   layer_num = 2
+  sigma=1
+  data_type='time_series'
+  task_type='classification'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
-                         seq_len=seq_len, num_layers=layer_num, training=True, resampling=True)
+                         seq_len=seq_len, num_layers=layer_num,
+                         training=True,
+                         resampling=True,
+                         sigma=sigma)
 
   sample_transformer = Transformer(
     num_layers=layer_num, d_model=d_model, num_heads=num_heads,
     dff=dff, target_vocab_size=target_vocab_size,
     maximum_position_encoding=maximum_position_encoding,
     num_particles=num_particles,
-  seq_len=seq_len)
+  seq_len=seq_len,
+  sigma=sigma,
+  data_type=data_type,
+  task_type=task_type)
 
   initial_word_tensor = tf.ones(shape=(batch_size, 1), dtype=tf.int32)
 

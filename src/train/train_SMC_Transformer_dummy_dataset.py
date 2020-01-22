@@ -1,6 +1,9 @@
 #TODO: add the attention weights
 #TODO: implement the time-window lag.
 
+#TODO: error raise sur la dimension. > tar_inp should be dim (B,S)
+#TODO: uniformiser le processus experimental.
+
 import time
 import numpy as np
 import sys
@@ -26,7 +29,7 @@ EPOCHS = 5
 
 # generate dummy dataset
 num_particles = 5
-seq_length = 10
+seq_len = 10
 num_heads = 2
 d_model = 12
 dff = 24
@@ -35,28 +38,35 @@ target_vocab_size = 50 # here for time_series > regression problem.
 pe_target = 25
 num_layers = 3
 batch_size=8
+data_type = 'time_series'
+task_type = 'classification'
 
-dummy_sample = np.random.choice(np.arange(target_vocab_size), size=seq_length)
-dummy_list = [np.random.choice(np.arange(target_vocab_size), size=seq_length) for _ in range(batch_size)]
+dummy_sample = np.random.choice(np.arange(target_vocab_size), size=seq_len)
+dummy_list = [np.random.choice(np.arange(target_vocab_size), size=seq_len) for _ in range(batch_size)]
 dummy_array = np.array(dummy_list)
 dummy_dataset = tf.constant(dummy_array, dtype=tf.int32)
 
-print('dataset shape', dummy_dataset.shape)
 
-# dummy_train_dataset=tf.cast(tf.random_uniform(shape=(batch_size,seq_length)), dtype=tf.int32)
-transformer = Transformer(num_layers=num_layers, d_model=d_model, num_heads=num_heads,
-  dff=dff, target_vocab_size=target_vocab_size,
-  maximum_position_encoding=pe_target, num_particles=num_particles,
-                          sigma=1,
-                          seq_len=seq_length-1,
-                          data_type='time_series') # seq_length - 1 because in a encoder-decoder framework (seq-ti-seq modelli
+#----create the SMC Transformer:
+transformer = Transformer(num_layers=num_layers,
+                            d_model=d_model,
+                            num_heads=num_heads,
+                            dff=dff,
+                            target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=pe_target,
+                            num_particles=num_particles,
+                            sigma=1,
+                            seq_len=seq_len-1,
+                            data_type=data_type,
+                            task_type=task_type)
 
+  #------ LOSS FUNCTIONS--------------
 
-# The @tf.function trace-compiles train_step into a TF graph for faster
-# execution. The function specializes to the precise shape of the argument
-# tensors. To avoid re-tracing due to the variable sequence lengths or variable
-# batch sizes (the last batch is smaller), use input_signature to specify
-# more generic shapes.
+  # The @tf.function trace-compiles train_step into a TF graph for faster
+  # execution. The function specializes to the precise shape of the argument
+  # tensors. To avoid re-tracing due to the variable sequence lengths or variable
+  # batch sizes (the last batch is smaller), use input_signature to specify
+  # more generic shapes.
 
 train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
@@ -107,6 +117,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
   loss=loss_ce+loss_smc
   return loss
 
+### ------- FONCTION TRAIN_STEP---------------------------------------------
 @tf.function(input_signature=train_step_signature)
 def train_step(inputs, targets=None, SMC_loss=True, classic_loss=True):
   '''
@@ -125,7 +136,7 @@ def train_step(inputs, targets=None, SMC_loss=True, classic_loss=True):
     tar_inp=inputs
     tar_real=targets
 
-  mask = create_look_ahead_mask(seq_length-1)
+  mask = create_look_ahead_mask(seq_len-1)
 
   with tf.GradientTape() as tape:
     predictions, trajectories, weights = transformer(inputs=tar_inp,
@@ -136,9 +147,6 @@ def train_step(inputs, targets=None, SMC_loss=True, classic_loss=True):
     # weights: shape (B,P)
 
     # reshaping Tranformer outputs to put them in the loss.
-    weights=tf.squeeze(weights, axis=-1) # shape (B,P)
-    predictions=tf.squeeze(predictions, axis=-2)
-    predictions=tf.transpose(predictions, perm=[0,2,1,3]) # shape (B,P,inp_seq,V or F)
     #transformer.summary()
 
     #TODO: solve this issue of sequence length.

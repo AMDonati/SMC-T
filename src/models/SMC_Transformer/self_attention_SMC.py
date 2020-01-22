@@ -118,7 +118,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       -K:0:k+1, V0:k+1, Z0:k+1
     '''
 
-    q=inputs[0]
+    q=inputs[0] # (B,P,1,D)
     k=inputs[1]
     v=inputs[2]
 

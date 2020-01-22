@@ -40,7 +40,7 @@ bins_12=create_bins(-25,5,12)
 
 temp_bins_12=pd.cut(uni_data_df, bins_12)
 bins_temp_12=list(set(list(temp_bins_12.values)))
-dict_temp_12=OrderedDict(zip(range(2), bins_temp_12))
+dict_temp_12=OrderedDict(zip(range(12), bins_temp_12))
 classes_data_12=map_uni_data_classes(continuous_data=uni_data_df,
                                      list_interval=list(bins_12),
                                      dict_temp=dict_temp_12)
@@ -83,6 +83,11 @@ if __name__ == "__main__":
 
   print('train dataset', train_dataset)
 
+  # look examples of the train dataset
+  for input_example, target_example in train_dataset.take(1):
+    print('Input data: ', input_example)
+    print('Target data:', target_example)
+
   #-------define hyperparameters------------------------
   ## Optimizer
   learning_rate = 0.001
@@ -98,10 +103,12 @@ if __name__ == "__main__":
   num_heads = 2
   d_model = 12
   dff = 24
-  target_vocab_size = 1 # binary classification problem.
+  target_vocab_size = 12 # binary classification problem.
   # mean square error...
   pe_target = None
   num_layers = 3
+  task_type='classification'
+  data_type='time_series'
 
   #----create the SMC Transformer:
   transformer = Transformer(num_layers=num_layers,
@@ -113,7 +120,8 @@ if __name__ == "__main__":
                             num_particles=num_particles,
                             sigma=1,
                             seq_len=seq_len,
-                            data_type='time_series')
+                            data_type=data_type,
+                            task_type=task_type)
 
   #------ LOSS FUNCTIONS--------------
 
@@ -228,12 +236,8 @@ def train_step(inputs, targets=None, SMC_loss=True, classic_loss=True):
 
     # predictions: shape (B,inp_seq,P,1,V) for nlp or (B,inP_seq,P,1,F) for time-series. > log probas.
     # trajectories: shape (B,inp_seq,P,1,D) compute Z0,Z1,Z2,...,ZT
-    # weights: shape (B,P)
+    # weights: shape (B,P,1)
 
-    # reshaping Tranformer outputs to put them in the loss.
-    weights=tf.squeeze(weights, axis=-1) # shape (B,P)
-    predictions=tf.squeeze(predictions, axis=-2)
-    predictions=tf.transpose(predictions, perm=[0,2,1,3]) # shape (B,P,inp_seq,V or F)
     #transformer.summary()
 
     if transformer.task_type=='classification':

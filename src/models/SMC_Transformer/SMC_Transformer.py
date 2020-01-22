@@ -41,8 +41,8 @@ class Encoder(tf.keras.layers.Layer):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-              num_particles, sigma, maximum_position_encoding=None,
-               rate=0.1, data_type='time_series'):
+              num_particles, sigma, data_type, maximum_position_encoding=None,
+               rate=0.1):
     super(Encoder, self).__init__()
 
     self.d_model = d_model
@@ -155,8 +155,8 @@ class Transformer(tf.keras.Model):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, num_particles, seq_len, sigma,
-               rate=0.1, maximum_position_encoding=None, data_type='time_series', task_type='classification'):
+               target_vocab_size, num_particles, seq_len, sigma, data_type, task_type,
+               rate=0.1, maximum_position_encoding=None):
     super(Transformer, self).__init__()
 
     # add Decoder.
@@ -289,6 +289,9 @@ class Transformer(tf.keras.Model):
       -decoder output (before output layer): Z0:S > shape (B,P,S,D)
     '''
 
+    # if necessary
+    self.cell.training = training
+
     # initialize the attention parameters
     batch_size = tf.shape(inputs)[0]
     seq_len = tf.shape(inputs)[1]
@@ -302,12 +305,12 @@ class Transformer(tf.keras.Model):
 
     elif self.data_type=='time_series':
       if len(tf.shape(inputs))==2: # shape(B,S)
-        input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,1)
+        input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
       else:
         input_tensor_processed=inputs
       # add the particle dimension
-      input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,1)
-      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,1)
+      input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
+      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
 
     else:
       raise ValueError('wrong data type: should be either "nlp" or "time-series"')
@@ -325,23 +328,25 @@ class Transformer(tf.keras.Model):
                                 w=tf.expand_dims(w0, axis=-1),
                                 I=I0)
 
-    #if necessary
-    self.cell.training=training
+
 
     def step_function(inputs, states):
-      return self.cell.call(inputs, states)
+      return self.cell(inputs, states)
 
     # we remove the last element of the sequence because you don't want to predict the last word (stop token) in the RNN process
     #tar_inp=targets[:,:seq_len-1]
     #r_inp=r[:,:seq_len-1,:,:]
-    inputs=NestedInput(x=tf.expand_dims(inputs, axis=-1), r=r)
+    inputs=NestedInput(x=tf.expand_dims(inputs, axis=-1), r=r) # x > (B,S,F,1), #r > (B,P,S,D)
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                             inputs=inputs,
                                                             initial_states=initial_state)
+    # last_output > (B,P,1,D)
+    last_output = [tf.squeeze(out, axis=2) for out in last_output] # (B,P,D)
+    outputs = [tf.squeeze(out, axis=3) for out in outputs]  # (B,S,P,D)
+
     r_T=last_output[0]
     z_T=last_output[1]
-
     r0_T=outputs[0]
     Z0_T=outputs[1]
 
@@ -350,7 +355,10 @@ class Transformer(tf.keras.Model):
     w_T=new_states[2]
     I=new_states[3]
 
-    Y0_T = self.final_layer(r0_T) # used to compute the categorical cross_entropy loss.
+    Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss.
+    Y0_T=tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
+    w_T=tf.squeeze(w_T, axis=-1) # (B,P,1)
+    Z0_T=tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
     print('pass forward done')
     return Y0_T, Z0_T, w_T
@@ -362,24 +370,38 @@ if __name__ == "__main__":
   b=8
   F=1
   x=tf.random.uniform(shape=(b,seq_len,F), dtype=tf.float32)
-  encoder = Encoder(num_layers=2,
-                           d_model=64,
-                           num_heads=2,
-                           dff=128,
-                           target_vocab_size=1,
-                           maximum_position_encoding=5000,
-                           num_particles=5)
-  r=encoder(inputs=x, training=False, mask=None)
+  sigma=1
+  data_type='time_series'
+  task_type='classification'
+  C=2 #binary case
+
+  ###----------Test of Encoder class----------
+
+  # encoder = Encoder(num_layers=2,
+  #                          d_model=64,
+  #                          num_heads=2,
+  #                          dff=128,
+  #                          target_vocab_size=F,
+  #                          maximum_position_encoding=5000,
+  #                          num_particles=num_particles,
+  #                   sigma=sigma,
+  #                   data_type=data_type)
+  # r=encoder(inputs=x, training=False, mask=None)
+
+  ####---------test of Transformer class
 
   sample_transformer = Transformer(
     num_layers=4,
     d_model=512,
     num_heads=8,
     dff=2048,
-    target_vocab_size=8000,
+    target_vocab_size=C,
     maximum_position_encoding=None,
-    num_particles=10,
-  seq_len=seq_len)
+    num_particles=num_particles,
+  seq_len=seq_len,
+  sigma=1,
+  data_type=data_type,
+  task_type=task_type)
 
   inputs = tf.cast(tf.ones(shape=(8, seq_len,F)), dtype=tf.int32)
   #targets = tf.cast(tf.zeros(shape=(8, seq_len, F)), dtype=tf.int32) + 2
