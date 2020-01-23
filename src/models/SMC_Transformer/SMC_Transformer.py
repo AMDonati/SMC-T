@@ -1,32 +1,23 @@
-#TODO: copy functions from utils.transformer_utils.py manually to bypass the bug.
+#TODO: change the target_vocab_size in num_classes.
 
 # imports
 import tensorflow as tf
-import math
-import numpy as np
-
 from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
 from models.SMC_Transformer.transformer_utils import positional_encoding
 from neural_toolbox.SMC_layers import DecoderLayer
-# from neural_toolbox.SMC_layers import DecoderLayer_SMC
 from neural_toolbox.SMC_TransformerCell import SMC_Transf_Cell
 from models.SMC_Transformer.transformer_utils import initialize_indices_matrix
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
-
 from train.SMC_loss import compute_SMC_log_likelihood
-
 import collections
 
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
-
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'w', 'I'])
 
-
 # -------- Class Decoder and Class Transformer--------------------
-
 # class Decoder that takes a SMC Decoder Layers as input.
 class Encoder(tf.keras.layers.Layer):
   '''Class Encoder with the Encoder architecture
@@ -36,6 +27,9 @@ class Encoder(tf.keras.layers.Layer):
     -num_heads: number of heads in the multi-attention mechanism
     -dff: output dim of the feedforward network
     -target_vocab_size (for computing the sampling weights for the last layer (or all layers))
+    -num_particles
+    -sigma: to inject noise in the Encoder.
+    -data_type: 'nlp' or 'time_series'
     -maxixum_position_encoding: to preprocess the words sequence (addition of positional embeddings)
     -rate: dropout rate for feed-forward layers.
     '''
@@ -47,11 +41,10 @@ class Encoder(tf.keras.layers.Layer):
 
     self.d_model = d_model
     self.num_layers = num_layers  # num_layers - 1 compared to the Total Transformer.
-    self.num_particles = num_particles
     self.dff=dff
     self.maximum_position_encoding=maximum_position_encoding
-
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
       self.pos_encoding_SMC = positional_encoding_SMC(maximum_position_encoding, d_model, num_particles) # used to pre-process input word.
@@ -63,13 +56,10 @@ class Encoder(tf.keras.layers.Layer):
 
     self.dropout = tf.keras.layers.Dropout(rate)
 
+    # additional parameters for SMC:
     self.data_type=data_type
-
     self.sigma=sigma
-
-    # self.dec_timestep = 0
-    # assigning the output layer as the one of the SMC_layer.
-    # self.output_layer = self.dec_layers[self.num_layers - 1].output_layer # not needed?
+    self.num_particles = num_particles
     self.decoder_initialized = False
 
   def preprocess_words_input(self, x, training):
@@ -118,6 +108,7 @@ class Encoder(tf.keras.layers.Layer):
     '''
 
     self.list_stddev = []
+    #attention_weights = {}
 
     # do the pre_processing step for x (for nlp task).
     #TODO: assess if you can remove this snippet of code.
@@ -131,15 +122,14 @@ class Encoder(tf.keras.layers.Layer):
         raise ValueError('data_type not supported; please choose either "nlp" or "time_series"')
 
     for i in range(self.num_layers):
+      #TODO: add the attention_weoghts
       inputs, stddev = self.dec_layers[i](inputs=inputs, training=training, look_ahead_mask=mask)
       self.list_stddev.append(stddev)
+      #attention_weights['decoder_layer{}'.format(i + 1)] = block
     return inputs
 
 
-"""## Create the Transformer
-
-Transformer consists of the encoder, decoder and a final linear layer. The output of the decoder is the input to the linear layer and its output is returned.
-"""
+"""## Create the Transformer"""
 
 class Transformer(tf.keras.Model):
   '''class for the Transformer Model
@@ -159,17 +149,22 @@ class Transformer(tf.keras.Model):
                rate=0.1, maximum_position_encoding=None):
     super(Transformer, self).__init__()
 
-    # add Decoder.
-    self.encoder = Encoder(num_layers=num_layers,
-                           d_model=d_model,
-                           num_heads=num_heads,
-                           dff=dff,
-                           target_vocab_size=target_vocab_size,
-                           maximum_position_encoding=maximum_position_encoding,
-                           num_particles=num_particles,
-                           sigma=sigma,
-                           rate=rate,
-                           data_type=data_type)
+    # add Encoder if num_layers > 1:
+    if num_layers > 1:
+      self.encoder = Encoder(num_layers=num_layers-1, # to have a total number of layers equal to num_layers.
+                             d_model=d_model,
+                             num_heads=num_heads,
+                             dff=dff,
+                             target_vocab_size=target_vocab_size,
+                             maximum_position_encoding=maximum_position_encoding,
+                             num_particles=num_particles,
+                             sigma=sigma,
+                             rate=rate,
+                             data_type=data_type)
+    elif num_layers==1:
+      self.input_embedding=tf.keras.layers.Dense(d_model)
+    else:
+      raise ValueError("num_layers should be superior or equal to 1.")
 
     # get the output layer of the last decoder layer as final layer.
     # self.final_layer = self.decoder.dec_layers[num_layers - 1].output_layer # to change.
@@ -187,7 +182,6 @@ class Transformer(tf.keras.Model):
     self.final_layer = self.cell.output_layer
 
     self.target_vocab_size = target_vocab_size
-
     self.num_particles = num_particles
     self.d_model = d_model
     self.num_layers = num_layers
@@ -197,7 +191,6 @@ class Transformer(tf.keras.Model):
     self.data_type=data_type
     self.task_type=task_type
     self.sigma=sigma
-
     self.maximum_position_encoding = maximum_position_encoding
 
     self.initialize = False
@@ -275,8 +268,6 @@ class Transformer(tf.keras.Model):
     return SMC_loss
 
   def call(self, inputs, training, mask):
-    #TODO: régler problème de longueur de prediction: si la donnée d'entrée est de taille S, le modèle sort une prediction de taille S-1.
-    #> issue of stop_token?
     '''
     -args:
       -input tensor: transformer input data : sequence of words id. > shape (B,S)
@@ -316,9 +307,18 @@ class Transformer(tf.keras.Model):
       raise ValueError('wrong data type: should be either "nlp" or "time-series"')
 
 
-      # First: 'Transformer embedding' for the first L-1 layers.
-    r = self.encoder(inputs=input_tensor_processed, training=training, mask=mask)  # shape (B,P,S,D)
-    r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+    # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
+    if self.num_layers > 1:
+      r = self.encoder(inputs=input_tensor_processed,
+                       training=training,
+                       mask=mask)  # shape (B,P,S,D)
+      r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+    elif self.num_layers==1:
+      # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
+      input_tensor_processed=tf.cast(input_tensor_processed, dtype=tf.float32)
+      # one dense layer to have a tensor of shape (B,P,S,D)
+      r=self.input_embedding(input_tensor_processed)
+      r = tf.transpose(r, perm=[0, 2, 1, 3]) # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size, seq_len, inputs[:, 0])
@@ -328,15 +328,10 @@ class Transformer(tf.keras.Model):
                                 w=tf.expand_dims(w0, axis=-1),
                                 I=I0)
 
-
-
     def step_function(inputs, states):
       return self.cell(inputs, states)
 
-    # we remove the last element of the sequence because you don't want to predict the last word (stop token) in the RNN process
-    #tar_inp=targets[:,:seq_len-1]
-    #r_inp=r[:,:seq_len-1,:,:]
-    inputs=NestedInput(x=tf.expand_dims(inputs, axis=-1), r=r) # x > (B,S,F,1), #r > (B,P,S,D)
+    inputs=NestedInput(x=tf.expand_dims(inputs, axis=-1), r=r) # x > (B,S,F,1), #r > (B,S,P,D)
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                             inputs=inputs,
@@ -369,48 +364,53 @@ if __name__ == "__main__":
   seq_len=10
   b=8
   F=1
-  x=tf.random.uniform(shape=(b,seq_len,F), dtype=tf.float32)
+  num_layers=1
+  d_model=64
+  num_heads=2
+  dff=128
+  maximum_position_encoding=None
   sigma=1
   data_type='time_series'
   task_type='classification'
-  C=2 #binary case
+  C=12 # vocabulary size or number of classes.
 
   ###----------Test of Encoder class----------
+  x=tf.random.uniform(shape=(b,seq_len,F), dtype=tf.float32)
 
-  # encoder = Encoder(num_layers=2,
-  #                          d_model=64,
-  #                          num_heads=2,
-  #                          dff=128,
-  #                          target_vocab_size=F,
-  #                          maximum_position_encoding=5000,
-  #                          num_particles=num_particles,
-  #                   sigma=sigma,
-  #                   data_type=data_type)
-  # r=encoder(inputs=x, training=False, mask=None)
+  encoder = Encoder(num_layers=num_layers,
+                           d_model=d_model,
+                           num_heads=num_heads,
+                           dff=dff,
+                           target_vocab_size=F,
+                           maximum_position_encoding=maximum_position_encoding,
+                           num_particles=num_particles,
+                    sigma=sigma,
+                    data_type=data_type)
+  r=encoder(inputs=x, training=False, mask=None)
 
-  ####---------test of Transformer class
+  ####---------test of Transformer class-----------------------------------------------------------------------
 
   sample_transformer = Transformer(
-    num_layers=4,
-    d_model=512,
-    num_heads=8,
-    dff=2048,
+    num_layers=num_layers,
+    d_model=d_model,
+    num_heads=num_heads,
+    dff=dff,
     target_vocab_size=C,
     maximum_position_encoding=None,
     num_particles=num_particles,
   seq_len=seq_len,
-  sigma=1,
+  sigma=sigma,
   data_type=data_type,
   task_type=task_type)
 
-  inputs = tf.cast(tf.ones(shape=(8, seq_len,F)), dtype=tf.int32)
-  #targets = tf.cast(tf.zeros(shape=(8, seq_len, F)), dtype=tf.int32) + 2
+  #TODO: last_dim of inputs?
+  inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
 
   mask=create_look_ahead_mask(seq_len)
 
-  fn_out, dec_output, weights = sample_transformer(inputs=inputs,training=False, mask=mask)
+  predictions, trajectories, weights = sample_transformer(inputs=inputs, training=False, mask=mask)
 
-  print('Transformer output', fn_out.shape)  # (batch_size, 1, target_vocab_size)
-  print('final z', dec_output.shape)
-  print('weights', weights.shape)
+  print('Transformer output', predictions.shape)  # (B,P,S,C)
+  print('final z', trajectories.shape) # (B,P,S,D)
+  print('weights', weights.shape) # (B,P,1)
 

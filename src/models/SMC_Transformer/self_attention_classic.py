@@ -19,7 +19,7 @@ def self_attention_classic(Q, K, V, mask):
     output, attention_weights
   """
 
-  matmul_qk = tf.matmul(Q, K, transpose_b=True)  # (..., seq_len_q, seq_len_k)
+  matmul_qk = tf.matmul(Q, K, transpose_b=True)  # (B,P,S,S) # to check.
 
   # scale matmul_qk
   dk = tf.cast(tf.shape(K)[-1], tf.float32)
@@ -29,12 +29,13 @@ def self_attention_classic(Q, K, V, mask):
   if mask is not None:
     scaled_attention_logits += (mask * -1e9)
 
-    # softmax is normalized on the last axis (seq_len_k) so that the scores
+  # softmax is normalized on the last axis (seq_len_k) so that the scores
   # add up to 1.
   attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B,P,H,S,S)
 
   output = tf.matmul(attention_weights, V)  # (B,P,H,S,D)
 
+  #TODO: return attention_weights
   return output
 
 ## ------ Multi-head attention ----------------------
@@ -47,6 +48,7 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
     -num_heads: number of heads for the multi-head attention mechanism
     -num_particles: number of particles to generate
     -sigma: constant, 'learned' (for learned noise)
+  -returns:
     -
     '''
 
@@ -65,8 +67,8 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
 
     self.dense = tf.keras.layers.Dense(d_model)
 
+    # additionnal parameters for SMC algorithm.
     self.num_particles = num_particles
-
     self.sigma_scalar=sigma
 
 
@@ -92,88 +94,88 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
   def call(self, inputs, mask, seed=123):
     '''
     -Args:
-      -v,k,q: v(k), k(k), q(k): attention parameters (over all heads) @ current decoding timestep. > shape (B,P,D)
+      -inputs[q,k,v]: v(k), k(k), q(k): attention parameters (over all heads) @ current decoding timestep. > shape (B,P,D)
       -mask: look_ahead mask.
       -K,V,Z: KO:k, V0:k, Z0:k: total length attention parameters (until decoding timestep) > shape (B, P, S, D)
     -Returns:
       -K:0:k+1, V0:k+1, Z0:k+1
       -attention_weights
     '''
-    q=inputs[0]
+    q=inputs[0] # (B,P,H,S,D/H)
     k=inputs[1]
     v=inputs[2]
 
     batch_size = tf.shape(v)[0]
 
     # computing the Q,K,V from the v,k,q parameters.
-    #TODO: debug here issue of dtype for q.
     #q=tf.cast(q, dtype=tf.int32)
-    Q = self.wq(q)  # (batch_size, NUM_PARTICLES, d_model) # this one does not work... strange.
-    K = self.wk(k)  # (batch_size, NUM_PARTICLES, d_model) # ok works.
-    V = self.wv(v)  # (batch_size, NUM_PARTICLES, d_model) # ok works.
+    Q = self.wq(q)  # (B,P,S,D)
+    K = self.wk(k)  # (B,P,S,D)
+    V = self.wv(v)  # (B,P,S,D)
 
     # splitting heads to do multi_head attention.
-    Q = self.split_heads(Q, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
-    K = self.split_heads(K, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
-    V = self.split_heads(V, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
+    Q = self.split_heads(Q, batch_size)  # (B,P,H,S,D/H)
+    K = self.split_heads(K, batch_size)  # (B,P,H,S,D/H)
+    V = self.split_heads(V, batch_size)  # (B,P,H,S,D/H)
 
-    # FOR SMC: attention_weights.shape == (batch_size, NUM_PARTICLES, num_heads, seq_len_q, seq_len_k)
     #TODO: add a mask for the time-window considered.
-    scaled_attention= self_attention_classic(Q, K, V, mask)
-    # concat attention, K, V over all the heads
-    concat_attention = self.concat_heads(scaled_attention) # shape (B,P,D) or (B,P,1,D)
+    scaled_attention= self_attention_classic(Q, K, V, mask) # (B,P,H,S,D/H)
 
-    # COMPUTE THE REPARAMETRIZATION TRICK
-    total_depth = tf.shape(concat_attention)[-1]
+    # concat attention, K, V over all the heads
+    concat_attention = self.concat_heads(scaled_attention) # shape (B,P,S,D)
+    K=self.concat_heads(K) # shape (B,P,S,D)
+    V=self.concat_heads(V) # shape (B,P,S,D)
+
+    #------------------Add the noise using the reparametrization trick---
+    d_model = self.d_model
 
     # initialize sigma as a 'positive' diagonal matrix as a start
     if self.sigma_scalar=='learned':
-      self.sigma=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
+      self.sigma=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(d_model,), dtype=tf.float32)),
+                             dtype=tf.float32) # shape (D,D)
       # apply tf.stop_gradient on sigma to avoid backprop for this set of parameters
       self.sigma=tf.stop_gradient(self.sigma)
-      self.sigma = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,))), dtype=tf.float32)
+      self.sigma = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(d_model,))), dtype=tf.float32)
     else:
-      sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
-      self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
+      sigma_tensor=tf.constant(self.sigma_scalar, shape=(d_model,), dtype=tf.float32)
+      self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32) # (D,D)
 
-    self.stddev = tf.random.normal(shape=tf.shape(concat_attention), seed=seed, name='stddev')
+    self.stddev = tf.random.normal(shape=tf.shape(concat_attention), seed=seed, name='stddev') # (B,P,S,D)
     # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
     stddev = tf.tensordot(self.sigma, self.stddev, axes=[0, 3])  # shape (D,B,1,D)
-    # permuting dimensions to have a tensor of shape (B, P, 1, D)
-    stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
+    stddev = tf.transpose(stddev, perm=[1, 2, 3, 0]) # (B,P,S,D)
 
-    #TODO: check that if self.sigma_scalar=0, self.stddev is null.
-    output = self.dense(concat_attention) + stddev
+    Z = self.dense(concat_attention) + stddev
 
-    # THE OUTPUT IS ALSO THE VARIABLE Z (CONCATENATION OF THE Z OF EACH HEAD)
-    # FOR SMC: OUTPUT SHAPE (batch_size, NUM_PARTICLES, seq_len_q, d_model)
-    return (output, K, V)  # attention_weights
+    #TODO: return attention_weights as well.
+    return (Z, K, V)  # attention_weights
 
-
-## add a main function for testing here
 if __name__ == "__main__":
+  B=64
+  P=10
+  H=2
+  D=12
+  S=20
 
-  x = tf.ones(shape=(64, 10, 8, 1, 64))
-  K = tf.random.uniform(shape=(64, 10, 8, 50, 64))
-  V = tf.random.uniform(shape=(64, 10, 8, 50, 64))
+  #----------------------test of self_attention_classic----------------------------------------------------
 
-  output = self_attention_classic(x, x, x,mask=None)
+  X = tf.ones(shape=(B, P, H, S, D), dtype=tf.float32)
+  K = tf.random.uniform(shape=(B, P, H, S, D))
+  V = tf.random.uniform(shape=(B, P, H, S, D))
+
+  # TODO: check that if self.sigma_scalar=0, self.stddev is null.
+  output = self_attention_classic(X, X, X, mask=None)
   print('temp_out', output.shape)
 
-  """Create a `MultiHeadAttention` layer to try out. 
-  At each location in the sequence, `y`, the `MultiHeadAttention` 
-  runs all 8 attention heads across all other locations in the sequence, returning a new vector of the same length at each location."""
+  # ----------------------test of MultiHeadAttention classic----------------------------------------------------
 
-  temp_mha = MultiHeadAttention_classic(d_model=512, num_heads=8, num_particles=10, sigma=1)
-  y = tf.ones((64, 10, 512), dtype=tf.float32)  # (batch_size, encoder_sequence, d_model)
-  K = tf.random.normal((64, 10, 50, 512))
-  V = tf.random.normal((64, 10, 50, 512))
-  inputs_mha=[y for _ in range(3)]
-  (z, K, V) = temp_mha(inputs=inputs_mha, mask=None)
-  # out.shape, attn.shape, K.shape, V.shape
-  print(z.shape)
-  # print(attn.shape) # shape (B,P,num_heads,seq_length, seq_length)
-  print(K.shape), print(V.shape)
+  temp_mha = MultiHeadAttention_classic(d_model=D, num_heads=H, num_particles=10, sigma=1)
+  X_mha = tf.ones(shape=(B, P, S, D), dtype=tf.float32)
+  inputs_mha=[X_mha for _ in range(3)]
+  (Z, K, V) = temp_mha(inputs=inputs_mha, mask=None)
+  print('Z', Z.shape)
+  print('K', K.shape)
+  print('V', V.shape)
 
 #--------old code snippets--
 # to remove.

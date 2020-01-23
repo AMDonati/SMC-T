@@ -1,9 +1,7 @@
 import tensorflow as tf
-import numpy as np
 
 # additional imports
 from models.SMC_Transformer.self_attention_classic import MultiHeadAttention_classic
-from models.SMC_Transformer.self_attention_SMC import MultiHeadAttention_SMC
 from neural_toolbox.classic_layers import point_wise_feed_forward_network
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
@@ -54,8 +52,8 @@ class DecoderLayer(tf.keras.layers.Layer):
     inputs_float = tf.cast(inputs, dtype=tf.float32)
     inputs_mha = [inputs_float for _ in range(3)]
     # computing multi-head attention.
-    (Z, K, V) = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # (batch_size, target_seq_len, d_model)
-    # put a None as the decoding timestep instead?
+    #TODO: add the attention_weights in the return function of MHA.
+    (Z, K, V) = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # shape (B,P,S,D).
     attn1 = self.dropout1(Z, training=training)
     out1 = self.layernorm1(attn1 + inputs_float)  # TODO: Bug with multivariate
 
@@ -63,7 +61,7 @@ class DecoderLayer(tf.keras.layers.Layer):
     ffn_output = self.dropout3(ffn_output, training=training)
     out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
 
-    return out3, self.mha1.stddev,  # attn_weights_block1
+    return out3, self.mha1.stddev  # attn_weights_block1 # shapes (B,P,S,D), (B,P,S,D).
 
 
 # Code for the Decoder Layer with SMC.

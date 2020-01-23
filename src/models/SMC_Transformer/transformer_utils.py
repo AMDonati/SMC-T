@@ -63,6 +63,7 @@ def create_look_ahead_mask(size):
   return mask  # (seq_len, seq_len)
 
 def create_look_ahead_mask_v2(size):
+  '''not used for now'''
   mask=1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
   return 1-mask
 
