@@ -24,11 +24,18 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
   uni_data_df.index = df[index_name]
   print('length of original continuous dataset: {}'.format(len(uni_data_df)))
 
+  #temp_min: env -25.
+  # temp max: env. 40.
+  # temp_range: 65.
+
   #create_bins
   bins=create_bins(min_value, size_bin, num_bins)
 
   df_bins=pd.cut(uni_data_df, bins)
   bins_list=list(set(list(df_bins.values)))
+
+  print('list of bins...', bins_list)
+
   dict_bins=OrderedDict(zip(range(num_bins), bins_list))
   df_categorized=map_uni_data_classes(continuous_data=uni_data_df,
                                       list_interval=list(bins),
@@ -75,12 +82,12 @@ if __name__ == "__main__":
   index_name='Date Time'
   TRAIN_SPLIT = 0.8
   min_value = -25
-  size_bin = 5
-  num_bins = 12
+  size_bin = 22
+  num_bins = 3
   BATCH_SIZE = 256
   buffer_frac = 0.05
   seq_len = 9
-  reduce_for_test=100000
+  reduce_for_test=None
 
   train_dataset, val_dataset, uni_data_df, df_categorized=df_to_dataset(file_path=file_path,
                                                                         fname=fname,
