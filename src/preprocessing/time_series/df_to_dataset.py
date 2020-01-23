@@ -2,12 +2,12 @@ import tensorflow as tf
 import os
 import pandas as pd
 from collections import OrderedDict
-from preprocessing.utils import create_bins
-from preprocessing.utils import map_uni_data_classes
+from preprocessing.ts_classif_utils import create_bins
+from preprocessing.ts_classif_utils import map_uni_data_classes
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, num_bins, train_split, batch_size, buffer_size, seq_len, reduce_for_test=None):
+def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, num_bins, train_split, batch_size, buffer_frac, seq_len, reduce_for_test=None):
 
   zip_path = tf.keras.utils.get_file(
       origin=file_path,
@@ -22,10 +22,7 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
 
   uni_data_df = df[col_name]
   uni_data_df.index = df[index_name]
-
-  #reduce size of dataset for testing more quickly:
-  if reduce_for_test is not None:
-    uni_data_df=uni_data_df[:reduce_for_test]
+  print('length of original continuous dataset: {}'.format(len(uni_data_df)))
 
   #create_bins
   bins=create_bins(min_value, size_bin, num_bins)
@@ -36,6 +33,11 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
   df_categorized=map_uni_data_classes(continuous_data=uni_data_df,
                                       list_interval=list(bins),
                                       dict_temp=dict_bins)
+
+  # reduce size of dataset for testing more quickly:
+  if reduce_for_test is not None:
+    df_categorized = df_categorized[:reduce_for_test]
+    print('selecting for testing {} samples...'.format(len(df_categorized)))
 
   #transform the series in a numpy array
   data_array=np.array(df_categorized)
@@ -59,6 +61,9 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
   train_dataset = sequences_train.map(split_input_target)
   val_dataset = sequences_val.map(split_input_target)
 
+  # compute buffer_size from buffer_frac:
+  buffer_size=int(len(df_categorized)*buffer_frac)
+
   train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
 
   return train_dataset, val_dataset, uni_data_df, df_categorized
@@ -68,26 +73,27 @@ if __name__ == "__main__":
   fname = 'jena_climate_2009_2016.csv.zip'
   col_name='T (degC)'
   index_name='Date Time'
-  TRAIN_SPLIT = 300000
+  TRAIN_SPLIT = 0.8
   min_value = -25
   size_bin = 5
   num_bins = 12
   BATCH_SIZE = 256
-  buffer_size = 10000
+  buffer_frac = 0.05
   seq_len = 9
+  reduce_for_test=100000
 
   train_dataset, val_dataset, uni_data_df, df_categorized=df_to_dataset(file_path=file_path,
-                                                               fname=fname,
-                                                               col_name=col_name,
-                                                               index_name=index_name,
-                                                               min_value=min_value,
-                                                               size_bin=size_bin,
-                                                               train_split=TRAIN_SPLIT,
-                                                               num_bins=num_bins,
-                                                               batch_size=BATCH_SIZE,
-                                                               buffer_size=buffer_size,
-                                                               seq_len=seq_len)
-
+                                                                        fname=fname,
+                                                                        col_name=col_name,
+                                                                        index_name=index_name,
+                                                                        min_value=min_value,
+                                                                        size_bin=size_bin,
+                                                                        train_split=TRAIN_SPLIT,
+                                                                        num_bins=num_bins,
+                                                                        batch_size=BATCH_SIZE,
+                                                                        buffer_frac=buffer_frac,
+                                                                        seq_len=seq_len,
+                                                                        reduce_for_test=reduce_for_test)
 
   print('multi classes value counts', df_categorized.value_counts())
   print('head of original regression dataset', uni_data_df.head())

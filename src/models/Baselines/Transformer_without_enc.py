@@ -1,6 +1,7 @@
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import positional_encoding
 from neural_toolbox.classic_layers import point_wise_feed_forward_network
+from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 def scaled_dot_product_attention(q, k, v, mask):
   """Calculate the attention weights.
@@ -105,7 +106,7 @@ class DecoderLayer(tf.keras.layers.Layer):
 
   def call(self, inputs, training, look_ahead_mask):
     input=inputs
-    inputs=[inputs for _ in range(3)]
+    inputs=[tf.cast(inputs, dtype=tf.float32) for _ in range(3)]
     attn1, attn_weights = self.mha1(inputs=inputs, mask=look_ahead_mask)  # (batch_size, target_seq_len, d_model)
     attn1 = self.dropout1(attn1, training=training) # (B,S,D)
     # casting x to dtype=tf.float32
@@ -183,10 +184,16 @@ class Transformer(tf.keras.Model):
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
   def call(self, inputs, training, mask):
-
+    '''
+    :param inputs: input data > shape (B,S,1) # CAUTION.... not the same shape as smc_transformer.
+    :param training: Boolean.
+    :param mask: look_ahead_mask to mask the future.
+    :return:
+    final_output (log probas of predictions > shape (B,S,C or V).
+    attention_weights
+    '''
     # dec_output.shape == (batch_size, tar_seq_len, d_model)
-    dec_output, attention_weights = self.decoder(
-      inputs=inputs, training=training, look_ahead_mask=mask)
+    dec_output, attention_weights = self.decoder(inputs=inputs, training=training, look_ahead_mask=mask)
     final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
 
     return final_output, attention_weights
@@ -211,8 +218,11 @@ if __name__ == "__main__":
 
   temp_input = tf.random.uniform((B, S, 1), dtype=tf.float32, minval=0, maxval=200)
 
+  mask=create_look_ahead_mask(S)
+
+
   fn_out, _ = sample_transformer(inputs=temp_input,
                                  training=False,
-                                 mask=None)
+                                 mask=mask)
 
   print('model output', fn_out.shape) # (B,S,D)

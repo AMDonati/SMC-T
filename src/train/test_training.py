@@ -24,29 +24,29 @@ dummy_dataset = tf.constant(dummy_array, dtype=tf.int32)
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
 
-file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
-fname = 'jena_climate_2009_2016.csv.zip'
-col_name = 'T (degC)'
-index_name = 'Date Time'
-#TODO: put this as a fraction to work with number of samples.
-TRAIN_SPLIT = 300000
-min_value = -25
-size_bin = 5
-num_bins = 12
-buffer_size = 10000
-
-#TODO: add a reduce_for_test parameter.
+# file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
+# fname = 'jena_climate_2009_2016.csv.zip'
+# col_name = 'T (degC)'
+# index_name = 'Date Time'
+# #TODO: put this as a fraction to work with number of samples.
+# TRAIN_SPLIT = 300000
+# min_value = -25
+# size_bin = 5
+# num_bins = 12
+# buffer_frac = 10000
+#
+# #TODO: add a reduce_for_test parameter.
 # train_dataset, val_dataset, uni_data_df, df_categorized=df_to_dataset(file_path=file_path,
-#                                                                fname=fname,
-#                                                                col_name=col_name,
-#                                                                index_name=index_name,
-#                                                                min_value=min_value,
-#                                                                size_bin=size_bin,
-#                                                                train_split=TRAIN_SPLIT,
-#                                                                num_bins=num_bins,
-#                                                                batch_size=BATCH_SIZE,
-#                                                                buffer_size=buffer_size,
-#                                                                seq_len=seq_len_dataset)
+#                                                                       fname=fname,
+#                                                                       col_name=col_name,
+#                                                                       index_name=index_name,
+#                                                                       min_value=min_value,
+#                                                                       size_bin=size_bin,
+#                                                                       train_split=TRAIN_SPLIT,
+#                                                                       num_bins=num_bins,
+#                                                                       batch_size=BATCH_SIZE,
+#                                                                       buffer_frac=buffer_frac,
+#                                                                       seq_len=seq_len_dataset)
 
 # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ noise=False
 
 #----DEFINE THE MODEL---------------------------------------------------------------------------------------------------------------------------------------------------------------
 # SMC_Transformer
-model = SMC_Transformer(num_layers=num_layers,
+smc_transformer = SMC_Transformer(num_layers=num_layers,
                         d_model=d_model,
                         num_heads=num_heads,
                         dff=dff,
@@ -164,7 +164,7 @@ def train_step_smc_T(inputs, targets=None, SMC_loss=True, classic_loss=True):
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    predictions, trajectories, weights = SMC_Transformer(inputs=tar_inp,
+    predictions, trajectories, weights = smc_transformer(inputs=tar_inp,
                                                training=True,
                                                mask=mask_transformer)
 
@@ -172,30 +172,21 @@ def train_step_smc_T(inputs, targets=None, SMC_loss=True, classic_loss=True):
     # trajectories: shape (B,P,S,D) = [z0,z1,z2,...,zT]
     # weights: shape (B,P,1) = w_T: used in the computation of the loss.
 
-    model.summary()
+    smc_transformer.summary()
 
-    if SMC_Transformer.task_type== 'classification':
-      # #print('shape of last dim of predictions', tf.shape(predictions)[-1])
-      # if tf.shape(predictions)[-1]==2:
-      #   print('binary classification task...')
-      #   loss = loss_function_binary(real=tar_real,
-      #                                       predictions=predictions,
-      #                                       weights=weights,
-      #                                       transformer=transformer,
-      #                                       SMC_loss=SMC_loss,
-      #                                       classic_loss=classic_loss)
+    if smc_transformer.task_type== 'classification':
       assert tf.shape(predictions)[-1]>2
       loss = loss_function_classification(real=tar_real,
                                           predictions=predictions,
                                           weights=weights,
-                                          transformer=model,
+                                          transformer=smc_transformer,
                                           SMC_loss=SMC_loss,
                                           classic_loss=classic_loss)
-    elif SMC_Transformer.task_type== 'regression':
+    elif smc_transformer.task_type== 'regression':
       loss=loss_function_regression(real=tar_real,
                                     predictions=predictions,
                                     weights=weights,
-                                    tranformer=model,
+                                    tranformer=smc_transformer,
                                     SMC_loss=SMC_loss,
                                     classic_loss=classic_loss)
     else:
@@ -204,10 +195,10 @@ def train_step_smc_T(inputs, targets=None, SMC_loss=True, classic_loss=True):
 
     #print ('loss computed...')
 
-    gradients = tape.gradient(loss, model.trainable_variables)
+    gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 
     #print('gradients computed...')
-  optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+  optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
   #print('parameters updated...')
 
@@ -243,50 +234,45 @@ def train_step_dummy_SMC_T(inputs, targets=None, SMC_loss=True, classic_loss=Tru
   mask = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    predictions, trajectories, weights = SMC_Transformer(inputs=tar_inp,
+    predictions, trajectories, weights = smc_transformer(inputs=tar_inp,
                                                      training=True,
                                                      mask=mask)
     # predictions: shape (B,inp_seq,P,1,V) for nlp or (B,inP_seq,P,1,F) for time-series. > log probas.
     # trajectories: shape (B,inp_seq,P,1,D) compute Z0,Z1,Z2,...,ZT
     # weights: shape (B,P)
-    if model.task_type=='classification':
-      loss=loss_function_classification(tar_real,
-                                      predictions,
-                                      weights,
-                                      transformer,
+    if smc_transformer.task_type=='classification':
+      loss=loss_function_classification(real=tar_real,
+                                      predictions=predictions,
+                                      weights=weights,
+                                      transformer=smc_transformer,
                                       SMC_loss=SMC_loss,
                                       classic_loss=classic_loss)
-    elif model.task_type=='regression':
-      loss=loss_function_regression(tar_real,
-                                      predictions,
-                                      weights,
-                                      transformer,
+    elif smc_transformer.task_type=='regression':
+      loss=loss_function_regression(real=tar_real,
+                                      predictions=predictions,
+                                      weights=weights,
+                                      transformer=smc_transformer,
                                       SMC_loss=SMC_loss,
                                       classic_loss=classic_loss)
     else:
       raise ValueError('task_type argument in Transformer class is not supported. '
                        'Please choose between "classification" or "regression"')
 
-    print ('loss computed...')
+    gradients = tape.gradient(loss, smc_transformer.trainable_variables)
 
-    gradients = tape.gradient(loss, SMC_Transformer.trainable_variables)
-
-    print('gradients computed...')
   # TO DO: print the list of trainable variables to check that all the PF related ones are not trainable.
-  optimizer.apply_gradients(zip(gradients, SMC_Transformer.trainable_variables))
+  optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  print('parameters updated...')
-
-  #TODO: fix bug with train_loss. 
   #train_loss(loss)
 
   return loss
 
+
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, targets=None):
-  '''training step for the classic Transformer model.'''
+def train_step_dummy_classic_T(inputs, targets=None):
+  '''training step for the classic Transformer model (dummy dataset)'''
   if targets is None:
     tar_inp = inputs[:, :-1]
     tar_real = inputs[:, 1:]
@@ -294,13 +280,20 @@ def train_step_classic_T(inputs, targets=None):
     tar_inp=inputs
     tar_real=targets
 
+  if len(tf.shape(tar_inp))==2:
+    tar_inp=tf.expand_dims(tar_inp, axis=-1)
+  if len(tf.shape(tar_real))==2:
+    tar_real=tf.expand_dims(tar_real, axis=-1)
+
+  # CAUTION. Unlike the SMC_Transformer, the inputs and targets need to be of shape (B,S,1).
+  assert len(tf.shape(tar_inp))==3
+  assert len(tf.shape(tar_real))==3
+
   seq_len = tf.shape(tar_inp)[1]
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    predictions, _ = Transformer(inputs=tar_inp, training=True, mask=mask_transformer)
-
-    model.summary()
+    predictions, _ = transformer(inputs=tar_inp, training=True, mask=mask_transformer)
 
     loss = loss_function_classic_T_classif(real=tar_real, pred=predictions)
 
@@ -325,7 +318,7 @@ if __name__ == "__main__":
 #-------------------TRAINING ON DUMMY DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
 
   dataset=dummy_dataset
-  SMC_Transformer=SMC_Transformer(num_layers=num_layers,
+  smc_transformer=SMC_Transformer(num_layers=num_layers,
                         d_model=d_model,
                         num_heads=num_heads,
                         dff=dff,
@@ -345,12 +338,12 @@ if __name__ == "__main__":
   #                                           mask=create_look_ahead_mask(seq_len))
   #   print("predictions shape", example_batch_predictions.shape)
 
-  EPOCHS=10
+  EPOCHS=5
 
   for epoch in range(EPOCHS):
     start = time.time()
 
-    train_loss.reset_states()
+    #train_loss.reset_states()
     #train_accuracy.reset_states()
 
     # for (batch, (inp, tar)) in enumerate(dataset):
@@ -358,14 +351,14 @@ if __name__ == "__main__":
     #     inp=tf.expand_dims(inp, axis=-1)
     #   if len(tf.shape(inp))==2:
     #     tar=tf.expand_dims(tar, axis=-1)
-    loss=train_step_dummy_SMC_T(inputs=dummy_dataset, targets=None, classic_loss=True, SMC_loss=False)
+    loss_smc=train_step_dummy_SMC_T(inputs=dummy_dataset, targets=None, classic_loss=True, SMC_loss=False)
 
       # if batch % 10 == 0:
       #   print('epoch', epoch)
       #   print('loss', loss)
 
     print('epoch', epoch)
-    print('loss', loss)
+    print('loss - SMC_Transformer', loss_smc)
 
     # if (epoch + 1) % 5 == 0:
     #   ckpt_save_path = ckpt_manager.save()
@@ -377,3 +370,32 @@ if __name__ == "__main__":
     #                                                     train_accuracy.result()))
 
     print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+  print('training of SMC Transformer for dummy dataset done...')
+
+
+ #-------------------------------------------TRAIN ON DUMMY DATASET - CLASSIC TRANSFORMER -------------------------------------------
+
+  dataset = dummy_dataset
+  # Transformer - baseline.
+  transformer = Transformer(num_layers=num_layers,
+                            d_model=d_model,
+                            num_heads=num_heads,
+                            dff=dff,
+                            target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=maximum_position_encoding,
+                            data_type=data_type)
+
+  for epoch in range(EPOCHS):
+    start = time.time()
+
+    #train_loss.reset_states()
+
+    loss_baseline=train_step_dummy_classic_T(inputs=dummy_dataset)
+
+    print('epoch', epoch)
+    print('loss - Baseline', loss_baseline)
+
+    print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+  print('training of Classic Transformer for dummy dataset done...')
