@@ -3,13 +3,11 @@ import tensorflow as tf
 # ----- scaled_dot_product_attention_function & mha function ------------
 
 def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
-
   """Calculate the attention weights.
   q, k, v must have matching leading dimensions.
   k, v must have matching penultimate dimension, i.e.: seq_len_k = seq_len_v.
   The mask has different shapes depending on its type(padding or look ahead)
   but it must be broadcastable for addition.
-
   Args:
     q: query shape == (..., num_particles, depth) for sampled word
     k: key shape == (..., num_particles, depth) for sampled word
@@ -61,7 +59,7 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
 
   return (z, K, V)  # attention_weights
 
-## ------ Multi-head attention ----------------------
+## ------'SMC' Multi-head attention class------------------------------------------------------------------
 
 class MultiHeadAttention_SMC(tf.keras.layers.Layer):
   '''
@@ -71,9 +69,11 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     -num_heads: number of heads for the multi-head attention mechanism
     -num_particles: number of particles to generate
     -dec_timestep: current decoding timestep (=k) for the sequential mechanism
+    -sigma: constant, or 'learned', for learned noise.
+    -noise: boolean: True if noise injected in the attention context vector z, False if no noise injected.
     '''
 
-  def __init__(self, d_model, num_heads, num_particles, dec_timestep, sigma='learned'):
+  def __init__(self, d_model, num_heads, num_particles, dec_timestep, sigma, noise):
     super(MultiHeadAttention_SMC, self).__init__()
     self.num_heads = num_heads
     self.d_model = d_model
@@ -91,6 +91,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     self.num_particles = num_particles
     self.timestep = dec_timestep
     self.sigma_scalar=sigma
+    self.noise=noise
 
   def split_heads(self, x, batch_size):
     """Split the last dimension into (num_heads, depth).
@@ -119,37 +120,36 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     '''
 
     q=inputs[0] # (B,P,1,D)
-    k=inputs[1]
-    v=inputs[2]
+    k=inputs[1] # (B,P,1,D)
+    v=inputs[2] # (B,P,1,D)
 
     batch_size = tf.shape(v)[0]
 
     # > FOR SMC: q is only the query of the current word: shape (batch_size, num_particles, d_model)
-    k = self.wk(k)  # (batch_size, NUM_PARTICLES, d_model)
-    # k= tf.reshape(k, (batch_size, self.num_particles, -1, self.num_heads, self.depth))
-    # k=tf.transpose(k, perm=[0, 1, 3, 2, 4])
-    v = self.wv(v)  # (batch_size, NUM_PARTICLES, d_model)
-    q = self.wq(q)  # (batch_size, NUM_PARTICLES, d_model) # to check
+    k = self.wk(k)  # (B,P,1,D)
+    v = self.wv(v)  # (B,P,1,D)
+    q = self.wq(q)  # (B,P,1,D)
 
-    k = self.split_heads(k, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
-    v = self.split_heads(v, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
-    q = self.split_heads(q, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, depth)
+    k = self.split_heads(k, batch_size)  # (B,P,H,1,D/H)
+    v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)
+    q = self.split_heads(q, batch_size)  # (B,P,H,1,D/H)
 
-    # to remove.
     if K is not None:
-      K = self.split_heads(K, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, seq_len_k, depth)
+      K = self.split_heads(K, batch_size)  # (B,P,H,S,D/H)
     if V is not None:
-      V = self.split_heads(V, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, seq_len_v, depth)
+      V = self.split_heads(V, batch_size)  # (B,P,H,S,D/H)
 
-    # FOR SMC: attention_weights.shape == (batch_size, NUM_PARTICLES, num_heads, seq_len_q, seq_len_k)
-    (scaled_attention, K, V) = self_attention_SMC(q, k, v, timestep, K, V)
+    # compute self_attention for every head:
+    (z, K, V) = self_attention_SMC(q, k, v, timestep, K, V) # z (B,P,H,1,D/H), (K,V): (B,P,H,S,D/H)
+
     # concat attention, K, V over all the heads
-    concat_attention = self.concat_heads(scaled_attention) # shape (B,P,D) or (B,P,1,D)
-    concat_K = self.concat_heads(K)
-    concat_V = self.concat_heads(V)
+    z = self.concat_heads(z) # shape (B,P,1,D)
+    K = self.concat_heads(K) # shape (B,P,S,D)
+    V = self.concat_heads(V) # shape (B,P,S,D)
 
-    # COMPUTE THE REPARAMETRIZATION TRICK
-    total_depth = tf.shape(concat_attention)[-1]
+    # --------------------------------------------------Add the noise using the reparametrization trick------------------------------------------------------------------------------
+
+    total_depth = tf.shape(z)[-1]
 
     # adding a Gaussian noise using the reparametrization trick.
 
@@ -164,43 +164,58 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
       self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
 
-    self.stddev = tf.random.normal(shape=tf.shape(concat_attention), seed=seed, name='stddev')
-    # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
 
+    #compute the $\epsilon$ of the reparametrized noise.
+    if self.noise:
+      self.stddev = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev')
+    else:
+      self.stddev=tf.zeros(shape=tf.shape(z), dtype=tf.float32)
+
+    # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
     stddev = tf.tensordot(self.sigma, self.stddev, axes=[0, 3]) # shape (D,B,1,D)
     # permuting dimensions to have a tensor of shape (B, P, 1, D)
     stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
 
-    #TODO: test with self.stddev inside or outside the dense layer.
-    output = self.dense(concat_attention) + stddev
+    z = self.dense(z) + stddev
 
-    # THE OUTPUT IS ALSO THE VARIABLE Z (CONCATENATION OF THE Z OF EACH HEAD)
-    # FOR SMC: OUTPUT SHAPE (batch_size, NUM_PARTICLES, seq_len_q, d_model)
-    return (output, concat_K, concat_V)
+    return (z, K, V) # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
-## add a main function for testing here
 if __name__ == "__main__":
+  B=64
+  num_particles=10
+  num_heads=8
+  S=50
+  d_model=512
+  dec_timestep=0
+  sigma=1
+  noise=False
 
-  x = tf.ones(shape=(64, 10, 8, 1, 64))
-  K = tf.random.uniform(shape=(64, 10, 8, 50, 64))
-  V = tf.random.uniform(shape=(64, 10, 8, 50, 64))
+  x = tf.ones(shape=(B, num_particles, num_heads, 1, int(d_model/num_heads)))
+  K = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
+  V = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
 
-  (temp_out, temp_K, temp_V) = self_attention_SMC(
-    x, x, x,0, K, V)
+  (temp_out, temp_K, temp_V) = self_attention_SMC(x, x, x, dec_timestep, K, V)
   print('temp_out', temp_out.shape)
+  print('temp_K', temp_K.shape)
+  print('temp_V', temp_V.shape)
 
   """Create a `MultiHeadAttention` layer to try out. 
   At each location in the sequence, `y`, the `MultiHeadAttention` 
   runs all 8 attention heads across all other locations in the sequence, returning a new vector of the same length at each location."""
 
-  temp_mha = MultiHeadAttention_SMC(d_model=512, num_heads=8, num_particles=10, dec_timestep=0)
-  r_0= tf.random.uniform((64, 10, 1, 512))  # (batch_size, encoder_sequence, d_model)
-  K = tf.random.normal((64, 10, 50, 512))
-  V = tf.random.normal((64, 10, 50, 512))
+  temp_mha = MultiHeadAttention_SMC(d_model=d_model,
+                                    num_heads=num_heads,
+                                    num_particles=num_particles,
+                                    dec_timestep=dec_timestep,
+                                    sigma=sigma,
+                                    noise=noise)
 
-  inputs=[r_0, r_0, r_0]
-  (z, K, V) = temp_mha(inputs, timestep=0, K=K, V=V)
-  # out.shape, attn.shape, K.shape, V.shape
-  print(z.shape)
-  # print(attn.shape) # shape (B,P,num_heads,seq_length, seq_length)
-  print(K.shape), print(V.shape)
+  X_mha = tf.ones(shape=(B, num_particles, 1, d_model), dtype=tf.float32)
+  inputs_mha = [X_mha for _ in range(3)]
+  K = tf.random.uniform(shape=(B, num_particles, S, d_model))
+  V = tf.random.uniform(shape=(B, num_particles, S, d_model))
+  z,K,V=temp_mha(inputs=inputs_mha, timestep=dec_timestep, K=K, V=V)
+
+  print('z', z.shape)
+  print('K', K.shape)
+  print('V', K.shape)

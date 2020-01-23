@@ -21,9 +21,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, maximum_position_encoding=None, training=True, resampling=True,
+              num_layers, sigma, noise, maximum_position_encoding=None, training=True, resampling=True,
                rate=0.1, task_type='classification', **kwargs):
-    #TODO: see how to change the training parameter during inference (if needed.)
+    #TODO: remove default Value for maximum_position_encoding and task_type (not urgent & essential though).
     '''
     -Args:
       -d_model: model depth
@@ -44,7 +44,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                        num_heads=num_heads,
                                        num_particles=num_particles,
                                        dec_timestep=self.dec_timestep,
-                                       sigma=sigma)
+                                       sigma=sigma,
+                                       noise=noise)
     self.ffn = point_wise_feed_forward_network(d_model, dff)
     self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
     self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -224,6 +225,7 @@ if __name__ == "__main__":
   seq_len = 4
   layer_num = 2
   sigma=1
+  noise=False
   data_type='time_series'
   task_type='classification'
 
@@ -232,7 +234,8 @@ if __name__ == "__main__":
                          seq_len=seq_len, num_layers=layer_num,
                          training=True,
                          resampling=True,
-                         sigma=sigma)
+                         sigma=sigma,
+                         noise=noise)
 
   sample_transformer = Transformer(
     num_layers=layer_num, d_model=d_model, num_heads=num_heads,
@@ -241,6 +244,7 @@ if __name__ == "__main__":
     num_particles=num_particles,
   seq_len=seq_len,
   sigma=sigma,
+  noise=noise,
   data_type=data_type,
   task_type=task_type)
 
@@ -259,8 +263,7 @@ if __name__ == "__main__":
 
   r = tf.random.uniform(
     shape=(batch_size, seq_len, num_particles, d_model))  # the dim 1 needs to be added. trick with nested inputs.
-  x = tf.ones(shape=(batch_size, seq_len,
-                     1))  # all the inputs need to have shape at least equal to 3... # see which trick we can apply here...
+  x = tf.ones(shape=(batch_size, seq_len, 1)) # x needs to have at least of length of shape equal to 3.
 
   inputs = NestedInput(r=r, x=x)
 

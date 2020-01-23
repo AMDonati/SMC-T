@@ -1,7 +1,6 @@
 import tensorflow as tf
-#from utils.Transformer_utils import create_masks
 
-# ----- scaled_dot_product_attention_function & mha function ------------
+# ----- scaled_dot_product_attention FUNCTION--------------------------------------------------------------------------------------
 
 def self_attention_classic(Q, K, V, mask):
   """Calculate the attention weights.
@@ -38,21 +37,21 @@ def self_attention_classic(Q, K, V, mask):
   #TODO: return attention_weights
   return output
 
-## ------ Multi-head attention ----------------------
+## ------ Multi-head attention CLASS------------------------------------------------------------------------------------------------
 
 class MultiHeadAttention_classic(tf.keras.layers.Layer):
   '''
-  multi-head attention mechanism for each layer of the Transformer
+  multi-head attention mechanism for each layer of the Transformer.
   -args:
     -d_model: depth model
     -num_heads: number of heads for the multi-head attention mechanism
     -num_particles: number of particles to generate
     -sigma: constant, 'learned' (for learned noise)
-  -returns:
-    -
+    -noise: boolean: True if noise injected in the attention context vector z, False if no noise injected.
+  -returns: attention parameters (Z,K,V) of shape (B,P,S,D).
     '''
 
-  def __init__(self, d_model, num_heads, num_particles, sigma):  # 2 arguments added: dec_timestep, mode.
+  def __init__(self, d_model, num_heads, num_particles, sigma, noise):  # 2 arguments added: dec_timestep, mode.
     super(MultiHeadAttention_classic, self).__init__()
     self.num_heads = num_heads
     self.d_model = d_model
@@ -70,6 +69,7 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
     # additionnal parameters for SMC algorithm.
     self.num_particles = num_particles
     self.sigma_scalar=sigma
+    self.noise=noise
 
 
   def split_heads(self, x, batch_size):
@@ -126,7 +126,7 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
     K=self.concat_heads(K) # shape (B,P,S,D)
     V=self.concat_heads(V) # shape (B,P,S,D)
 
-    #------------------Add the noise using the reparametrization trick---
+    #------------------Add the noise using the reparametrization trick---------------------------------------------------------
     d_model = self.d_model
 
     # initialize sigma as a 'positive' diagonal matrix as a start
@@ -134,15 +134,25 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
       self.sigma=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(d_model,), dtype=tf.float32)),
                              dtype=tf.float32) # shape (D,D)
       # apply tf.stop_gradient on sigma to avoid backprop for this set of parameters
+      #TODO: At the end, remove the tf.stop_gradient and use a simple SGD algo to update this parameter.
       self.sigma=tf.stop_gradient(self.sigma)
       self.sigma = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(d_model,))), dtype=tf.float32)
     else:
       sigma_tensor=tf.constant(self.sigma_scalar, shape=(d_model,), dtype=tf.float32)
       self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32) # (D,D)
 
-    self.stddev = tf.random.normal(shape=tf.shape(concat_attention), seed=seed, name='stddev') # (B,P,S,D)
+    #TODO: add an assert to check that self.sigma is inversible.
+
+    # compute the $\epsilon$ of the reparametrized noise.
+    if self.noise:
+      self.stddev = tf.random.normal(shape=tf.shape(concat_attention), seed=seed, name='stddev') # (B,P,S,D)
+    else:
+      # self.stddev is null if no noise
+      self.stddev = tf.zeros(shape=tf.shape(concat_attention), dtype=tf.float32)
+
     # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
     stddev = tf.tensordot(self.sigma, self.stddev, axes=[0, 3])  # shape (D,B,1,D)
+    # (if self.stddev is a zero tensor, then stddev is also a zero tensor. test done).
     stddev = tf.transpose(stddev, perm=[1, 2, 3, 0]) # (B,P,S,D)
 
     Z = self.dense(concat_attention) + stddev
@@ -156,6 +166,7 @@ if __name__ == "__main__":
   H=2
   D=12
   S=20
+  noise=False
 
   #----------------------test of self_attention_classic----------------------------------------------------
 
@@ -169,7 +180,7 @@ if __name__ == "__main__":
 
   # ----------------------test of MultiHeadAttention classic----------------------------------------------------
 
-  temp_mha = MultiHeadAttention_classic(d_model=D, num_heads=H, num_particles=10, sigma=1)
+  temp_mha = MultiHeadAttention_classic(d_model=D, num_heads=H, num_particles=10, sigma=1, noise=noise)
   X_mha = tf.ones(shape=(B, P, S, D), dtype=tf.float32)
   inputs_mha=[X_mha for _ in range(3)]
   (Z, K, V) = temp_mha(inputs=inputs_mha, mask=None)

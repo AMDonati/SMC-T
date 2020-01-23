@@ -10,15 +10,18 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 class DecoderLayer(tf.keras.layers.Layer):
   '''adaptated version of the original Decoder Layer of the Transformer.
   The only difference are the shapes of the input tensor (B, P, S, D) instead of (B, S, D)
+  and the eventual injection of a (reparametrized) gaussian noise in the attention vector z.
   -args:
     -d_model: model depth
     -num_heads: number of heads in the multi-head attention mechanism
     -dff: output dimension of the feed forward network
     -num_particles: number of simulated particles for the latent state space of the Transformer
+    -sigma: 'learned' or 'constant': value of the covariance matrix when injecting noise in the multi-head attention equations.
+    -noise: Boolean. True if noise is injected in the computation of the attention vector z, False if not.
     -rate: dropout rate for output layers
   '''
 
-  def __init__(self, d_model, num_heads, dff, num_particles, sigma, rate=0.1):
+  def __init__(self, d_model, num_heads, dff, num_particles, sigma, noise, rate=0.1):
     super(DecoderLayer, self).__init__()
 
     # self.dec_timestep = 0 # to remove???
@@ -27,7 +30,8 @@ class DecoderLayer(tf.keras.layers.Layer):
     self.mha1 = MultiHeadAttention_classic(d_model=d_model,
                                            num_heads=num_heads,
                                            num_particles=num_particles,
-                                           sigma=sigma)
+                                           sigma=sigma,
+                                           noise=noise)
 
     self.ffn = point_wise_feed_forward_network(d_model, dff)
 
@@ -36,6 +40,8 @@ class DecoderLayer(tf.keras.layers.Layer):
 
     self.dropout1 = tf.keras.layers.Dropout(rate)
     self.dropout3 = tf.keras.layers.Dropout(rate)
+
+    self.noise=noise
 
   def call(self, inputs, training, look_ahead_mask):
     '''
@@ -329,11 +335,15 @@ if __name__ == "__main__":
   dff = 2048
   num_heads = 8
   num_particles = 10
+  noise=False
+  sigma=1
 
   sample_decoder_layer = DecoderLayer(d_model=d_model,
                                       dff=dff,
                                       num_heads=num_heads,
-                                      num_particles=num_particles)
+                                      num_particles=num_particles,
+                                      sigma=sigma,
+                                      noise=noise)
 
   inputs_layer = tf.ones((64, 10, 50, 512), dtype=tf.int32)
   seq_len = tf.shape(inputs_layer)[2]

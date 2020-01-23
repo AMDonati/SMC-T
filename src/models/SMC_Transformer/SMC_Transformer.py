@@ -35,8 +35,9 @@ class Encoder(tf.keras.layers.Layer):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-              num_particles, sigma, data_type, maximum_position_encoding=None,
-               rate=0.1):
+              num_particles, sigma, noise, data_type, maximum_position_encoding=None,
+              rate=0.1):
+    #TODO: remove the default value of maximum_position_encoding.
     super(Encoder, self).__init__()
 
     self.d_model = d_model
@@ -51,8 +52,7 @@ class Encoder(tf.keras.layers.Layer):
 
     # build the decoder architecture
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, sigma=sigma,
-                                    num_particles=num_particles)
-                       for _ in range(num_layers)]
+                                    num_particles=num_particles, noise=noise) for _ in range(num_layers)]
 
     self.dropout = tf.keras.layers.Dropout(rate)
 
@@ -60,7 +60,7 @@ class Encoder(tf.keras.layers.Layer):
     self.data_type=data_type
     self.sigma=sigma
     self.num_particles = num_particles
-    self.decoder_initialized = False
+    self.noise=noise
 
   def preprocess_words_input(self, x, training):
     '''pre_process sequence of words by adding embeddings + positional encoding
@@ -141,11 +141,13 @@ class Transformer(tf.keras.Model):
     -target_vocab_size:for computing the resampling weights # only used for nlp dataset
     -pe_target: maximum_positional_encoding # only used for nlp dataset.
     -num_particles: number of particles generated.
+    -sigma:
+    -noise:
     -rate: dropout rate for the feed-forward layer.
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, num_particles, seq_len, sigma, data_type, task_type,
+               target_vocab_size, num_particles, seq_len, sigma, noise, data_type, task_type,
                rate=0.1, maximum_position_encoding=None):
     super(Transformer, self).__init__()
 
@@ -159,6 +161,7 @@ class Transformer(tf.keras.Model):
                              maximum_position_encoding=maximum_position_encoding,
                              num_particles=num_particles,
                              sigma=sigma,
+                             noise=noise,
                              rate=rate,
                              data_type=data_type)
     elif num_layers==1:
@@ -177,7 +180,8 @@ class Transformer(tf.keras.Model):
                                 seq_len=seq_len,
                                 num_layers=num_layers,
                                 num_heads=num_heads,
-                                sigma=sigma)  # put here the Transformer cell.
+                                sigma=sigma,
+                                noise=noise)  # put here the Transformer cell.
 
     self.final_layer = self.cell.output_layer
 
@@ -191,6 +195,7 @@ class Transformer(tf.keras.Model):
     self.data_type=data_type
     self.task_type=task_type
     self.sigma=sigma
+    self.noise=noise
     self.maximum_position_encoding = maximum_position_encoding
 
     self.initialize = False
@@ -355,7 +360,7 @@ class Transformer(tf.keras.Model):
     w_T=tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T=tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
-    print('pass forward done')
+    print('pass forward done...')
     return Y0_T, Z0_T, w_T
 
 
@@ -373,8 +378,10 @@ if __name__ == "__main__":
   data_type='time_series'
   task_type='classification'
   C=12 # vocabulary size or number of classes.
+  noise=False
 
-  ###----------Test of Encoder class----------
+  ###----------Test of Encoder class-----------------------------------------------------------------------------------
+
   x=tf.random.uniform(shape=(b,seq_len,F), dtype=tf.float32)
 
   encoder = Encoder(num_layers=num_layers,
@@ -385,10 +392,12 @@ if __name__ == "__main__":
                            maximum_position_encoding=maximum_position_encoding,
                            num_particles=num_particles,
                     sigma=sigma,
+                    noise=noise,
                     data_type=data_type)
+
   r=encoder(inputs=x, training=False, mask=None)
 
-  ####---------test of Transformer class-----------------------------------------------------------------------
+  ####---------test of Transformer class--------------------------------------------------------------------------------
 
   sample_transformer = Transformer(
     num_layers=num_layers,
@@ -400,10 +409,10 @@ if __name__ == "__main__":
     num_particles=num_particles,
   seq_len=seq_len,
   sigma=sigma,
+  noise=noise,
   data_type=data_type,
   task_type=task_type)
 
-  #TODO: last_dim of inputs?
   inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
 
   mask=create_look_ahead_mask(seq_len)
@@ -413,4 +422,3 @@ if __name__ == "__main__":
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
-
