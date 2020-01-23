@@ -9,7 +9,7 @@ from preprocessing.utils import map_uni_data_classes
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-from models.SMC_Transformer.SMC_Transformer import Transformer
+from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from neural_toolbox.training_algos import categorical_ce_with_particules
 from neural_toolbox.training_algos import binary_ce_with_particules
@@ -111,17 +111,17 @@ if __name__ == "__main__":
   data_type='time_series'
 
   #----create the SMC Transformer:
-  transformer = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=pe_target,
-                            num_particles=num_particles,
-                            sigma=1,
-                            seq_len=seq_len,
-                            data_type=data_type,
-                            task_type=task_type)
+  transformer = SMC_Transformer(num_layers=num_layers,
+                                d_model=d_model,
+                                num_heads=num_heads,
+                                dff=dff,
+                                target_vocab_size=target_vocab_size,
+                                maximum_position_encoding=pe_target,
+                                num_particles=num_particles,
+                                sigma=1,
+                                seq_len=seq_len,
+                                data_type=data_type,
+                                task_type=task_type)
 
   #------ LOSS FUNCTIONS--------------
 

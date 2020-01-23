@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from models.SMC_Transformer.SMC_Transformer import Transformer
+from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 
 # --- ON GOING IMPLEMENTATION -----
 
@@ -67,6 +67,6 @@ if __name__ == "__main__":
   num_layers = 2
 
   # dummy_train_dataset=tf.cast(tf.random_uniform(shape=(batch_size,seq_length)), dtype=tf.int32)
-  transformer = Transformer(
+  transformer = SMC_Transformer(
     num_layers, d_model, num_heads, dff, target_vocab_size,
     pe_target, num_particles)

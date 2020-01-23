@@ -1,3 +1,6 @@
+#TODO: test the classification loss for a number of classes equal to 2.
+#TODO: add a mask option in the loss for nlp datasets.
+
 import tensorflow as tf
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -22,7 +25,6 @@ def crf_loss(logits, labels, mask, num_labels, mask2len):
   :param mask2len:each sample's length
   :return:
   """
-  # TODO
   with tf.variable_scope("crf_loss"):
     trans = tf.get_variable(
       "transition",
@@ -35,12 +37,13 @@ def crf_loss(logits, labels, mask, num_labels, mask2len):
 
   return loss, transition
 
-def loss_function(real, pred, loss_object):
+def loss_function_classic_T_classif(real, pred):
   '''add a mask in the loss for padded sequences - only useful for nlp dataset.'''
-  mask = tf.math.logical_not(tf.math.equal(real, 0))
+  #mask = tf.math.logical_not(tf.math.equal(real, 0))
+  loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
   loss_ = loss_object(real, pred)
-  mask = tf.cast(mask, dtype=loss_.dtype)
-  loss_ *= mask
+  #mask = tf.cast(mask, dtype=loss_.dtype)
+  #loss_ *= mask
   return tf.reduce_mean(loss_)
 
 

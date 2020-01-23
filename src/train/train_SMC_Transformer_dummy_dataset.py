@@ -10,7 +10,7 @@ import sys
 import tensorflow as tf
 
 # additional imports
-from models.SMC_Transformer.SMC_Transformer import Transformer
+from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from neural_toolbox.training_algos import categorical_ce_with_particules
 from neural_toolbox.training_algos import mse_with_particles
@@ -40,6 +40,7 @@ num_layers = 3
 batch_size=8
 data_type = 'time_series'
 task_type = 'classification'
+noise=False
 
 dummy_sample = np.random.choice(np.arange(target_vocab_size), size=seq_len)
 dummy_list = [np.random.choice(np.arange(target_vocab_size), size=seq_len) for _ in range(batch_size)]
@@ -48,17 +49,18 @@ dummy_dataset = tf.constant(dummy_array, dtype=tf.int32)
 
 
 #----create the SMC Transformer:
-transformer = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=pe_target,
-                            num_particles=num_particles,
-                            sigma=1,
-                            seq_len=seq_len-1,
-                            data_type=data_type,
-                            task_type=task_type)
+transformer = SMC_Transformer(num_layers=num_layers,
+                              d_model=d_model,
+                              num_heads=num_heads,
+                              dff=dff,
+                              target_vocab_size=target_vocab_size,
+                              maximum_position_encoding=pe_target,
+                              num_particles=num_particles,
+                              sigma=1,
+                              seq_len=seq_len-1,
+                              data_type=data_type,
+                              task_type=task_type,
+                              noise=noise)
 
   #------ LOSS FUNCTIONS--------------
 

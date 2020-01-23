@@ -1,7 +1,3 @@
-#TODO: add data_type & task_type for the parameters.
-#TODO: add a if loop to choose between the preprocessing between time_series & nlp.
-#TODO: test the model.
-
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import positional_encoding
 from neural_toolbox.classic_layers import point_wise_feed_forward_network
@@ -186,11 +182,11 @@ class Transformer(tf.keras.Model):
                            data_type=data_type, rate=rate)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
 
-  def call(self, inp, training, look_ahead_mask):
+  def call(self, inputs, training, mask):
 
     # dec_output.shape == (batch_size, tar_seq_len, d_model)
     dec_output, attention_weights = self.decoder(
-      inputs=inp, training=training, look_ahead_mask=look_ahead_mask)
+      inputs=inputs, training=training, look_ahead_mask=mask)
     final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
 
     return final_output, attention_weights
@@ -215,8 +211,8 @@ if __name__ == "__main__":
 
   temp_input = tf.random.uniform((B, S, 1), dtype=tf.float32, minval=0, maxval=200)
 
-  fn_out, _ = sample_transformer(temp_input,
+  fn_out, _ = sample_transformer(inputs=temp_input,
                                  training=False,
-                                 look_ahead_mask=None)
+                                 mask=None)
 
-  print('model output', fn_out.shape) # (B,P,D)
+  print('model output', fn_out.shape) # (B,S,D)

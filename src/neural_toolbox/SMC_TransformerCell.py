@@ -214,7 +214,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
 
 if __name__ == "__main__":
-  from models.SMC_Transformer.SMC_Transformer import Transformer
+  from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
   batch_size = 8
   d_model = 64
   num_heads = 2
@@ -237,7 +237,7 @@ if __name__ == "__main__":
                          sigma=sigma,
                          noise=noise)
 
-  sample_transformer = Transformer(
+  sample_transformer = SMC_Transformer(
     num_layers=layer_num, d_model=d_model, num_heads=num_heads,
     dff=dff, target_vocab_size=target_vocab_size,
     maximum_position_encoding=maximum_position_encoding,

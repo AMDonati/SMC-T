@@ -130,8 +130,7 @@ class Encoder(tf.keras.layers.Layer):
 
 
 """## Create the Transformer"""
-
-class Transformer(tf.keras.Model):
+class SMC_Transformer(tf.keras.Model):
   '''class for the Transformer Model
   -args
     -num_layers: number of decoder layers (before the final SMC_layer)
@@ -149,7 +148,7 @@ class Transformer(tf.keras.Model):
   def __init__(self, num_layers, d_model, num_heads, dff,
                target_vocab_size, num_particles, seq_len, sigma, noise, data_type, task_type,
                rate=0.1, maximum_position_encoding=None):
-    super(Transformer, self).__init__()
+    super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:
     if num_layers > 1:
@@ -399,7 +398,7 @@ if __name__ == "__main__":
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
-  sample_transformer = Transformer(
+  sample_transformer = SMC_Transformer(
     num_layers=num_layers,
     d_model=d_model,
     num_heads=num_heads,
