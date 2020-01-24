@@ -51,8 +51,11 @@ class Encoder(tf.keras.layers.Layer):
       self.pos_encoding_SMC = positional_encoding_SMC(maximum_position_encoding, d_model, num_particles) # used to pre-process input word.
 
     # build the decoder architecture
-    self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, sigma=sigma,
-                                    num_particles=num_particles, noise=noise) for _ in range(num_layers)]
+    self.dec_layers = [DecoderLayer(d_model=d_model,
+                                    num_heads=num_heads,
+                                    dff=dff, sigma=sigma,
+                                    num_particles=num_particles,
+                                    noise=noise) for _ in range(num_layers)]
 
     self.dropout = tf.keras.layers.Dropout(rate)
 
@@ -359,7 +362,6 @@ class SMC_Transformer(tf.keras.Model):
     w_T=tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T=tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
-    print('pass forward done...')
     return Y0_T, Z0_T, w_T
 
 

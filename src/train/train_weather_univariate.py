@@ -11,9 +11,9 @@ import numpy as np
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from neural_toolbox.training_algos import categorical_ce_with_particules
-from neural_toolbox.training_algos import binary_ce_with_particules
-from neural_toolbox.training_algos import mse_with_particles
+from train.training_algos import categorical_ce_with_particules
+from train.training_algos import binary_ce_with_particules
+from train.training_algos import mse_with_particles
 
 import time
 import sys

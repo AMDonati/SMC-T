@@ -2,16 +2,15 @@ import tensorflow as tf
 
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from neural_toolbox.training_algos import loss_function_classification
-from neural_toolbox.training_algos import loss_function_regression
-from neural_toolbox.training_algos import loss_function_classic_T_classif
+from train.training_algos import loss_function_classification
+from train.training_algos import loss_function_regression
+from train.training_algos import loss_function_classic_T_classif
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 
 import time
 import sys
 import numpy as np
-from preprocessing.time_series.df_to_dataset import df_to_dataset
 
 #------------------DUMMY DATASET TO TEST AS A START-------------------------------------------------------------------------------------------
 seq_len_dataset =10 # one more than for the transformer.

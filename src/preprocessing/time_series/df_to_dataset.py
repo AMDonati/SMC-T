@@ -46,6 +46,8 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
     df_categorized = df_categorized[:reduce_for_test]
     print('selecting for testing {} samples...'.format(len(df_categorized)))
 
+  reduced_number_of_classes = len(list(set(df_categorized.values)))
+
   #transform the series in a numpy array
   data_array=np.array(df_categorized)
 
@@ -73,7 +75,7 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
 
   train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
 
-  return train_dataset, val_dataset, uni_data_df, df_categorized
+  return train_dataset, val_dataset, df_categorized, x_train, reduced_number_of_classes
 
 if __name__ == "__main__":
   file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
@@ -82,14 +84,14 @@ if __name__ == "__main__":
   index_name='Date Time'
   TRAIN_SPLIT = 0.8
   min_value = -25
-  size_bin = 22
-  num_bins = 3
+  size_bin = 5
+  num_bins = 12
   BATCH_SIZE = 256
   buffer_frac = 0.05
   seq_len = 9
-  reduce_for_test=None
+  reduce_for_test=10000
 
-  train_dataset, val_dataset, uni_data_df, df_categorized=df_to_dataset(file_path=file_path,
+  train_dataset, val_dataset, df_categorized, x_train, reduced_number_of_classes=df_to_dataset(file_path=file_path,
                                                                         fname=fname,
                                                                         col_name=col_name,
                                                                         index_name=index_name,
@@ -103,4 +105,5 @@ if __name__ == "__main__":
                                                                         reduce_for_test=reduce_for_test)
 
   print('multi classes value counts', df_categorized.value_counts())
-  print('head of original regression dataset', uni_data_df.head())
+  print('reduced_number of classes:', reduced_number_of_classes)
+  #print('head of original regression dataset', uni_data_df.head())

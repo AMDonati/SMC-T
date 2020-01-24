@@ -1,7 +1,7 @@
 import tensorflow as tf
 import math
 
-#TODO adapt the computation of the loss in the case of one_layer. 
+#TODO adapt the computation of the loss in the case of one_layer.
 
 #TODO: ask Florian if I need to add a @tf.function to this function. cf https://www.tensorflow.org/tutorials/generative/cvae as an example.
 def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas):
