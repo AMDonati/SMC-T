@@ -364,7 +364,6 @@ class SMC_Transformer(tf.keras.Model):
 
     return Y0_T, Z0_T, w_T
 
-
 if __name__ == "__main__":
   num_particles = 5
   seq_len=10

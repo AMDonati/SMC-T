@@ -2,6 +2,7 @@ import tensorflow as tf
 import math
 
 #TODO adapt the computation of the loss in the case of one_layer.
+#TODO: correct compute_SMC_log_likelihood for nulti-layer cases (add the layer from the SMC Cell.)
 
 #TODO: ask Florian if I need to add a @tf.function to this function. cf https://www.tensorflow.org/tutorials/generative/cvae as an example.
 def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas):
@@ -57,14 +58,12 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
     temp_layer = tf.stack(layer_loss, axis=-1)  # dim (B,P,S) >> TO CHECK
 
     # sum(real*log) over all timesteps
-    #real = tf.cast(real, dtype=temp_layer.dtype)
     sum_loss = tf.reduce_sum(temp_layer, axis=-1)
     # store the loss for each layer
     sum_losses.append(sum_loss)
 
   # sum the loss by layer over the # of layers.
   SMC_loss = tf.reduce_sum(tf.stack(sum_losses, axis=0), axis=0)
-
 
   # take the average of the sigma per layer for the 'global' sigma
   sigma_all_layers = tf.stack(list_sigma, axis=0)
@@ -85,8 +84,49 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
 
   return SMC_loss
 
+def compute_SMC_log_likelihood_one_layer(real, sampling_weights, sigma, stddev):
+  '''ON_GOING IMPLEMENTATION'''
+  '''
+  :param real:
+  :param sampling_weights:
+  :param sigma:
+  :param stddev:
+  :return:
+  '''
+
+  seq_length = tf.shape(real)[-1]
+  loss_by_timestep = []
+  total_loss=[]
+
+  for t in range(seq_length):
+      # inverse the covariance matrix
+      sigma_inv = tf.linalg.inv(sigma)  # dim  (D,D)
+
+      # take the stddev @ timestep t
+      stddev_t = stddev[:, :, t, :]  # dim (B,P,D)
+
+      # inv(covariance matrix) * stddev
+      temp = tf.tensordot(sigma_inv, stddev_t, axes=[0, 2]) # dim (D,B,P)
+
+      # reshape temp (D,B,P) to (B, D, P)
+      temp = tf.transpose(temp, perm=[1, 0, 2])
+      # idem for stddev_t (B,P,D) to (B,D,P)
+      stddev_t = tf.transpose(stddev_t, perm=[0, 2, 1])
+
+      SMC_loss_element_2=tf.reduce_sum(tf.multiply(stddev_t,temp), axis=1)
+
+      # store the loss for each timestep
+      loss_by_timestep.append(SMC_loss_element_2)
+
+    # store the list of timestep partial losses for each timestep
+    total_loss.append(loss_by_timestep)
+    #list_sigma.append(sigma)
+
+  # sum over the timestep: sum(0:j for j=1...seq_length)
+  sum_losses = []
 
 if __name__ == "__main__":
+
   B=8
   P=5
   S=3
