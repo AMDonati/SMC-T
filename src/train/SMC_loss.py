@@ -15,8 +15,11 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
   '''
   # get the reparametrised gaussian noise for each layer for the decoder
   # get the list of layers
+
   loss_by_layer = []
   list_sigma = []
+
+  # loop over number of layers
   for stddev, sigma in zip(list_stddev, list_sigmas):
     # loop over the word sequence
     seq_length = tf.shape(real)[-1]
@@ -31,19 +34,13 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
 
       # inv(covariance matrix) * stddev
       temp = tf.tensordot(sigma_inv, stddev_t, axes=[0, 2]) # dim (D,B,P)
+
       # reshape temp (D,B,P) to (B, D, P)
       temp = tf.transpose(temp, perm=[1, 0, 2])
       # idem for stddev_t (B,P,D) to (B,D,P)
       stddev_t = tf.transpose(stddev_t, perm=[0, 2, 1])
 
-      # transpose(stddev)*(inv(covariance matrix) * stddev))
-      #SMC_loss_element_2 = tf.linalg.matmul(stddev_t, temp, transpose_a=True)  # shape (B,P,P)
-
       SMC_loss_element_2=tf.reduce_sum(tf.multiply(stddev_t,temp), axis=1)
-
-      # or tf.tensordot(tf.linalg.matrix_transpose(stddev_t),temp, axis=[2,1])
-      #SMC_loss_element_2 = tf.reduce_mean(SMC_loss_element_2, axis=-1)  # trick to have the right shape (B,P)
-      # do a loop over particles instead?
 
       # store the loss for each timestep
       loss_by_layer_timestep.append(SMC_loss_element_2)
@@ -54,9 +51,7 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
 
   # sum over the timestep: sum(0:j for j=1...seq_length)
   sum_losses = []
-  #if len(tf.shape(real)) == 2:
-    #real = tf.tile(tf.expand_dims(real, axis=-1), multiples=[1, 1, num_particles])
-  #real = tf.transpose(real, perm=[0, 2, 1])
+
   for layer_loss in loss_by_layer:
     # stack all loss_by_layer_timestep
     temp_layer = tf.stack(layer_loss, axis=-1)  # dim (B,P,S) >> TO CHECK
@@ -72,11 +67,10 @@ def compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
 
 
   # take the average of the sigma per layer for the 'global' sigma
-  sigma_all_layers = tf.stack(list_sigma, axis=0)  # add a tf.stop_gradient on it?
+  sigma_all_layers = tf.stack(list_sigma, axis=0)
 
   # add the log det (2pi*sigma)
   SMC_loss+=tf.reduce_sum(tf.linalg.logdet(2*math.pi*sigma_all_layers), axis=0) # 2math.pi can be removed...
-  #SMC_loss += tf.math.log(tf.math.scalar_mul(2 * math.pi, tf.linalg.det(sigma_all_layers)))  # dim (B,P) # use tf.linalg.detlog instead
 
   # multiply the loss by -1/2
   SMC_loss=tf.math.scalar_mul(-1/2, SMC_loss)

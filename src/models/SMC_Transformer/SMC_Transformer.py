@@ -262,7 +262,7 @@ class SMC_Transformer(tf.keras.Model):
         -real: targets > tensor of shape (B,P,S)
         sampling_weights: tensor of shape (B,P) > final resampling_weights for the last decoding timestep
     '''
-
+    #TODO implement the case of one-layer.
     # get the reparametrised gaussian noise for each layer for the decoder
     list_stddev = self.encoder.list_stddev
     # get the list of layers
