@@ -2,9 +2,11 @@
 
 **README in construction**
 
-### TO DO (remaining implementation): 
-* regression case: computation of weights + mean square error. 
+### TO DO (remaining implementation by order of priority): 
+* finalize SMC_loss for the one-layer case.
+* implement the multivariate case. 
 * computation of attention weights
+* regression case: computation of weights + mean square error. 
 * inference function (to see with Sylvain). 
 
 ### Download
