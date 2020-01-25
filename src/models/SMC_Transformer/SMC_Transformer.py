@@ -150,7 +150,7 @@ class SMC_Transformer(tf.keras.Model):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, num_particles, seq_len, sigma, noise, data_type, task_type,
+               target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type,
                rate=0.1, maximum_position_encoding=None):
     super(SMC_Transformer, self).__init__()
 
@@ -164,7 +164,7 @@ class SMC_Transformer(tf.keras.Model):
                              maximum_position_encoding=maximum_position_encoding,
                              num_particles=num_particles,
                              sigma=sigma,
-                             noise=noise,
+                             noise=noise_encoder,
                              rate=rate,
                              data_type=data_type)
     elif num_layers==1:
@@ -184,7 +184,7 @@ class SMC_Transformer(tf.keras.Model):
                                 num_layers=num_layers,
                                 num_heads=num_heads,
                                 sigma=sigma,
-                                noise=noise)  # put here the Transformer cell.
+                                noise=noise_SMC_layer)  # put here the Transformer cell.
 
     self.final_layer = self.cell.output_layer
 
@@ -198,7 +198,8 @@ class SMC_Transformer(tf.keras.Model):
     self.data_type=data_type
     self.task_type=task_type
     self.sigma=sigma
-    self.noise=noise
+    self.noise_encoder=noise_encoder
+    self.noise_SMC_layer=noise_SMC_layer
     self.maximum_position_encoding = maximum_position_encoding
 
     self.initialize = False
@@ -412,7 +413,7 @@ if __name__ == "__main__":
   seq_len=10
   b=8
   F=1
-  num_layers=1
+  num_layers=2
   d_model=64
   num_heads=2
   dff=128
@@ -421,7 +422,8 @@ if __name__ == "__main__":
   data_type='time_series'
   task_type='classification'
   C=12 # vocabulary size or number of classes.
-  noise=False
+  noise_encoder=False
+  noise_SMC_layer=False
 
   ###----------Test of Encoder class-----------------------------------------------------------------------------------
 
@@ -435,7 +437,7 @@ if __name__ == "__main__":
                            maximum_position_encoding=maximum_position_encoding,
                            num_particles=num_particles,
                     sigma=sigma,
-                    noise=noise,
+                    noise=noise_encoder,
                     data_type=data_type)
 
   r=encoder(inputs=x, training=False, mask=None)
@@ -452,7 +454,8 @@ if __name__ == "__main__":
     num_particles=num_particles,
   seq_len=seq_len,
   sigma=sigma,
-  noise=noise,
+  noise_encoder=noise_encoder,
+  noise_SMC_layer=noise_SMC_layer,
   data_type=data_type,
   task_type=task_type)
 

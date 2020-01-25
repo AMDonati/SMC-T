@@ -45,8 +45,8 @@ data_type = 'time_series'
 task_type = 'classification'
 seq_len=9
 sigma=1
-noise=False
-
+noise_encoder=False
+noise_SMC_layer=False
 #----DEFINE THE MODELS---------------------------------------------------------------------------------------------------------------------------------------------------------------
 # SMC_Transformer
 smc_transformer = SMC_Transformer(num_layers=num_layers,
@@ -57,7 +57,8 @@ smc_transformer = SMC_Transformer(num_layers=num_layers,
                         maximum_position_encoding=maximum_position_encoding,
                         num_particles=num_particles,
                         sigma=sigma,
-                        noise=noise,
+                        noise_encoder=noise_encoder,
+                        noise_SMC_layer=noise_SMC_layer,
                         seq_len=seq_len,
                         data_type=data_type,
                         task_type=task_type)
@@ -201,7 +202,8 @@ if __name__ == "__main__":
                         maximum_position_encoding=maximum_position_encoding,
                         num_particles=num_particles,
                         sigma=sigma,
-                        noise=noise,
+                        noise_encoder=noise_encoder,
+                        noise_SMC_layer=noise_SMC_layer,
                         seq_len=seq_len,
                         data_type=data_type,
                         task_type=task_type)

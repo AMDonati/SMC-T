@@ -123,8 +123,7 @@ def loss_function_classification(real, predictions, weights, transformer, classi
   else:
     loss_ce = 0
   if SMC_loss:
-    loss_smc = -transformer.compute_SMC_log_likelihood(real=real,
-                                                       sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
+    loss_smc = -transformer.compute_SMC_log_likelihood(sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
   else:
     loss_smc = 0
   loss = loss_ce + loss_smc
@@ -146,8 +145,7 @@ def loss_function_binary(real, predictions, weights, transformer, classic_loss=T
   else:
     loss_ce = 0
   if SMC_loss:
-    loss_smc = -transformer.compute_SMC_log_likelihood(real=real,
-                                                       sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
+    loss_smc = -transformer.compute_SMC_log_likelihood(real=real, sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
   else:
     loss_smc = 0
   loss = loss_ce + loss_smc

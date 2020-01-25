@@ -246,7 +246,8 @@ if __name__ == "__main__":
     num_particles=num_particles,
   seq_len=seq_len,
   sigma=sigma,
-  noise=noise,
+  noise_encoder=noise,
+  noise_SMC_layer=noise,
   data_type=data_type,
   task_type=task_type)
 

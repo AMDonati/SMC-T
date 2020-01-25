@@ -15,8 +15,10 @@ def compute_SMC_ll_one_layer(epsilon, sigma):
   '''
 
   epsilon = tf.transpose(epsilon, perm=[0, 3, 1, 2]) # shape (B,D,P,S)
-  ll_one_layer = tf.reduce_sum(tf.multiply(epsilon, epsilon), axis=1) + tf.linalg.logdet(2*math.pi*sigma)
-
+  # to debug:
+  epsilon_part= tf.reduce_sum(tf.multiply(epsilon, epsilon), axis=1)
+  det_part=tf.linalg.logdet(sigma) # 2*math.pi removed for easier debugging.
+  ll_one_layer = det_part + epsilon_part
   return ll_one_layer # (B,P,S)
 
 def compute_SMC_log_likelihood(list_epsilon, list_sigma, sampling_weights):
@@ -57,12 +59,23 @@ if __name__ == "__main__":
   S=3
   L=4
   D=12
-
   sigma_scalar=1
 
-  list_epsilon=[tf.random.normal(shape=(B,P,S,D)) for _ in range(L)]
-  sigma_tensor=tf.constant(sigma_scalar, shape=(D,), dtype=tf.float32)
-  sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32) # (D,D)
+  #--------------------------test of compute_ll_one_layer---------------------------------------------------
+  sigma_tensor = tf.constant(sigma_scalar, shape=(D,), dtype=tf.float32)
+  sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
+
+  # test for epsilon = zeros tensor
+  epsilon = tf.zeros(shape=(B, P, S, D))
+  SMC_loss_tensor=compute_SMC_ll_one_layer(epsilon=epsilon, sigma=sigma) # ok, test passed. return a zero tensor :-) when sigma=1 &
+  #epsilon is a zero tensor.
+
+  #--------------------------test of compute_log_likelihood------------------------------------------------
+
+  #list_epsilon=[tf.random.normal(shape=(B,P,S,D)) for _ in range(L)]
+
+  # test with all epsilon as zero tensor...
+  list_epsilon=[tf.zeros(shape=(B,P,S,D)) for _ in range(L)]
   list_sigma=[sigma for _ in range(L)]
 
   sampling_weights=tf.random.uniform(shape=(B,P,1))
@@ -71,4 +84,4 @@ if __name__ == "__main__":
 
   SMC_loss=compute_SMC_log_likelihood(list_epsilon=list_epsilon, list_sigma=list_sigma, sampling_weights=sampling_weights)
 
-  print(SMC_loss)
+  print(SMC_loss.numpy()) # ok, test passed. return 0 when sigma is the identity matrix and epsilon is a zero tensor.
