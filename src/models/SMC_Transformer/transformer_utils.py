@@ -156,7 +156,9 @@ def initialize_indices_matrix(batch_size, seq_length, num_particles):
   return ind_matrix  # tf.stop_gradient(ind_matrix)?
 
 
+
 def compute_direct_update_cov_matrix(self):
+    '''THIS FUNCTION WONT BE USED....'''
     '''
     for each layer, update the sigma of the reparametrized noise with the optimal sigma of the current training step.
     '''
@@ -190,76 +192,6 @@ def compute_direct_update_cov_matrix(self):
       self.decoder.dec_layers[l].mha1.sigma = sigma_optimal_l  # to check with Florian and to change with new
 
     return list_upd_sigmas
-
-# ### OLD VERSION NOT WORKING....
-# def resample(ind_matrix, attn_parameter):
-#   '''
-#   -Args:
-#     -ind_matrix: tensor storing the particle indices @ each timestep > shape (B,P,S)
-#     -attn_parameter: K,V, or Z: shape (B,P,S,D)
-#   -Return:
-#     -the attn parameter resampled > shape (B,P,S,D)
-#   '''
-#   attn_all_p = []
-#   for p in range(tf.shape(ind_matrix)[1]):
-#     ind_matrix_p = ind_matrix[:, p, :]
-#     attn_p = attn_parameter[:, p, :, :]
-#     attn_p_resampl = tf.gather(attn_p, ind_matrix_p, axis=1, batch_dims=1)
-#     attn_all_p.append(attn_p_resampl)
-#   attn_resampl = tf.stack(attn_all_p, axis=1)
-#
-#   return attn_resampl
-#
-# def resample_v2(ind_matrix, attn_parameter):
-#     '''
-#     -Args:
-#         -ind_matrix: tensor storing the particle indices @ each timestep > shape (B,P,S)
-#         -attn_parameter: K,V, or Z: shape (B,P,S,D)
-#     -Return:
-#           -the attn parameter resampled > shape (B,P,S,D)
-#     '''
-#     attn_all_p = []
-#     for p in range(tf.shape(ind_matrix)[1]):
-#       ind_matrix_p = ind_matrix[:, p, :]
-#       attn_p = attn_parameter[:, p, :, :]
-#       attn_p_all_t = []
-#       for t in range(tf.shape(ind_matrix)[2]):
-#         ind_matrix_p_t = ind_matrix_p[:, t]  # (B,)
-#         attn_p_t = attn_p[:, t, :]  # (B,D)
-#         attn_p_t_resampl = tf.gather(attn_p_t, ind_matrix_p_t, axis=1)  # (B,D)
-#         attn_p_all_t.append(attn_p_t_resampl)
-#       # attn_p_resampl=tf.gather(attn_p, ind_matrix_p, axis=1, batch_dims=1)
-#       attn_p_all_t = tf.stack(attn_p_all_t, axis=1)
-#       attn_all_p.append(attn_p_all_t)
-#     attn_resampl = tf.stack(attn_all_p, axis=1)
-#     # attn_resampl=tf.concat([tf.expand_dims(attn_parameter[:,:,0,:], axis=2), attn_resampl], axis=2)
-#     return attn_resampl
-#
-# def resample_v3(ind_matrix, attn_parameter):
-#   '''
-#     -Args:
-#     -ind_matrix: tensor storing the particle indices @ each timestep > shape (B,P,S)
-#     -attn_parameter: K,V, or Z: shape (B,P,S,D)
-#     -Return:
-#     -the attn parameter resampled > shape (B,P,S,D)
-#     '''
-#   attn_all_p = []
-#   ind_matrix = ind_matrix[:, :, 1:]
-#   for p in range(tf.shape(ind_matrix)[1]):
-#     ind_matrix_p = ind_matrix[:, p, :]  # dim (B, S-1)
-#     attn_p = attn_parameter[:, p, :, :]  # dim (B,P, S, D)
-#     attn_p_resampl = tf.gather(attn_p, ind_matrix_p, axis=1, batch_dims=1)
-#     attn_all_p.append(attn_p_resampl)
-#   attn_resampl = tf.stack(attn_all_p, axis=1)  # dim (B, P, S-1, D)
-#   attn_resampl = tf.concat([tf.expand_dims(attn_parameter[:, :, 0, :], axis=2), attn_resampl], axis=2)
-#
-#   return attn_resampl
-#
-# #def initialize_covariance_matrix(dim):
-#   #spectrum=tf.Variable(tf.random.uniform(minval=0,shape=(int(dim/2), int(dim/2))))
-#   #covariance_matrix=tf.linalg.LinearOperatorCirculant2D(spectrum, is_positive_definite=True, input_output_dtype=tf.float32)
-#
-#   #return covariance_matrix.to_dense()
 
 if __name__ == "__main__":
   #mask=create_look_ahead_mask_v2(3)
