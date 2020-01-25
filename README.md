@@ -3,10 +3,10 @@
 **README in construction**
 
 ### TO DO (remaining implementation by order of priority): 
-* finalize SMC_loss for the one-layer case.
+* finalize SMC_loss for the one-layer case > ok done & tested on the simple case of sigma=identity matrix & epsilon=zero tensor.
 * implement the multivariate case. 
-* computation of attention weights
-* regression case: computation of weights + mean square error. 
+* computation of attention weights > ok done.
+* regression case: computation of weights + mean square error > ok done for simple case of omega (stddev of the gaussian distrbution) is equal to one (no customized loss implemented yet).
 * inference function (to see with Sylvain). 
 
 ### Download
