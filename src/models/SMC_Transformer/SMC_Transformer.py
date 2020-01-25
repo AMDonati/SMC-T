@@ -10,6 +10,7 @@ from models.SMC_Transformer.transformer_utils import initialize_indices_matrix
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 from train.SMC_loss import compute_SMC_log_likelihood
+from train.SMC_loss import compute_SMC_ll_one_layer
 import collections
 
 # for the sequential process in the Transformer class:
@@ -201,6 +202,7 @@ class SMC_Transformer(tf.keras.Model):
     self.maximum_position_encoding = maximum_position_encoding
 
     self.initialize = False
+    self.pass_forward=False
 
   def preprocess_words(self, x, dec_timestep, training):
     #TODO: it seems that this is a redundant process... to remove?
@@ -256,21 +258,53 @@ class SMC_Transformer(tf.keras.Model):
 
     return (K, V), initial_weights, ind_matrix_init
 
-  def compute_SMC_log_likelihood(self, real, sampling_weights):
+  def compute_SMC_log_likelihood(self, sampling_weights):
     '''
       -Args:
         -real: targets > tensor of shape (B,P,S)
         sampling_weights: tensor of shape (B,P) > final resampling_weights for the last decoding timestep
     '''
-    #TODO implement the case of one-layer.
-    # get the reparametrised gaussian noise for each layer for the decoder
-    list_stddev = self.encoder.list_stddev
-    # get the list of layers
-    list_layers = self.encoder.dec_layers
-    # get the list of sigmas from the list of layers
-    list_sigmas = [l.mha1.sigma for l in list_layers]
+    # check that the pass forward has been done when calling this function.
+    assert self.pass_forward is True
 
-    SMC_loss = compute_SMC_log_likelihood(real, sampling_weights, list_stddev, list_sigmas)
+    # multi-layer case.
+    if self.num_layers > 1:
+
+      # get epsilon for each layer for the Encoder
+      list_epsilon = self.encoder.list_stddev
+      # add the one from the last layer
+      list_epsilon.append(self.epsilon_seq_last_layer)
+      # get the list of sigmas from the list of the Encoder's layer
+      list_layers=self.encoder.dec_layers
+      list_sigma = [l.mha1.sigma for l in list_layers]
+      # append the sigma of the last SMC layer.
+      sigma_last_layer=self.cell.mha_smc.sigma
+      list_sigma.append(sigma_last_layer)
+
+      SMC_loss= compute_SMC_log_likelihood(list_epsilon=list_epsilon,
+                                          list_sigma=list_sigma,
+                                          sampling_weights=sampling_weights)
+
+    # one-layer case.
+    elif self.num_layers==1:
+
+      sigma=self.cell.mha_smc.sigma
+      epsilon=self.epsilon_seq_last_layer
+
+      SMC_loss_tensor=compute_SMC_ll_one_layer(epsilon=epsilon, sigma=sigma)
+      # multiply by -1/2 to get the right formula.
+      SMC_loss_tensor=tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
+
+      # mean over seq dim.
+      SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
+
+      # weighted sum over particles dim using sampling_weights:
+      if len(tf.shape(sampling_weights)) == 3:
+        sampling_weights = tf.squeeze(sampling_weights, axis=-1)
+      SMC_loss = tf.reduce_sum(sampling_weights * SMC_loss, axis=-1)  # dim (B,)
+
+      # mean over batch dim.
+      SMC_loss=tf.reduce_mean(SMC_loss, axis=-1)
 
     return SMC_loss
 
@@ -366,8 +400,10 @@ class SMC_Transformer(tf.keras.Model):
     Z0_T=tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
     Epsilon0_T=tf.transpose(Epsilon0_T, perm=[0,2,1,3]) # shape (B,P,S,D)
-    # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss. 
+    # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.epsilon_seq_last_layer = Epsilon0_T
+
+    self.pass_forward=True
 
     return Y0_T, Z0_T, w_T
 
@@ -429,3 +465,8 @@ if __name__ == "__main__":
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
+
+  #### test of compute_SMC_log_likelihood function-------------------------------------------------------------------------
+
+  SMC_loss=sample_transformer.compute_SMC_log_likelihood(sampling_weights=weights)
+  print('SMC_loss', SMC_loss.numpy())
