@@ -40,12 +40,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # store the decoding timestep
     self.dec_timestep = 0
-    self.mha1 = MultiHeadAttention_SMC(d_model=d_model,
-                                       num_heads=num_heads,
-                                       num_particles=num_particles,
-                                       dec_timestep=self.dec_timestep,
-                                       sigma=sigma,
-                                       noise=noise)
+    self.mha_smc = MultiHeadAttention_SMC(d_model=d_model,
+                                          num_heads=num_heads,
+                                          num_particles=num_particles,
+                                          dec_timestep=self.dec_timestep,
+                                          sigma=sigma,
+                                          noise=noise)
     self.ffn = point_wise_feed_forward_network(d_model, dff)
     self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
     self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -72,22 +72,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # output layer for computing the weights
     self.output_layer = tf.keras.layers.Dense(target_vocab_size)
 
+    #------------- state_size and output_size of the SMC Cell (without the batch dimension)-----------------------------------------
+
     # internal states: K,V,w,I.
-    # add the batch_size in the shapes?
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   w=tf.TensorShape([self.num_particles, 1]),
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
-    # outputs: z, r (output of the last SMC layer) before softmax.
+    # outputs: z, r, epsilon (output of the last SMC layer) before softmax.
     self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
+                        tf.TensorShape([self.num_particles, 1, self.d_model]),
                         tf.TensorShape([self.num_particles, 1, self.d_model]))
 
     self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model)
     if self.maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(self.maximum_position_encoding, self.d_model)
       self.pos_encoding_SMC = positional_encoding_SMC(self.maximum_position_encoding, self.d_model, self.num_particles)
-    # to remove?
     self.dropout = tf.keras.layers.Dropout(self.rate)
 
     super(SMC_Transf_Cell, self).__init__(**kwargs)
@@ -128,8 +129,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # resampling of (K,V) to compute the new set of (z,K,V)
     if self.resampling:
-      # print('resampling trajectories for timestep {}'.format(self.dec_timestep))
-      # z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D). use a different resample function for z.
       K = resample(K, I)
       V = resample(V, I)
 
@@ -139,13 +138,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                   range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     if self.dec_timestep < self.seq_len:
       # store (K,V) only in that case.
-      (z, K, V) = self.mha1(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+      (z, K, V) = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
     else:
       # otherwise K,V is not updated.
-      (z, KK, VV) = self.mha1(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+      (z, KK, VV) = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
-    # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
-    # demander à Florian s'il faut changer l'ordre des layernorm/FFN.
+    #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     r = tf.expand_dims(r, axis=2)
@@ -159,6 +157,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1)
     predictions = self.output_layer(out3)  # (batch_size, NUM_PARTICLES, target_vocab_size)
+
+    # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     def compute_w_classification(predictions):
       w = tf.gather(predictions, x, axis=-1, batch_dims=1)
@@ -189,6 +189,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     elif self.task_type == 'regression':
       w_squeezed = compute_w_regression(batch_size, self.num_particles)
 
+    #-----------------end of weights computation--------------------------------------------------------------------
+
     # update the genealogy indices matrix from the weights.
     if self.dec_timestep < self.seq_len:
       # update it only T-1
@@ -196,17 +198,17 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # resample z:
     if self.resampling:
-      bool_resampl=self.dec_timestep < self.seq_len
-      if bool_resampl:
+      if self.dec_timestep < self.seq_len:
       # TODO check with Sylvain if this works for the resampling of z.
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
-    # get the output (r^^, z^l)
-    output = [out3, z]
+    # get the output (r_t^l, z_t^l, epsilon_t^l)
+    #TODO: add to this output the stddev from the mha class.
+    epsilon=self.mha_smc.stddev
+    output = [out3, z, epsilon]
     w = tf.expand_dims(w_squeezed, axis=-1)
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
-    #('cell computation done for timestep {}'.format(self.dec_timestep))
     self.dec_timestep += 1
 
     return output, new_states
@@ -259,8 +261,6 @@ if __name__ == "__main__":
   def step_function(inputs, states):
     return cell.call(inputs, states)
 
-  # rnn=tf.keras.layers.RNN(cell)
-
   r = tf.random.uniform(
     shape=(batch_size, seq_len, num_particles, d_model))  # the dim 1 needs to be added. trick with nested inputs.
   x = tf.ones(shape=(batch_size, seq_len, 1)) # x needs to have at least of length of shape equal to 3.
@@ -271,11 +271,6 @@ if __name__ == "__main__":
                                                           inputs=inputs,
                                                           initial_states=initial_state)
 
-  # outputs=rnn(NestedInput(r=r, y=y))
-  # y=outputs[0] # shape (B,1,P,1,D) # to squeeze to remove second dimension.
-  # z=outputs[1] # # shape (B,1,P,1,D) # to squeeze to remove second dimension
-  # see how to get all sequence and complete internal state.
-
   cell_output = last_output[0]
   last_z = last_output[1]
   K = new_states[0]
@@ -285,15 +280,14 @@ if __name__ == "__main__":
 
   output_seq = outputs[0]
   z_seq = outputs[1]
+  epsilon_seq=outputs[2]
 
   print('r_T', cell_output.shape)  # (B,P,1,D) # should be dff?
   print('z_T', last_z.shape)  # shape (B,P,1,D)
-  print('r0_T', output_seq.shape)  # shape (B,1,P,1,D) > should be shape (B,S,P,D) instead
-  print('z_0_T', z_seq.shape)  # idem
+  print('r0_T', output_seq.shape)  # shape (B,S,P,1,D) > should be shape (B,S,P,D) instead
+  print('z_0_T', z_seq.shape)  # shape (B,S,P,1,D)
+  print('Epsilon_0_T', epsilon_seq.shape)  # shape (B,S,P,1,D)
   print('w_T', w.shape)  # shape (B,P,1)
   print('K', K.shape)  # shape (B,P,S,D)
   print('I', I.shape)  # shape (B,P,S)
 
-  # print('output', last_output)
-
-# rnn = tf.keras.layers.RNN(cell)

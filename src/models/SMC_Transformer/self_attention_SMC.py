@@ -167,7 +167,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     #compute the $\epsilon$ of the reparametrized noise.
     if self.noise:
-      self.stddev = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev')
+      self.stddev = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev') # shape (B,P,1,D)
     else:
       self.stddev=tf.zeros(shape=tf.shape(z), dtype=tf.float32)
 

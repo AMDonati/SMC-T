@@ -349,8 +349,10 @@ class SMC_Transformer(tf.keras.Model):
 
     r_T=last_output[0]
     z_T=last_output[1]
-    r0_T=outputs[0]
-    Z0_T=outputs[1]
+    r0_T=outputs[0] # shape (B,S,P,D)
+    Z0_T=outputs[1] # shape (B,S,P,D)
+    Epsilon0_T=outputs[2] # shape (B,S,P,D)
+
 
     K=new_states[0]
     V=new_states[1]
@@ -359,8 +361,13 @@ class SMC_Transformer(tf.keras.Model):
 
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss.
     Y0_T=tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
+
     w_T=tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T=tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
+
+    Epsilon0_T=tf.transpose(Epsilon0_T, perm=[0,2,1,3]) # shape (B,P,S,D)
+    # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss. 
+    self.epsilon_seq_last_layer = Epsilon0_T
 
     return Y0_T, Z0_T, w_T
 
