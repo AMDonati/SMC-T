@@ -117,7 +117,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    #print('cell timestep', self.dec_timestep)
+    print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
@@ -204,8 +204,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # get the output (r_t^l, z_t^l, epsilon_t^l)
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
-    output = [out3, z, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
-    w = tf.expand_dims(w_squeezed, axis=-1)
+    output = [out3, z, epsilon, attn_weights]# attn_weights > shape (B,P,H,1,D)
+    if len(tf.shape(w_squeezed))==2:
+      w = tf.expand_dims(w_squeezed, axis=-1)
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
     self.dec_timestep += 1
@@ -220,7 +221,7 @@ if __name__ == "__main__":
   d_model = 64
   num_heads = 8
   dff = 32
-  target_vocab_size = 50
+  target_vocab_size = 1
   maximum_position_encoding = None
   num_particles = 10
   seq_len = 4
@@ -228,7 +229,7 @@ if __name__ == "__main__":
   sigma=1
   noise=False
   data_type='time_series'
-  task_type='classification'
+  task_type='regression'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
