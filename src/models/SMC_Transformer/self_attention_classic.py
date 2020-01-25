@@ -35,7 +35,7 @@ def self_attention_classic(Q, K, V, mask):
   output = tf.matmul(attention_weights, V)  # (B,P,H,S,D)
 
   #TODO: return attention_weights
-  return output
+  return output, attention_weights
 
 ## ------ Multi-head attention CLASS------------------------------------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
     V = self.split_heads(V, batch_size)  # (B,P,H,S,D/H)
 
     #TODO: add a mask for the time-window considered.
-    scaled_attention= self_attention_classic(Q, K, V, mask) # (B,P,H,S,D/H)
+    scaled_attention, attention_weights= self_attention_classic(Q, K, V, mask) # (B,P,H,S,D/H)
 
     # concat attention, K, V over all the heads
     concat_attention = self.concat_heads(scaled_attention) # shape (B,P,S,D)
@@ -158,7 +158,7 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
     Z = self.dense(concat_attention) + stddev
 
     #TODO: return attention_weights as well.
-    return (Z, K, V)  # attention_weights
+    return (Z, K, V), attention_weights  # attention_weights
 
 if __name__ == "__main__":
   B=64
@@ -175,7 +175,7 @@ if __name__ == "__main__":
   V = tf.random.uniform(shape=(B, P, H, S, D))
 
   # TODO: check that if self.sigma_scalar=0, self.stddev is null.
-  output = self_attention_classic(X, X, X, mask=None)
+  output, attention_weights = self_attention_classic(X, X, X, mask=None)
   print('temp_out', output.shape)
 
   # ----------------------test of MultiHeadAttention classic----------------------------------------------------
@@ -183,18 +183,9 @@ if __name__ == "__main__":
   temp_mha = MultiHeadAttention_classic(d_model=D, num_heads=H, num_particles=10, sigma=1, noise=noise)
   X_mha = tf.ones(shape=(B, P, S, D), dtype=tf.float32)
   inputs_mha=[X_mha for _ in range(3)]
-  (Z, K, V) = temp_mha(inputs=inputs_mha, mask=None)
+  (Z, K, V), attention_weights = temp_mha(inputs=inputs_mha, mask=None)
   print('Z', Z.shape)
   print('K', K.shape)
   print('V', V.shape)
+  print('attention_weights', attention_weights.shape)
 
-#--------old code snippets--
-# to remove.
-# if K is not None:
-# K = self.split_heads(K, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, seq_len_k, depth)
-# if V is not None:
-# V = self.split_heads(V, batch_size)  # (batch_size, NUM_PARTICLES, num_heads, seq_len_v, depth)
-
-# useless - to remove.
-# if Z is not None:
-# Z = self.split_heads(Z, batch_size)

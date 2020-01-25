@@ -112,7 +112,7 @@ class Encoder(tf.keras.layers.Layer):
     '''
 
     self.list_stddev = []
-    #attention_weights = {}
+    attention_weights = {}
 
     # do the pre_processing step for the input data.
     if len(tf.shape(inputs))<4:
@@ -126,10 +126,11 @@ class Encoder(tf.keras.layers.Layer):
 
     for i in range(self.num_layers):
       #TODO: add the attention_weights
-      inputs, stddev = self.dec_layers[i](inputs=inputs, training=training, look_ahead_mask=mask)
+      inputs, stddev, attn_weights = self.dec_layers[i](inputs=inputs, training=training, look_ahead_mask=mask)
       self.list_stddev.append(stddev)
-      #attention_weights['decoder_layer{}'.format(i + 1)] = block
-    return inputs
+      attention_weights['encoder_layer{}'.format(i + 1)] = attn_weights
+
+    return inputs, attention_weights
 
 
 """## Create the Transformer"""
@@ -364,7 +365,7 @@ class SMC_Transformer(tf.keras.Model):
 
     # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
     if self.num_layers > 1:
-      r = self.encoder(inputs=input_tensor_processed,
+      r, attn_weights_enc = self.encoder(inputs=input_tensor_processed,
                        training=training,
                        mask=mask)  # shape (B,P,S,D)
       r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.

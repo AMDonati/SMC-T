@@ -15,33 +15,28 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
     K: key shape == (..., num_particles, seq_len_k, depth)
     V: value shape == (..., num_particles, seq_len_v, depth_v)
   Returns:
-    output (new Z), attention_weights, K, V
+    output (new Z), K, V, attention_weights
   """
-
-  # FOR SMC: SHAPE OF Q (..., NUM_PARTICLES, seq_len_q, depth)
-  # SHAPE OF K (..., NUM_PARTICLES, seq_len_k, depth)
-  # SHAPE OF V (..., NUM_PARTICLES, seq_len_v, depth_v)
-
   # FOR SMC: K[l]=K0:k[l], V[l]=v0:k[l], q[l]=q[Il]
   if K is not None:
     # compute K(0:k) from K(0:k-1) & k
     # dim of K in the case of multi-head attention: (batch_size, num_particles, num_heads, seq_length, Depth)
     if K.shape[3] == dec_timestep:
-      K = tf.concat([K[:, :, :, :dec_timestep, :], k], axis=3)
+      K = tf.concat([K[:, :, :, :dec_timestep-1, :], k], axis=3)
     elif dec_timestep == 0:
       K = tf.concat([k, K[:, :, :, dec_timestep + 1:, :]], axis=3)
     else:
-      K = tf.concat([K[:, :, :, :dec_timestep, :], k, K[:, :, :, dec_timestep + 1:, :]], axis=3)
+      K = tf.concat([K[:, :, :, :dec_timestep, :], k, K[:, :, :, dec_timestep+1:, :]], axis=3)
   else:
     K = k
   if V is not None:
     # compute the V(0:k) with V(0:k-1) & v
     if dec_timestep == 0:
-      V = tf.concat([v, V[:, :, :, dec_timestep + 1:, :]], axis=3)
+      V = tf.concat([v, V[:, :, :, dec_timestep+1:, :]], axis=3)
     elif V.shape[3] == dec_timestep:
-      V = tf.concat([V[:, :, :, :dec_timestep, :], v], axis=3)
+      V = tf.concat([V[:, :, :, :dec_timestep-1, :], v], axis=3)
     else:
-      V = tf.concat([V[:, :, :, :dec_timestep, :], v, V[:, :, :, dec_timestep + 1:, :]], axis=3)
+      V = tf.concat([V[:, :, :, :dec_timestep, :], v, V[:, :, :, dec_timestep+1:, :]], axis=3)
   else:
     V = v
 
@@ -53,11 +48,11 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
   scaled_attention_logits = matmul_qk / tf.math.sqrt(dk) # (B,P,H,1,S)
 
   # softmax to get pi:
-  attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., num_particles, 1, seq_len_k)
+  attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (B, P, 1, S)
 
   z = tf.matmul(attention_weights, V) #(B,P,H,1,D)
 
-  return (z, K, V)  # attention_weights
+  return (z, K, V), attention_weights
 
 ## ------'SMC' Multi-head attention class------------------------------------------------------------------
 
@@ -140,7 +135,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       V = self.split_heads(V, batch_size)  # (B,P,H,S,D/H)
 
     # compute self_attention for every head:
-    (z, K, V) = self_attention_SMC(q, k, v, timestep, K, V) # z (B,P,H,1,D/H), (K,V): (B,P,H,S,D/H)
+    (z, K, V), attn_weights = self_attention_SMC(q, k, v, timestep, K, V) # z (B,P,H,1,D/H), (K,V): (B,P,H,S,D/H)
 
     # concat attention, K, V over all the heads
     z = self.concat_heads(z) # shape (B,P,1,D)
@@ -178,15 +173,15 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     z = self.dense(z) + stddev
 
-    return (z, K, V) # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
+    return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
 if __name__ == "__main__":
   B=64
   num_particles=10
   num_heads=8
-  S=50
+  S=20
   d_model=512
-  dec_timestep=0
+  dec_timestep=20
   sigma=1
   noise=False
 
@@ -194,7 +189,7 @@ if __name__ == "__main__":
   K = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
   V = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
 
-  (temp_out, temp_K, temp_V) = self_attention_SMC(x, x, x, dec_timestep, K, V)
+  (temp_out, temp_K, temp_V), attn_weights = self_attention_SMC(x, x, x, dec_timestep, K, V)
   print('temp_out', temp_out.shape)
   print('temp_K', temp_K.shape)
   print('temp_V', temp_V.shape)
@@ -214,8 +209,9 @@ if __name__ == "__main__":
   inputs_mha = [X_mha for _ in range(3)]
   K = tf.random.uniform(shape=(B, num_particles, S, d_model))
   V = tf.random.uniform(shape=(B, num_particles, S, d_model))
-  z,K,V=temp_mha(inputs=inputs_mha, timestep=dec_timestep, K=K, V=V)
+  (z,K,V), attn_weights=temp_mha(inputs=inputs_mha, timestep=dec_timestep, K=K, V=V)
 
   print('z', z.shape)
   print('K', K.shape)
   print('V', K.shape)
+  print('attention weights', attn_weights.shape)

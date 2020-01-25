@@ -1,3 +1,5 @@
+#TODO: the cell is unroll actually one more time than the seq_len: is it normal?
+
 import tensorflow as tf
 import collections
 #import tensorflow_probability as tfp
@@ -80,10 +82,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                   w=tf.TensorShape([self.num_particles, 1]),
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
-    # outputs: z, r, epsilon (output of the last SMC layer) before softmax.
+    # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
     self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
                         tf.TensorShape([self.num_particles, 1, self.d_model]),
-                        tf.TensorShape([self.num_particles, 1, self.d_model]))
+                        tf.TensorShape([self.num_particles, 1, self.d_model]),
+                        tf.TensorShape([self.num_particles, 1, self.seq_len]))
 
     self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model)
     if self.maximum_position_encoding is not None:
@@ -113,6 +116,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
           - z: attention vector for the current word > shape (B,P,1,D)
       - states for the last time-step: tuple (K,V,w,I)
     '''
+
     #print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
@@ -136,10 +140,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                   range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     if self.dec_timestep < self.seq_len:
       # store (K,V) only in that case.
-      (z, K, V) = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+      (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
     else:
       # otherwise K,V is not updated.
-      (z, KK, VV) = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+      (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
@@ -199,9 +203,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
     # get the output (r_t^l, z_t^l, epsilon_t^l)
-    #TODO: add to this output the stddev from the mha class.
-    epsilon=self.mha_smc.stddev
-    output = [out3, z, epsilon]
+    epsilon=self.mha_smc.stddev # shape (B,P,1,D)
+    output = [out3, z, epsilon, attn_weights]
     w = tf.expand_dims(w_squeezed, axis=-1)
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
@@ -209,23 +212,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     return output, new_states
 
-
-
 if __name__ == "__main__":
+
   from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+
   batch_size = 8
   d_model = 64
   num_heads = 2
   dff = 32
-  target_vocab_size = 1
+  target_vocab_size = 50
   maximum_position_encoding = None
-  num_particles = 2
+  num_particles = 10
   seq_len = 4
   layer_num = 2
   sigma=1
   noise=False
   data_type='time_series'
-  task_type='regression'
+  task_type='classification'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
@@ -266,7 +269,7 @@ if __name__ == "__main__":
 
   inputs = NestedInput(r=r, x=x)
 
-  #TODO: solve here the shape issue for w0 with regression case.
+  #TODO: solve here the shape issue for w0 with regression case. (by looking at what's different exactly from the classification one.)
   last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                           inputs=inputs,
                                                           initial_states=initial_state)
@@ -281,12 +284,14 @@ if __name__ == "__main__":
   output_seq = outputs[0]
   z_seq = outputs[1]
   epsilon_seq=outputs[2]
+  attn_w_seq=outputs[3]
 
   print('r_T', cell_output.shape)  # (B,P,1,D) # should be dff?
   print('z_T', last_z.shape)  # shape (B,P,1,D)
   print('r0_T', output_seq.shape)  # shape (B,S,P,1,D) > should be shape (B,S,P,D) instead
   print('z_0_T', z_seq.shape)  # shape (B,S,P,1,D)
   print('Epsilon_0_T', epsilon_seq.shape)  # shape (B,S,P,1,D)
+  print('attention weights', attn_w_seq.shape) # shape (B,S,P,1,S)
   print('w_T', w.shape)  # shape (B,P,1)
   print('K', K.shape)  # shape (B,P,S,D)
   print('I', I.shape)  # shape (B,P,S)

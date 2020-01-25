@@ -57,7 +57,7 @@ class DecoderLayer(tf.keras.layers.Layer):
     inputs_mha = [inputs_float for _ in range(3)]
     # computing multi-head attention.
     #TODO: add the attention_weights in the return function of MHA.
-    (Z, K, V) = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # shape (B,P,S,D).
+    (Z, K, V), attention_weights = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # shape (B,P,S,D).
     attn1 = self.dropout1(Z, training=training)
     out1 = self.layernorm1(attn1 + inputs_float)  # TODO: Bug with multivariate
 
@@ -65,7 +65,7 @@ class DecoderLayer(tf.keras.layers.Layer):
     ffn_output = self.dropout3(ffn_output, training=training)
     out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
 
-    return out3, self.mha1.stddev  # attn_weights_block1 # shapes (B,P,S,D), (B,P,S,D).
+    return out3, self.mha1.stddev, attention_weights  # attn_weights_block1 # shapes (B,P,S,D), (B,P,S,D).
 
 
 if __name__ == "__main__":
@@ -86,13 +86,7 @@ if __name__ == "__main__":
   inputs_layer = tf.ones((64, 10, 50, 512), dtype=tf.int32)
   seq_len = tf.shape(inputs_layer)[2]
   mask = create_look_ahead_mask(seq_len)
-  sample_decoder_layer_output, stddev = sample_decoder_layer(inputs=inputs_layer, look_ahead_mask=mask, training=False)
+  sample_decoder_layer_output, stddev, attention_weights = sample_decoder_layer(inputs=inputs_layer, look_ahead_mask=mask, training=False)
   print('output of classic decoder layer', sample_decoder_layer_output.shape)  # (batch_size, target_seq_len, d_model)
 
-  d_model = 512
-  num_heads = 8
-  dff = 2048
-  target_vocab_size = 1000
-  num_particles = 5
-  max_positional_encoding = 5000
 
