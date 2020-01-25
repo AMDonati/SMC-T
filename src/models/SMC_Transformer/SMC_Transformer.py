@@ -114,8 +114,7 @@ class Encoder(tf.keras.layers.Layer):
     self.list_stddev = []
     #attention_weights = {}
 
-    # do the pre_processing step for x (for nlp task).
-    #TODO: assess if you can remove this snippet of code.
+    # do the pre_processing step for the input data.
     if len(tf.shape(inputs))<4:
       if self.data_type=='nlp':
         assert self.maximum_position_encoding is not None
@@ -126,7 +125,7 @@ class Encoder(tf.keras.layers.Layer):
         raise ValueError('data_type not supported; please choose either "nlp" or "time_series"')
 
     for i in range(self.num_layers):
-      #TODO: add the attention_weoghts
+      #TODO: add the attention_weights
       inputs, stddev = self.dec_layers[i](inputs=inputs, training=training, look_ahead_mask=mask)
       self.list_stddev.append(stddev)
       #attention_weights['decoder_layer{}'.format(i + 1)] = block
@@ -184,7 +183,8 @@ class SMC_Transformer(tf.keras.Model):
                                 num_layers=num_layers,
                                 num_heads=num_heads,
                                 sigma=sigma,
-                                noise=noise_SMC_layer)  # put here the Transformer cell.
+                                noise=noise_SMC_layer,
+                                task_type=task_type)  # put here the Transformer cell.
 
     self.final_layer = self.cell.output_layer
 
@@ -235,16 +235,30 @@ class SMC_Transformer(tf.keras.Model):
     # initialize K0, V0, Z0 (=V0)
     K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
     V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
-    Z = V  # useless here? > if we just consider zt & not Z.
+    Z = V
     # initialize w0
+    #TODO: add the FFN layers after z before taking the final layer.
     log_probas = self.final_layer(Z)  # shape (B, P, S, V)
-    # computing w0
     log_probas_initial = log_probas[:, :, 0, :]
-    initial_word_tensor = tf.expand_dims(initial_word_id, axis=-1)
-    initial_word_tensor=tf.cast(initial_word_tensor, dtype=tf.int32)
-    initial_weights = tf.gather(log_probas_initial, initial_word_tensor, axis=-1, batch_dims=1)
-    initial_weights=tf.squeeze(initial_weights, axis=-1)
+    # computing w0
+    if self.task_type=='classification':
+      initial_word_tensor = tf.expand_dims(initial_word_id, axis=-1)
+      initial_word_tensor=tf.cast(initial_word_tensor, dtype=tf.int32)
+      initial_weights = tf.gather(log_probas_initial, initial_word_tensor, axis=-1, batch_dims=1)
+      initial_weights=tf.squeeze(initial_weights, axis=-1)
+    elif self.task_type=='regression':
+      assert self.target_vocab_size==1
+      #TODO replace the tf.cast by an assert (not essential & urgent though).
+      initial_word_id=tf.cast(initial_word_id, dtype=tf.float32)
 
+      #tiling word_id to get the right shape:
+      initial_word_id=tf.expand_dims(initial_word_id, axis=1)
+      initial_word_id=tf.tile(initial_word_id, multiples=[1,self.num_particles,1]) # shape (B,P,1)
+
+      mu_0=initial_word_id-log_probas_initial # (B,P,1)
+      initial_weights=tf.random.normal(shape=tf.shape(mu_0), mean=mu_0, stddev=1) # (B,P,1)
+      #normalization
+      initial_weights=initial_weights/tf.reduce_sum(initial_weights, axis=1, keepdims=True)# (B,P,1)
 
     # call the initialization of the ancestor indices matrix
     # create an initial 'identity function' indices matrix.
@@ -254,7 +268,6 @@ class SMC_Transformer(tf.keras.Model):
                                                      ind_matrix=ind_matrix_init,
                                                      num_particles=self.num_particles,
                                                      dec_timestep=0)
-
     self.initialize = True
 
     return (K, V), initial_weights, ind_matrix_init
@@ -409,6 +422,7 @@ class SMC_Transformer(tf.keras.Model):
     return Y0_T, Z0_T, w_T
 
 if __name__ == "__main__":
+
   num_particles = 5
   seq_len=10
   b=8

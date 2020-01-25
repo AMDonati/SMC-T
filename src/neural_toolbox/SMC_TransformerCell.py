@@ -21,8 +21,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, maximum_position_encoding=None, training=True, resampling=True,
-               rate=0.1, task_type='classification', **kwargs):
+              num_layers, sigma, noise, task_type, maximum_position_encoding=None, training=True, resampling=True,
+               rate=0.1, **kwargs):
     #TODO: remove default Value for maximum_position_encoding and task_type (not urgent & essential though).
     '''
     -Args:
@@ -101,7 +101,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # put training and re-sampling as init parameters.
     '''
     -args:
-      - inputs: (r^{l-1}[0:T] > shape (B, P, S, D) , (X tiled. (X[0:T] input of the while model) > shape (B,P,S,D).
+      - inputs: (r^{l-1}[0:T] > shape (B, P, S, D) , (X tiled. (X[0:T] input of the while model) > shape (B,P,S).
       - states: tuple (K,V,w,I)
         -K: attention vector > shape (B,P,S,D)
         -V : attention vector > shape (B,P,S,D)
@@ -113,8 +113,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
           - z: attention vector for the current word > shape (B,P,1,D)
       - states for the last time-step: tuple (K,V,w,I)
     '''
-    #TODO: qdd error is y and I are not integer
-
     #print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
@@ -156,38 +154,36 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1)
-    predictions = self.output_layer(out3)  # (batch_size, NUM_PARTICLES, target_vocab_size)
+    predictions = self.output_layer(out3)  # (B,P,V)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
-    def compute_w_classification(predictions):
+    def compute_w_classification(predictions, x):
       w = tf.gather(predictions, x, axis=-1, batch_dims=1)
       w = tf.squeeze(w, axis=-1)  # shape (B,P,1)
       w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
       return w_squeezed  # shape (B,P)
 
-    # TODO: use https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.random.normal.html
-    # TODO: or https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html#scipy.stats.norm
-    def compute_w_regression(batch_size, num_particles):
-      # tfd = tfp.distributions
-      # #TODO: the 1. by a sigma which is a parameter.
-      # dist = tfd.Normal(loc=[0. for _ in range(batch_size)],
-      #                   scale=[1. for _ in range(batch_size)]) #
-      # TODO: evaluate the distribution in the diff (X_t - G_theta(z_t).
-      cdf_value = inputs - self.output_layer(z)
-      # dist.cdf(cdf_value)
-      # w = dist.sample([num_particles])  # shape (P,B)
-      # w = tf.transpose(w, perm=[1, 0])
-      # w_sum = tf.reduce_sum(w, axis=-1)
-      # w_sum = tf.expand_dims(w_sum, axis=-1)
-      # w = w / w_sum  # find the right solution to do a diff.
-      # return w # shape (B,P)
-      return 0
+    def compute_w_regression(predictions, x, omega=1):
+      #TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
+      x=tf.cast(x, dtype=tf.float32)
+      if len(tf.shape(predictions))==4:
+        predictions=tf.squeeze(predictions, axis=-1) # shape (B,P,1)
+      # expanding and tiling x over the particle dimensions to have the right shape
+      x=tf.expand_dims(x, axis=1)
+      x=tf.tile(x, multiples=[1, self.num_particles, 1]) # shape (B,P,1)
+      mu_t = x - predictions
+      w=tf.random.normal(shape=tf.shape(mu_t), mean=mu_t, stddev=omega)
+      # normalization
+      w=w/tf.reduce_sum(w, axis=1, keepdims=True)
+      return w
 
     if self.task_type == 'classification':
-      w_squeezed = compute_w_classification(predictions)
+      assert self.target_vocab_size > 1
+      w_squeezed = compute_w_classification(predictions=predictions, x=x)
     elif self.task_type == 'regression':
-      w_squeezed = compute_w_regression(batch_size, self.num_particles)
+      assert self.target_vocab_size == 1
+      w_squeezed = compute_w_regression(predictions=predictions, x=x)
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
@@ -221,7 +217,7 @@ if __name__ == "__main__":
   d_model = 64
   num_heads = 2
   dff = 32
-  target_vocab_size = 50
+  target_vocab_size = 1
   maximum_position_encoding = None
   num_particles = 2
   seq_len = 4
@@ -229,7 +225,7 @@ if __name__ == "__main__":
   sigma=1
   noise=False
   data_type='time_series'
-  task_type='classification'
+  task_type='regression'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
@@ -237,7 +233,8 @@ if __name__ == "__main__":
                          training=True,
                          resampling=True,
                          sigma=sigma,
-                         noise=noise)
+                         noise=noise,
+                         task_type=task_type)
 
   sample_transformer = SMC_Transformer(
     num_layers=layer_num, d_model=d_model, num_heads=num_heads,
@@ -253,14 +250,15 @@ if __name__ == "__main__":
 
   initial_word_tensor = tf.ones(shape=(batch_size, 1), dtype=tf.int32)
 
-  (K0, V0), w0, I0 = sample_transformer.initialize_attn_SMC_parameters(batch_size, seq_len,
-                                                                           initial_word_id=initial_word_tensor)
+  (K0, V0), w0, I0 = sample_transformer.initialize_attn_SMC_parameters(batch_size,
+                                                                       seq_len,
+                                                                      initial_word_id=initial_word_tensor)
 
   initial_state = NestedState(K=K0, V=V0, w=w0, I=I0)
 
 
   def step_function(inputs, states):
-    return cell.call(inputs, states)
+    return cell(inputs, states)
 
   r = tf.random.uniform(
     shape=(batch_size, seq_len, num_particles, d_model))  # the dim 1 needs to be added. trick with nested inputs.
@@ -268,6 +266,7 @@ if __name__ == "__main__":
 
   inputs = NestedInput(r=r, x=x)
 
+  #TODO: solve here the shape issue for w0 with regression case.
   last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                           inputs=inputs,
                                                           initial_states=initial_state)

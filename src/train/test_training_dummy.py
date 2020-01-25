@@ -215,16 +215,10 @@ if __name__ == "__main__":
     loss_smc=train_step_dummy_SMC_T(inputs=dummy_dataset,
                                     targets=None,
                                     classic_loss=True,
-                                    SMC_loss=False)
-    loss_smc_w_smc_part=train_step_dummy_SMC_T(inputs=dummy_dataset,
-                                    targets=None,
-                                    classic_loss=True,
                                     SMC_loss=True)
 
     print('epoch', epoch)
-    print('loss - SMC_Transformer - classic part', loss_smc)
-    print('loss - SMC_transformer - total loss', loss_smc_w_smc_part)
-
+    print('loss - SMC_Transformer', loss_smc)
     print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
   print('SMC Transformer model summary...', smc_transformer.summary())
@@ -233,6 +227,7 @@ if __name__ == "__main__":
 
  #-------------------------------------------TRAIN ON DUMMY DATASET - CLASSIC TRANSFORMER -------------------------------------------
   # Transformer - baseline.
+
   transformer = Transformer(num_layers=num_layers,
                             d_model=d_model,
                             num_heads=num_heads,
