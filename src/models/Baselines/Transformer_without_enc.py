@@ -221,8 +221,10 @@ if __name__ == "__main__":
   mask=create_look_ahead_mask(S)
 
 
-  fn_out, _ = sample_transformer(inputs=temp_input,
+  fn_out, attn_weights= sample_transformer(inputs=temp_input,
                                  training=False,
                                  mask=mask)
+
+  #print('attention weights', attn_weights) # shape (B,H,D,D)
 
   print('model output', fn_out.shape) # (B,S,D)

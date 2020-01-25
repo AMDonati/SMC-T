@@ -204,7 +204,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # get the output (r_t^l, z_t^l, epsilon_t^l)
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
-    output = [out3, z, epsilon, attn_weights]
+    output = [out3, z, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
     w = tf.expand_dims(w_squeezed, axis=-1)
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
   batch_size = 8
   d_model = 64
-  num_heads = 2
+  num_heads = 8
   dff = 32
   target_vocab_size = 50
   maximum_position_encoding = None
@@ -291,7 +291,7 @@ if __name__ == "__main__":
   print('r0_T', output_seq.shape)  # shape (B,S,P,1,D) > should be shape (B,S,P,D) instead
   print('z_0_T', z_seq.shape)  # shape (B,S,P,1,D)
   print('Epsilon_0_T', epsilon_seq.shape)  # shape (B,S,P,1,D)
-  print('attention weights', attn_w_seq.shape) # shape (B,S,P,1,S)
+  print('attention weights', attn_w_seq.shape) # shape (B,S,P,H,1,S)
   print('w_T', w.shape)  # shape (B,P,1)
   print('K', K.shape)  # shape (B,P,S,D)
   print('I', I.shape)  # shape (B,P,S)

@@ -393,8 +393,8 @@ class SMC_Transformer(tf.keras.Model):
                                                             inputs=inputs,
                                                             initial_states=initial_state)
     # last_output > (B,P,1,D)
-    last_output = [tf.squeeze(out, axis=2) for out in last_output] # (B,P,D)
-    outputs = [tf.squeeze(out, axis=3) for out in outputs]  # (B,S,P,D)
+    last_output = [tf.squeeze(out, axis=-2) for out in last_output] # (B,P,D)
+    outputs = [tf.squeeze(out, axis=-2) for out in outputs]  # (B,S,P,D) for r,z,epsilon, (B,S,P,H,S) for attn_weights
 
     r_T=last_output[0]
     z_T=last_output[1]
@@ -418,9 +418,18 @@ class SMC_Transformer(tf.keras.Model):
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.epsilon_seq_last_layer = Epsilon0_T
 
+    attn_weights_SMC_layer=outputs[3] # shape (B,S,P,H,S)
+    attn_weights_SMC_layer=tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
+
+    if self.num_layers==1:
+      attn_weights=attn_weights_SMC_layer
+    else:
+      attn_weights=attn_weights_enc
+      attn_weights['SMC_layer_{}'.format(self.num_layers)]=attn_weights_SMC_layer
+
     self.pass_forward=True
 
-    return Y0_T, Z0_T, w_T
+    return (Y0_T, Z0_T, w_T), attn_weights
 
 if __name__ == "__main__":
 
@@ -455,7 +464,7 @@ if __name__ == "__main__":
                     noise=noise_encoder,
                     data_type=data_type)
 
-  r=encoder(inputs=x, training=False, mask=None)
+  r, attn_weights_enc=encoder(inputs=x, training=False, mask=None)
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
@@ -478,11 +487,13 @@ if __name__ == "__main__":
 
   mask=create_look_ahead_mask(seq_len)
 
-  predictions, trajectories, weights = sample_transformer(inputs=inputs, training=False, mask=mask)
+  (predictions, trajectories, weights), attn_weights = sample_transformer(inputs=inputs, training=False, mask=mask)
 
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
+  if num_layers > 1:
+    print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)
 
   #### test of compute_SMC_log_likelihood function-------------------------------------------------------------------------
 
