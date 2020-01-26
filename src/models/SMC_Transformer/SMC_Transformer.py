@@ -287,6 +287,10 @@ class SMC_Transformer(tf.keras.Model):
                                                      dec_timestep=0)
     self.initialize = True
 
+    # adding a tf.stop_gradient on the weights and the ind_matrix_init to avoid backpropagation on this set of parameters:
+    initial_weights=tf.stop_gradient(initial_weights)
+    ind_matrix_init=tf.stop_gradient(ind_matrix_init)
+
     return (K, V), initial_weights, ind_matrix_init
 
   def compute_SMC_log_likelihood(self, sampling_weights):

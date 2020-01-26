@@ -165,7 +165,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     def compute_w_classification(predictions, x):
-      w = tf.gather(predictions, x, axis=-1, batch_dims=1)
+      # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
+      log_probas=tf.nn.softmax(predictions, axis=-1) # shape (B,P,S,V)
+      w = tf.gather(log_probas, x, axis=-1, batch_dims=1)
       w = tf.squeeze(w, axis=-1)  # shape (B,P,1)
       w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
       return w_squeezed  # shape (B,P)
@@ -191,12 +193,19 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       assert self.target_vocab_size == 1
       w_squeezed = compute_w_regression(predictions=predictions, x=x)
 
+    # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
+    w_squeezed=tf.stop_gradient(w_squeezed)
+    #TODO: add an assert that the sum over num of particles of w is equal to 1.
+
     #-----------------end of weights computation--------------------------------------------------------------------
 
     # update the genealogy indices matrix from the weights.
     if self.dec_timestep < self.seq_len:
       # update it only T-1
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
+
+    # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
+    I=tf.stop_gradient(I)
 
     # resample z:
     if self.resampling:
