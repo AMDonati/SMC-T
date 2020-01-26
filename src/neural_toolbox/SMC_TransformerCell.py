@@ -1,5 +1,7 @@
 #TODO: the cell is unroll actually one more time than the seq_len: is it normal?
 
+#TODO: test the weights. ADD A SOFTMAX for actually considering the log_probas.
+
 import tensorflow as tf
 import collections
 #import tensorflow_probability as tfp
@@ -221,15 +223,15 @@ if __name__ == "__main__":
   d_model = 64
   num_heads = 8
   dff = 32
-  target_vocab_size = 1
+  target_vocab_size = 20
   maximum_position_encoding = None
-  num_particles = 10
+  num_particles = 5
   seq_len = 4
   layer_num = 2
   sigma=1
   noise=False
   data_type='time_series'
-  task_type='regression'
+  task_type='classification'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
@@ -295,4 +297,9 @@ if __name__ == "__main__":
   print('w_T', w.shape)  # shape (B,P,1)
   print('K', K.shape)  # shape (B,P,S,D)
   print('I', I.shape)  # shape (B,P,S)
+
+  #-------checking the aspect of the resampling weights------------------------------------------------------
+  for m in range(num_particles):
+    print('w_{}'.format(m), w[0,m,:])
+
 

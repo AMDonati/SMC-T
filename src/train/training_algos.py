@@ -157,13 +157,18 @@ def loss_function_binary(real, predictions, weights, transformer, classic_loss=T
 def loss_function_regression(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
   '''
   :param real: targets > shape (B,P,S)
-  :param predictions (log_probas) > shape (B,P,S,V)
+  :param predictions > shape (B,P,S,1)
   :param weights: re-sampling_weights for the last element > shape (B,P)
   :param classic_loss: boolean to compute the classic loss or not (default=True)
   :param SMC_loss: boolean to compute the SMC loss (default=True)
   :return:
   a scalar computing the SMC loss as defined in the paper.
   '''
+  num_particles=tf.shape(weights)[1]
+  if len(tf.shape(real))==2:
+    # tiling targets to add the particle dimensions
+    real=tf.expand_dims(real, axis=1)
+    real=tf.tile(real, multiples=[1,num_particles,1])
   if classic_loss:
     # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
     loss_ce = mse_with_particles(real=real, pred=predictions, sampling_weights=weights)
@@ -171,9 +176,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
     loss_ce = 0
   if SMC_loss:
     # take minus the log_likelihood.
-    # TODO: put the minus sign in the
-    loss_smc = -transformer.compute_SMC_log_likelihood(real=real,
-                                                       sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
+    loss_smc = -transformer.compute_SMC_log_likelihood(sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
   else:
     loss_smc = 0
   loss = loss_ce + loss_smc
@@ -313,20 +316,43 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=Non
 
 if __name__ == "__main__":
 
-  real=tf.ones(shape=(8,1,10))
-  #real=tf.transpose(real, perm=[1,0,2])
-  logits=tf.random.uniform(shape=(8,1,10,50))
-  #logits=tf.transpose(logits, perm=[1,0,2,3])
-  sampling_weights=tf.ones(shape=(8,1))
+  #------------------------ testing of categorical ce with particules function......-----------------------------------------------------
+  B=8
+  P=1
+  S=10
+  V=50
 
-  #loss_tens=loss_object(real, logits)
-  #print('loss_tens', loss_tens)
-
+  real=tf.ones(shape=(B,P,S))
+  logits=tf.random.uniform(shape=(B,P,S,V))
+  sampling_weights=tf.ones(shape=(B,P))
   loss=categorical_ce_with_particules(real, logits, sampling_weights)
-  print('manual loss', loss)
 
-  #loss_=loss_function(tf.squeeze(real, axis=1), tf.squeeze(logits, axis=1))
-  #print('tf loss', loss_)
+  print('categorical ce loss for {} classes'.format(V), loss.numpy())
+
+  # test in the binary case:
+  V=2
+  logits = tf.random.uniform(shape=(B, P, S, V))
+  sampling_weights = tf.ones(shape=(B, P))
+  loss_binary = categorical_ce_with_particules(real, logits, sampling_weights)
+
+  print('categorical ce loss - binary case', loss_binary.numpy())
+
+  #-------------------- test of mse with particles loss -----------------------------------------------------------------------------------
+  B = 8
+  P = 1
+  S = 10
+  V = 1
+
+  real = tf.random.uniform(shape=(B, P, S))
+  logits = tf.random.uniform(shape=(B, P, S, V))
+  sampling_weights = tf.ones(shape=(B, P, 1))
+
+  loss_regression=mse_with_particles(real=real, pred=logits, sampling_weights=sampling_weights)
+
+  print('regression loss', loss_regression.numpy())
+
+
+
 
 
 

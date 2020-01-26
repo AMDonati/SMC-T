@@ -189,7 +189,8 @@ class SMC_Transformer(tf.keras.Model):
 
     # for pre_processing words in the one_layer case.
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
-    self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
+    if maximum_position_encoding is not None:
+      self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
     self.dropout = tf.keras.layers.Dropout(rate)
 
     self.final_layer = self.cell.output_layer

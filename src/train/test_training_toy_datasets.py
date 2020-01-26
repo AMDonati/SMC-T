@@ -22,8 +22,8 @@ from preprocessing.time_series.df_to_dataset import df_to_dataset
 from preprocessing.time_series.df_to_dataset import df_continuous_to_dataset
 from preprocessing.NLP.text_to_dataset import text_to_dataset
 
-data_type = 'nlp'
-task_type = 'classification'
+data_type = 'time_series'
+task_type = 'regression'
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
 if data_type=='time_series':
@@ -38,10 +38,10 @@ if data_type=='time_series':
   num_bins = 12
   buffer_frac = 0.2 # fraction of total dataset to be taken in the buffer when shuffling.
   seq_len =10 # one more than for the transformer.
-  BATCH_SIZE = 16 # small batch_size to avoid memory errors.
+  BATCH_SIZE = 32 # small batch_size to avoid memory errors.
   num_bins = 12 # correspond to the number of classes for a classification task
   num_classes=num_bins
-  reduce_for_test = 10000 # taking only 10,000 samples for testing.
+  reduce_for_test = 5000 # taking only 10,000 samples for testing.
 
   if task_type=='classification':
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
   tf.config.experimental_run_functions_eagerly(True)  # to remove TensorInacessibleError
 
   dataset = train_dataset
-  EPOCHS = 5
+  EPOCHS = 20
   train_smc_transformer=True
   train_classic_transformer=False
 
@@ -252,13 +252,13 @@ if __name__ == "__main__":
                                   optimizer=optimizer,
                                   train_loss=train_loss,
                                   classic_loss=True,
-                                  SMC_loss=False)
+                                  SMC_loss=True)
 
-        if batch % 500 == 0:
+        if batch % 10 == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss - SMC Transformer', loss_smc.numpy())
-          print('average SMC loss - SMC Transformer', train_loss(loss_smc.numpy()))
+          print('average SMC loss - SMC Transformer', train_loss(loss_smc).numpy())
 
       # if (epoch + 1) % 5 == 0:
       #   ckpt_save_path = ckpt_manager.save()
