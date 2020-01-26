@@ -2,15 +2,17 @@
 
 **README in construction**
 
-### TO DO (remaining implementation by order of priority): 
-* finalize SMC_loss for the one-layer case > ok done & tested on the simple case of sigma=identity matrix & epsilon=zero tensor.
-* implement the multivariate case. 
-* computation of attention weights > ok done.
-* regression case: computation of weights + mean square error > ok done for simple case of omega (stddev of the gaussian distrbution) is equal to one (no customized loss implemented yet).
+### TO DO (by order of priority): 
+* take care of the #TODOs in the code linked to the debugging of the training algos & the computation of the loss. 
+* Test the formula of the SMC loss by replacing it by the classic one in the SMC Transformer training (for num_particles=1). 
+* IN THE TRAINING SCRIPT: store all the information needed (with callbacks, checkpoints, & logging library)
+* Automatization of the experiments (cf GuessWhat training script or uncertainties's one). 
+#### if enough time
+* implement the multivariate case. (input_data=multivariate time-series, output data=univariate time-series.)
+* regression case: computation of the 'customized mse' to allow to have an omega (std of the sampling weights) different of one. 
 * inference function (to see with Sylvain). 
 
 ### Download
-
 ```
 git clone https://github.com/AMDonati/SMC-T.git
 ```
@@ -42,6 +44,12 @@ export PYTHONPATH=src:${PYTHONPATH}
 
 ### training on synthetic data
 ```
-python src/train/train_SMC_Transformer.py
+python src/train/test_training_dummy_dataset.py
+
+```
+
+### training on toy datasets 
+```
+python src/train/test_training_toy_datasets.py
 
 ```
