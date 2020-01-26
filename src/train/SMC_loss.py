@@ -1,8 +1,7 @@
 import tensorflow as tf
 import math
 
-#TODO adapt the computation of the loss in the case of one_layer.
-#TODO: correct compute_SMC_log_likelihood for nulti-layer cases (add the layer from the SMC Cell.)
+#TODO: redo the mathematical computation of the loss from the log likelihood to check that the formulas implemented are correct.
 
 #TODO: ask Florian if I need to add a @tf.function to this function. cf https://www.tensorflow.org/tutorials/generative/cvae as an example.
 def compute_SMC_ll_one_layer(epsilon, sigma):
@@ -13,7 +12,6 @@ def compute_SMC_ll_one_layer(epsilon, sigma):
   :return:
   a tensor of shape (B,P,S) with the log-likelihood corresponding to one layer.
   '''
-
   epsilon = tf.transpose(epsilon, perm=[0, 3, 1, 2]) # shape (B,D,P,S)
   # to debug:
   epsilon_part= tf.reduce_sum(tf.multiply(epsilon, epsilon), axis=1)
@@ -23,6 +21,7 @@ def compute_SMC_ll_one_layer(epsilon, sigma):
 
 def compute_SMC_log_likelihood(list_epsilon, list_sigma, sampling_weights):
   '''
+  compute the SMC_log_likelihood for the multi_layer case by looping over layers.
   :param list_epsilon: list of epsilons containing the epsilon of every layer.
   :param list_sigma: list of sigmas containing the (same) sigma for each layer.
   :param sampling_weights: shape (B,P,1): w_T of the last_timestep from the SMC Cell/Layer.

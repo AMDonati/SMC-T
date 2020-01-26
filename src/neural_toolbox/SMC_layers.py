@@ -56,7 +56,6 @@ class DecoderLayer(tf.keras.layers.Layer):
     inputs_float = tf.cast(inputs, dtype=tf.float32)
     inputs_mha = [inputs_float for _ in range(3)]
     # computing multi-head attention.
-    #TODO: add the attention_weights in the return function of MHA.
     (Z, K, V), attention_weights = self.mha1(inputs=inputs_mha, mask=look_ahead_mask)  # shape (B,P,S,D).
     attn1 = self.dropout1(Z, training=training)
     out1 = self.layernorm1(attn1 + inputs_float)  # TODO: Bug with multivariate

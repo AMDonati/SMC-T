@@ -7,6 +7,8 @@
 #TODO: debug the mse_with_particles function for the regression case.
 #TODO: for the nlp dataset, add a mask to the loss functions for padded sequences...
 
+#TODO: test if the loss of the SMC Transformer is the correct formula by replacing it with the one from the classic transformer (for the case of num_particles=1).
+
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
@@ -23,7 +25,7 @@ from preprocessing.time_series.df_to_dataset import df_continuous_to_dataset
 from preprocessing.NLP.text_to_dataset import text_to_dataset
 
 data_type = 'time_series'
-task_type = 'regression'
+task_type = 'classification'
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
 if data_type=='time_series':
@@ -41,9 +43,11 @@ if data_type=='time_series':
   BATCH_SIZE = 32 # small batch_size to avoid memory errors.
   num_bins = 12 # correspond to the number of classes for a classification task
   num_classes=num_bins
-  reduce_for_test = 5000 # taking only 10,000 samples for testing.
+  reduce_for_test = 200000 # taking only 10,000 samples for testing.
 
   if task_type=='classification':
+
+    reduce_for_test=None
 
     train_dataset, val_dataset, df_categorized, x_train, num_classes=df_to_dataset(file_path=file_path,
                                                                       fname=fname,
@@ -85,9 +89,9 @@ if data_type=='time_series':
 elif data_type=='nlp':
   file_path = tf.keras.utils.get_file('shakespeare.txt',
                                       'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
-  BATCH_SIZE = 64
+  BATCH_SIZE = 128
   BUFFER_SIZE = 10000
-  seq_len = 10
+  seq_len = 100
   train_dataset, num_classes = text_to_dataset(file_path=file_path, seq_len=seq_len, buffer_size=BUFFER_SIZE, batch_size=64)
 
 # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
@@ -254,7 +258,7 @@ if __name__ == "__main__":
                                   classic_loss=True,
                                   SMC_loss=True)
 
-        if batch % 10 == 0:
+        if batch % 500 == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss - SMC Transformer', loss_smc.numpy())

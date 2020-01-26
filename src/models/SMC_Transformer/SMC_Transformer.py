@@ -1,4 +1,3 @@
-#TODO: change the target_vocab_size in num_classes.
 
 # imports
 import tensorflow as tf
@@ -125,7 +124,6 @@ class Encoder(tf.keras.layers.Layer):
         raise ValueError('data_type not supported; please choose either "nlp" or "time_series"')
 
     for i in range(self.num_layers):
-      #TODO: add the attention_weights
       inputs, stddev, attn_weights = self.dec_layers[i](inputs=inputs, training=training, look_ahead_mask=mask)
       self.list_stddev.append(stddev)
       attention_weights['encoder_layer{}'.format(i + 1)] = attn_weights
@@ -213,7 +211,6 @@ class SMC_Transformer(tf.keras.Model):
     self.pass_forward=False
 
   def preprocess_words(self, x, dec_timestep, training):
-    #TODO: it seems that this is a redundant process... to remove?
     '''add words embeddings and positional encodings:
         -Args:
           -x: 2D tensor of sequence of words id > dim (B, S)
@@ -253,7 +250,7 @@ class SMC_Transformer(tf.keras.Model):
     V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
     Z = V
     # initialize w0
-    #TODO: add the FFN layers after z before taking the final layer.
+    #TODO: add the FFN layers after z before taking the final layer. (not essential. It is as if r was initializing equal to V finally).
     log_probas = self.final_layer(Z)  # shape (B, P, S, V)
     log_probas_initial = log_probas[:, :, 0, :]
     # computing w0

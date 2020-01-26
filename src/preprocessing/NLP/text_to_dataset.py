@@ -53,9 +53,9 @@ if __name__ == "__main__":
   file_path = tf.keras.utils.get_file('shakespeare.txt', 'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
   BATCH_SIZE = 64
   BUFFER_SIZE = 10000
-  seq_len=100
+  seq_len=10
   dataset, vocab_size=text_to_dataset(file_path=file_path, seq_len=seq_len, buffer_size=BUFFER_SIZE, batch_size=64)
-
+  print('dataset', dataset)
 
 
 

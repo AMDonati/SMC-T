@@ -34,7 +34,6 @@ def self_attention_classic(Q, K, V, mask):
 
   output = tf.matmul(attention_weights, V)  # (B,P,H,S,D)
 
-  #TODO: return attention_weights
   return output, attention_weights
 
 ## ------ Multi-head attention CLASS------------------------------------------------------------------------------------------------
@@ -157,7 +156,6 @@ class MultiHeadAttention_classic(tf.keras.layers.Layer):
 
     Z = self.dense(concat_attention) + stddev
 
-    #TODO: return attention_weights as well.
     return (Z, K, V), attention_weights  # attention_weights
 
 if __name__ == "__main__":
@@ -174,7 +172,6 @@ if __name__ == "__main__":
   K = tf.random.uniform(shape=(B, P, H, S, D))
   V = tf.random.uniform(shape=(B, P, H, S, D))
 
-  # TODO: check that if self.sigma_scalar=0, self.stddev is null.
   output, attention_weights = self_attention_classic(X, X, X, mask=None)
   print('temp_out', output.shape)
 

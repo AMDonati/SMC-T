@@ -1,7 +1,3 @@
-#TODO: the cell is unroll actually one more time than the seq_len: is it normal?
-
-#TODO: test the weights. ADD A SOFTMAX for actually considering the log_probas.
-
 import tensorflow as tf
 import collections
 #import tensorflow_probability as tfp
@@ -27,7 +23,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
               num_particles, seq_len,
               num_layers, sigma, noise, task_type, maximum_position_encoding=None, training=True, resampling=True,
                rate=0.1, **kwargs):
-    #TODO: remove default Value for maximum_position_encoding and task_type (not urgent & essential though).
+    #TODO: remove default Value for maximum_position_encoding, task_type (not essential).
     '''
     -Args:
       -d_model: model depth

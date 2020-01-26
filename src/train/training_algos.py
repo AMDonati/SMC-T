@@ -48,6 +48,8 @@ def categorical_ce_with_particules(real, pred, sampling_weights):
   loss_ = loss_object(real, pred)  # shape (B,P,S)
 
   # mean over sequence elements
+  #TODO: ask / check if the reduction over the seq dimension should be a sum or a mean... (a sum according to the blog post below)
+  # https://towardsdatascience.com/recurrent-neural-networks-rnns-3f06d7653a85
   loss_ = tf.reduce_mean(loss_, axis=-1)  # shape (B,P)
   # weighted sum over number of particles
   loss_ = tf.reduce_sum(sampling_weights * loss_, axis=-1)
@@ -58,6 +60,7 @@ def categorical_ce_with_particules(real, pred, sampling_weights):
 
 def binary_ce_with_particules(real, pred, sampling_weights, from_logits=True):
   '''
+  DOES NOT WORK. USE THE Categorical_one instead, event for 2 classes.
   :param real: targets tensor > shape (B,S)
   :param pred: predictions (particules logits) > shape (B,P,S,1)
   :param sampling_weights: re-sampling weights for last timestep > shape (B,P)
@@ -94,7 +97,6 @@ def binary_ce_with_particules(real, pred, sampling_weights, from_logits=True):
 
 
 def mse_with_particles(real, pred, sampling_weights):
-  # TODO: correct the formula with a rescaled mse when sigma (of the computation weights) is not equal to 1. (see with Sylvain.)
   '''
   :param real: shape (B,P,S,F)
   :param pred: shape (B,P,S,F)
@@ -133,7 +135,7 @@ def loss_function_classification(real, predictions, weights, transformer, classi
 
 
 def loss_function_binary(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
-  '''
+  '''DOES NOT WORK...
   :param real: targets > shape (B,P,S)
   :param predictions (log_probas) > shape (B,P,S,V)
   :param weights: re-sampling_weights for the last element > shape (B,P)
@@ -191,8 +193,6 @@ train_step_signature = [
 ]
 @tf.function(input_signature=train_step_signature)
 def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=None):
-  #TODO: add optimizer & train_loss args.
-  #TODO: retry with a model parameter.
   '''training step for the classic Transformer model (dummy dataset)'''
   if targets is None:
     tar_inp = inputs[:, :-1]
