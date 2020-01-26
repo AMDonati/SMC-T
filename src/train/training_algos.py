@@ -1,5 +1,7 @@
 #TODO: test the classification loss for a number of classes equal to 2.
 #TODO: add a mask option in the loss for nlp datasets.
+
+#TODO: debug the mse_with_particles function for the regression case.
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
@@ -249,7 +251,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=Non
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    predictions, trajectories, weights = smc_transformer(inputs=tar_inp,
+    (predictions, trajectories, weights), attn_weights = smc_transformer(inputs=tar_inp,
                                                training=True,
                                                mask=mask_transformer)
 
@@ -269,7 +271,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=Non
       loss=loss_function_regression(real=tar_real,
                                     predictions=predictions,
                                     weights=weights,
-                                    tranformer=smc_transformer,
+                                    transformer=smc_transformer,
                                     SMC_loss=SMC_loss,
                                     classic_loss=classic_loss)
     else:

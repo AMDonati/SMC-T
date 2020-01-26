@@ -207,7 +207,7 @@ if __name__ == "__main__":
   dff = 128
   maximum_position_encoding = None
   data_type = 'time_series'
-  C = 12 # binary case
+  C = 12 #
   S=10
 
   sample_transformer = Transformer(

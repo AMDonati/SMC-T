@@ -117,7 +117,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    print('cell timestep', self.dec_timestep)
+    #print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
@@ -270,7 +270,6 @@ if __name__ == "__main__":
 
   inputs = NestedInput(r=r, x=x)
 
-  #TODO: solve here the shape issue for w0 with regression case. (by looking at what's different exactly from the classification one.)
   last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                           inputs=inputs,
                                                           initial_states=initial_state)

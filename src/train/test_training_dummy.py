@@ -12,6 +12,8 @@ import time
 import sys
 import numpy as np
 
+# tensorflow tuto on train and evaluate: https://www.tensorflow.org/guide/keras/train_and_evaluate
+
 #------------------DUMMY DATASET TO TEST AS A START-------------------------------------------------------------------------------------------
 seq_len_dataset =10 # one more than for the transformer.
 BATCH_SIZE = 64
@@ -123,6 +125,7 @@ def train_step_dummy_SMC_T(inputs, targets=None, SMC_loss=True, classic_loss=Tru
                                       transformer=smc_transformer,
                                       SMC_loss=SMC_loss,
                                       classic_loss=classic_loss)
+
     elif smc_transformer.task_type=='regression':
       loss=loss_function_regression(real=tar_real,
                                       predictions=predictions,
@@ -191,9 +194,10 @@ if __name__ == "__main__":
   tf.config.experimental_run_functions_eagerly(True)  # to remove TensorInacessibleError
 
 #-------------------TRAINING ON DUMMY DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
-  EPOCHS=5
 
+  EPOCHS=5
   dataset=dummy_dataset
+
   smc_transformer=SMC_Transformer(num_layers=num_layers,
                         d_model=d_model,
                         num_heads=num_heads,
@@ -212,6 +216,9 @@ if __name__ == "__main__":
 
   for epoch in range(EPOCHS):
     start = time.time()
+
+    # re-initialize the states of the SMC_layer at every epoch???
+
     loss_smc=train_step_dummy_SMC_T(inputs=dummy_dataset,
                                     targets=None,
                                     classic_loss=True,
@@ -225,9 +232,9 @@ if __name__ == "__main__":
 
   print('training of SMC Transformer for dummy dataset done...')
 
- #-------------------------------------------TRAIN ON DUMMY DATASET - CLASSIC TRANSFORMER -------------------------------------------
-  # Transformer - baseline.
+ #-------------------------------------------TRAIN ON DUMMY DATASET - CLASSIC TRANSFORMER ----------------------------------------------------------------
 
+  # Transformer - baseline.
   transformer = Transformer(num_layers=num_layers,
                             d_model=d_model,
                             num_heads=num_heads,
@@ -237,6 +244,7 @@ if __name__ == "__main__":
                             data_type=data_type)
 
   for epoch in range(EPOCHS):
+
     start = time.time()
 
     loss_baseline=train_step_dummy_classic_T(inputs=dummy_dataset)

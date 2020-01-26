@@ -187,6 +187,11 @@ class SMC_Transformer(tf.keras.Model):
                                 noise=noise_SMC_layer,
                                 task_type=task_type)  # put here the Transformer cell.
 
+    # for pre_processing words in the one_layer case.
+    self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+    self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
+    self.dropout = tf.keras.layers.Dropout(rate)
+
     self.final_layer = self.cell.output_layer
 
     self.target_vocab_size = target_vocab_size
@@ -216,11 +221,20 @@ class SMC_Transformer(tf.keras.Model):
           - A 3D tensor of pre-processed words sequence > dim (B, S, D)
     '''
     assert self.maximum_position_encoding is not None
-    x = self.encoder.embedding(x)  # (batch_size, target_seq_len, d_model)
-    x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
-    # addition of the positional encoding to the input x for the current decoding step:
-    x += self.encoder.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
-    x = self.encoder.dropout(x, training=training)
+    if self.num_layers > 1:
+      x = self.encoder.embedding(x)  # (batch_size, target_seq_len, d_model)
+      x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
+      # addition of the positional encoding to the input x for the current decoding step:
+      x += self.encoder.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
+      x = self.encoder.dropout(x, training=training)
+
+    elif self.num_layers==1:
+      x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
+      x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
+      # addition of the positional encoding to the input x for the current decoding step:
+      x += self.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
+      x = self.dropout(x, training=training)
+
     return tf.reshape(x, shape=[tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1], tf.shape(x)[-1]])
 
   def initialize_attn_SMC_parameters(self, batch_size, seq_length, initial_word_id):
@@ -251,7 +265,8 @@ class SMC_Transformer(tf.keras.Model):
       assert self.target_vocab_size==1
       #TODO replace the tf.cast by an assert (not essential & urgent though).
       initial_word_id=tf.cast(initial_word_id, dtype=tf.float32)
-
+      if len(tf.shape(initial_word_id))==1:
+        initial_word_id=tf.expand_dims(initial_word_id, axis=-1)
       #tiling word_id to get the right shape:
       initial_word_id=tf.expand_dims(initial_word_id, axis=1)
       initial_word_id=tf.tile(initial_word_id, multiples=[1,self.num_particles,1]) # shape (B,P,1)
