@@ -104,9 +104,15 @@ def mse_with_particles(real, pred, sampling_weights):
   :return:
   the average mse scalar loss (with a weighted average over the dim number of particles)
   '''
+  # reshaping real from (B,P,S) to (B,P,S,1)
+  if len(tf.shape(real))==3:
+    real=tf.expand_dims(real, axis=-1)
   mse = tf.keras.losses.mse
   loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
+  #TODO: do a sum over sequence elements instead of a mean?
   loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P)
+  # squeezing sampling_weights to have a shape (B,P)
+  sampling_weights=tf.squeeze(sampling_weights, axis=-1)
   loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
   loss = tf.reduce_mean(loss)
   return loss
@@ -222,6 +228,13 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=Non
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
   train_loss(loss)
+
+  # here train_accuracy=tf.keras.metrics.SparseCategoricalCrossEntropy()
+
+  # tar_real should be the last element of the sequence tar_real=tar_real[:,-1,:], axis=-1) > shape (B,1)
+  # predictions should be the last element of the sequence of predictions (of shape (B,S,V)
+  # prediction=prediction[:,-1,:] > shape (B,V)
+
   #train_accuracy(tar_real, predictions)
 
   return loss

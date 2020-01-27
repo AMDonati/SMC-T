@@ -5,6 +5,9 @@
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 
 #TODO: debug the mse_with_particles function for the regression case.
+#TODO: debug the issue of the seq_len for the training of the classic Transformer in the NLP dataset (it seems that it always want to process input_data of seq length eqaul to 100...)
+
+
 #TODO: for the nlp dataset, add a mask to the loss functions for padded sequences...
 
 #TODO: test if the loss of the SMC Transformer is the correct formula by replacing it with the one from the classic transformer (for the case of num_particles=1).
@@ -25,7 +28,7 @@ from preprocessing.time_series.df_to_dataset import df_continuous_to_dataset
 from preprocessing.NLP.text_to_dataset import text_to_dataset
 
 data_type = 'time_series'
-task_type = 'classification'
+task_type = 'regression'
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
 if data_type=='time_series':
@@ -40,10 +43,11 @@ if data_type=='time_series':
   num_bins = 12
   buffer_frac = 0.2 # fraction of total dataset to be taken in the buffer when shuffling.
   seq_len =10 # one more than for the transformer.
-  BATCH_SIZE = 32 # small batch_size to avoid memory errors.
+  BATCH_SIZE = 128 # small batch_size to avoid memory errors.
+  print('batch size...', BATCH_SIZE)
   num_bins = 12 # correspond to the number of classes for a classification task
   num_classes=num_bins
-  reduce_for_test = 200000 # taking only 10,000 samples for testing.
+  reduce_for_test = 10000 # taking only 200,000 samples for testing.
 
   if task_type=='classification':
 
@@ -69,10 +73,14 @@ if data_type=='time_series':
     print('number of training samples...', num_samples_training)
     df_train_samples=df_categorized[:num_samples_training]
 
+    num_batches=int(num_samples_training/BATCH_SIZE)
+    print('number of batches...', num_batches)
+
     #TODO: replace class numbers in original df_to_dataset function so that it works when reducing nulmber of smaples for testing.
     print('classes distributions for training data', df_train_samples.value_counts())
 
   elif task_type=='regression':
+
     train_dataset, val_dataset, uni_data_df, x_train=df_continuous_to_dataset(file_path=file_path,
                                                                           fname=fname,
                                                                           col_name=col_name,
@@ -85,6 +93,11 @@ if data_type=='time_series':
 
     print('head of original dataset', uni_data_df.head())
     print('first samples of corresponding numpy array:', x_train[:10])
+
+    num_samples_training=x_train.shape[0]
+    print('number of training samples...', num_samples_training)
+    num_batches=int(num_samples_training/BATCH_SIZE)
+    print ('number of batches...', num_batches)
 
 elif data_type=='nlp':
   file_path = tf.keras.utils.get_file('shakespeare.txt',
@@ -105,7 +118,7 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
 # Model's hyperparameters.
-num_particles = 1
+num_particles = 5
 num_heads = 2
 d_model = 4
 dff = 8
@@ -114,7 +127,7 @@ target_vocab_size = num_classes if task_type=='classification' else 1 # correspo
 num_layers = 1
 sigma=1
 noise_encoder=False
-noise_SMC_layer=False
+noise_SMC_layer=True
 
 #----DEFINE THE MODEL---------------------------------------------------------------------------------------------------------------------------------------------------------------
 # SMC_Transformer
@@ -173,6 +186,8 @@ if __name__ == "__main__":
   train_smc_transformer=True
   train_classic_transformer=False
 
+  print_loss=int(num_batches/2)
+
   # -------------------------------------------TRAIN ON THE DATASET - CLASSIC TRANSFORMER -------------------------------------------
   if train_classic_transformer:
     # Transformer - baseline.
@@ -207,7 +222,7 @@ if __name__ == "__main__":
                                              train_loss=train_loss,
                                              optimizer=optimizer)
 
-        if batch % 500 == 0:
+        if batch % print_loss == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss -  Baseline Transformer', loss_baseline.numpy())
@@ -220,6 +235,9 @@ if __name__ == "__main__":
 
 #-------------------TRAINING ON THE DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
   if train_smc_transformer:
+    print('number of particles', num_particles)
+    print ('noise in SMC_layer?', noise_SMC_layer)
+
     smc_transformer=SMC_Transformer(num_layers=num_layers,
                           d_model=d_model,
                           num_heads=num_heads,
@@ -257,11 +275,21 @@ if __name__ == "__main__":
                                   train_loss=train_loss,
                                   classic_loss=True,
                                   SMC_loss=True)
+        if noise_SMC_layer:
+          loss_smc_classic_part=train_step_SMC_T(inputs=inp,
+                                  targets=tar,
+                                  smc_transformer=smc_transformer,
+                                  optimizer=optimizer,
+                                  train_loss=train_loss,
+                                  classic_loss=True,
+                                  SMC_loss=False)
 
-        if batch % 500 == 0:
+        if batch % print_loss == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss - SMC Transformer', loss_smc.numpy())
+          if noise_SMC_layer:
+            print('loss SMC Transformer - classic part', loss_smc_classic_part.numpy())
           print('average SMC loss - SMC Transformer', train_loss(loss_smc).numpy())
 
       # if (epoch + 1) % 5 == 0:

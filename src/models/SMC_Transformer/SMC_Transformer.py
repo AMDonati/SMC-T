@@ -35,9 +35,8 @@ class Encoder(tf.keras.layers.Layer):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-              num_particles, sigma, noise, data_type, maximum_position_encoding=None,
+              num_particles, sigma, noise, data_type, maximum_position_encoding,
               rate=0.1):
-    #TODO: remove the default value of maximum_position_encoding.
     super(Encoder, self).__init__()
 
     self.d_model = d_model
@@ -79,7 +78,8 @@ class Encoder(tf.keras.layers.Layer):
     x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32)) # division by the root of the d_model
     x=tf.expand_dims(x, axis=1)
     x+=tf.tile(x, multiples=[1,self.num_particles,1,1])
-    x += self.pos_encoding_SMC[:, :, :seq_len, :]  # addition of the positional encoding to the input x
+    if maximum_position_encoding is not None:
+      x += self.pos_encoding_SMC[:, :, :seq_len, :]  # addition of the positional encoding to the input x
     x = self.dropout(x, training=training)
     return x
 
@@ -116,7 +116,6 @@ class Encoder(tf.keras.layers.Layer):
     # do the pre_processing step for the input data.
     if len(tf.shape(inputs))<4:
       if self.data_type=='nlp':
-        assert self.maximum_position_encoding is not None
         inputs = self.preprocess_words_input(inputs, training)
       elif self.data_type=='time_series':
         inputs=self.preprocess_timeseries(inputs)
@@ -218,19 +217,20 @@ class SMC_Transformer(tf.keras.Model):
         -Returns:
           - A 3D tensor of pre-processed words sequence > dim (B, S, D)
     '''
-    assert self.maximum_position_encoding is not None
     if self.num_layers > 1:
       x = self.encoder.embedding(x)  # (batch_size, target_seq_len, d_model)
       x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
-      # addition of the positional encoding to the input x for the current decoding step:
-      x += self.encoder.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
+      # addition of the positional encoding to the input x for the current decoding step
+      if self.maximum_position_encoding is not None:
+        x += self.encoder.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
       x = self.encoder.dropout(x, training=training)
 
     elif self.num_layers==1:
       x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
       x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # division by the root of the d_model
       # addition of the positional encoding to the input x for the current decoding step:
-      x += self.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
+      if self.maximum_position_encoding is not None:
+        x += self.pos_encoding[:, dec_timestep, :]  # dim of positional encoding (1, num_positions, d_model)
       x = self.dropout(x, training=training)
 
     return tf.reshape(x, shape=[tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1], tf.shape(x)[-1]])
@@ -327,6 +327,7 @@ class SMC_Transformer(tf.keras.Model):
       # multiply by -1/2 to get the right formula.
       SMC_loss_tensor=tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
 
+      #TODO: see if we use a tf.reduce_sum instead.
       # mean over seq dim.
       SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
 
@@ -425,7 +426,7 @@ class SMC_Transformer(tf.keras.Model):
     w_T=new_states[2]
     I=new_states[3]
 
-    Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss.
+    Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
     Y0_T=tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
 
     w_T=tf.squeeze(w_T, axis=-1) # (B,P,1)
@@ -458,9 +459,9 @@ if __name__ == "__main__":
   d_model=64
   num_heads=2
   dff=128
-  maximum_position_encoding=None
+  maximum_position_encoding=seq_len
   sigma=1
-  data_type='time_series'
+  data_type='nlp'
   task_type='classification'
   C=12 # vocabulary size or number of classes.
   noise_encoder=False
