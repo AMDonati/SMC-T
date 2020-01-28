@@ -7,7 +7,7 @@ from preprocessing.ts_classif_utils import map_uni_data_classes
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-#TODO: ADD A FUNCTION THAT PREPROCESS THE CONTINUOUS DATA INTO A TF.DATA.DATASET.
+#TODO: Makes sure that all the classes are represented in the training dataset for the function df_to_dataset.
 
 def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, num_bins, train_split, batch_size, buffer_frac, seq_len, reduce_for_test=None):
 

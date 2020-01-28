@@ -117,7 +117,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    print('cell timestep', self.dec_timestep)
+    #print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
@@ -197,9 +197,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # compute the average prediction & max_prediction for the set of particles from predictions & w
     predictions=tf.squeeze(predictions, axis=-2) # (B,P,V)
-    w=w_squeezed
-    average_prediction=tf.expand_dims(tf.reduce_sum(predictions*w, axis=1), axis=1) # (B,1,V)
-    argmax_w=tf.argmax(w, axis=1)# (B, 1)
+    if len(tf.shape(w_squeezed))==2:
+      w_for_pred=tf.expand_dims(w_squeezed, axis=-1)
+    else:
+      w_for_pred=w_squeezed
+    average_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V)
+    argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
     max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
 
     #-----------------end of weights computation--------------------------------------------------------------------
@@ -221,6 +224,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
 
     output = [out3, z, average_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+
+    if len(tf.shape(w_squeezed))==2:
+      w=tf.expand_dims(w_squeezed, axis=-1)
+    elif len(tf.shape(w_squeezed))==3:
+      w=w_squeezed
+    else:
+      raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
 

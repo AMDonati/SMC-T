@@ -76,7 +76,6 @@ def binary_ce_with_particules(real, pred, sampling_weights, from_logits=True):
   real = tf.cast(real, dtype=tf.int32)
   real = tf.one_hot(real, depth=2)
 
-  # TODO: ask Florian if necessary to have padded sequences.
   loss_ = tf.keras.losses.binary_crossentropy(
     y_true=real,
     y_pred=pred,
@@ -112,7 +111,8 @@ def mse_with_particles(real, pred, sampling_weights):
   #TODO: do a sum over sequence elements instead of a mean?
   loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P)
   # squeezing sampling_weights to have a shape (B,P)
-  sampling_weights=tf.squeeze(sampling_weights, axis=-1)
+  if len(tf.shape(sampling_weights))==3:
+    sampling_weights=tf.squeeze(sampling_weights, axis=-1)
   loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
   loss = tf.reduce_mean(loss)
   return loss
@@ -198,7 +198,7 @@ train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
 ]
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=None):
+def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, targets=None):
   '''training step for the classic Transformer model (dummy dataset)'''
   if targets is None:
     tar_inp = inputs[:, :-1]
@@ -227,7 +227,7 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=Non
   gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
-  train_loss(loss)
+  average_loss=train_loss(loss)
 
   # here train_accuracy=tf.keras.metrics.SparseCategoricalCrossEntropy()
 
@@ -237,14 +237,14 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=Non
 
   # actually take: shape (B,S,1) for tar_real ; (B,S,V) for predictions. (accuracy over the whole sequence.)
 
-  #train_accuracy(tar_real, predictions)
+  train_accuracy_batch=train_accuracy(tar_real, predictions)
 
-  return loss
+  return loss, average_loss, train_accuracy_batch
 
 #--------------SMC Transformer train_step------------------------------------
 
 @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=None, SMC_loss=True, classic_loss=True):
+def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accuracy, targets=None, SMC_loss=True, classic_loss=True):
   '''
   compute a gradient descent step using categorical crossentropy loss by updating the trainable parameters.
   :param input: input data > shape (B,S) for nlp and univariate time_series.
@@ -269,7 +269,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=Non
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    (predictions, trajectories, weights), attn_weights = smc_transformer(inputs=tar_inp,
+    (predictions, trajectories, weights), (average_predictions, max_predictions), attn_weights = smc_transformer(inputs=tar_inp,
                                                training=True,
                                                mask=mask_transformer)
 
@@ -300,10 +300,15 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, targets=Non
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  train_loss(loss)
-  #train_accuracy(tar_real, predictions)
+  average_loss_batch=train_loss(loss)
 
-  return loss
+  #TODO: compute the metric for the regression case.
+  if smc_transformer.task_type=='classification':
+    train_accuracy_batch=train_accuracy(tar_real, average_predictions) # accuracy from average_predictions for now.
+  else:
+    train_accuracy_batch=tf.zeros(shape=(1,), dtype=tf.float32)
+
+  return loss, average_loss_batch, train_accuracy_batch
 
 
 

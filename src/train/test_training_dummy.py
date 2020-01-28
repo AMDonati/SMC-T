@@ -12,10 +12,16 @@ import time
 import sys
 import numpy as np
 
+import logging
+
+# logging tutorial
+# https://docs.python.org/2/howto/logging.html
+
+
 # tensorflow tuto on train and evaluate: https://www.tensorflow.org/guide/keras/train_and_evaluate
 
 #------------------DUMMY DATASET TO TEST AS A START-------------------------------------------------------------------------------------------
-seq_len_dataset =10 # one more than for the transformer.
+seq_len_dataset =11 # one more than for the transformer.
 BATCH_SIZE = 64
 num_bins = 12 # correspond to the number of classes for a classification task.
 dummy_sample = np.random.choice(np.arange(num_bins), size=seq_len_dataset)
@@ -45,7 +51,7 @@ target_vocab_size = 12 # correspond to the number of classes: multi-class classi
 num_layers = 2
 data_type = 'time_series'
 task_type = 'classification'
-seq_len=9
+seq_len=10
 sigma=1
 noise_encoder=False
 noise_SMC_layer=False
@@ -193,46 +199,54 @@ if __name__ == "__main__":
   sys.setrecursionlimit(100000)
   tf.config.experimental_run_functions_eagerly(True)  # to remove TensorInacessibleError
 
+  # TODO: set the path of the logging to the output folder.
+  logging.basicConfig(filename='example.log', level=logging.INFO)
+  #logger=logging.getLogger()
+
 #-------------------TRAINING ON DUMMY DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
 
-  EPOCHS=5
-  dataset=dummy_dataset
-
-  smc_transformer=SMC_Transformer(num_layers=num_layers,
-                        d_model=d_model,
-                        num_heads=num_heads,
-                        dff=dff,
-                        target_vocab_size=target_vocab_size,
-                        maximum_position_encoding=maximum_position_encoding,
-                        num_particles=num_particles,
-                        sigma=sigma,
-                        noise_encoder=noise_encoder,
-                        noise_SMC_layer=noise_SMC_layer,
-                        seq_len=seq_len,
-                        data_type=data_type,
-                        task_type=task_type)
-
-
-
-  for epoch in range(EPOCHS):
-    start = time.time()
-
-    # re-initialize the states of the SMC_layer at every epoch???
-
-    loss_smc=train_step_dummy_SMC_T(inputs=dummy_dataset,
-                                    targets=None,
-                                    classic_loss=True,
-                                    SMC_loss=True)
-
-    print('epoch', epoch)
-    print('loss - SMC_Transformer', loss_smc)
-    print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
-
-  print('SMC Transformer model summary...', smc_transformer.summary())
-
-  print('training of SMC Transformer for dummy dataset done...')
+  # EPOCHS=5
+  # dataset=dummy_dataset
+  #
+  # smc_transformer=SMC_Transformer(num_layers=num_layers,
+  #                       d_model=d_model,
+  #                       num_heads=num_heads,
+  #                       dff=dff,
+  #                       target_vocab_size=target_vocab_size,
+  #                       maximum_position_encoding=maximum_position_encoding,
+  #                       num_particles=num_particles,
+  #                       sigma=sigma,
+  #                       noise_encoder=noise_encoder,
+  #                       noise_SMC_layer=noise_SMC_layer,
+  #                       seq_len=seq_len,
+  #                       data_type=data_type,
+  #                       task_type=task_type)
+  #
+  #
+  #
+  # for epoch in range(EPOCHS):
+  #   start = time.time()
+  #
+  #   # re-initialize the states of the SMC_layer at every epoch???
+  #
+  #   loss_smc=train_step_dummy_SMC_T(inputs=dummy_dataset,
+  #                                   targets=None,
+  #                                   classic_loss=True,
+  #                                   SMC_loss=True)
+  #
+  #   print('epoch', epoch)
+  #   print('loss - SMC_Transformer', loss_smc)
+  #   print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+  #
+  # print('SMC Transformer model summary...', smc_transformer.summary())
+  #
+  # print('training of SMC Transformer for dummy dataset done...')
 
  #-------------------------------------------TRAIN ON DUMMY DATASET - CLASSIC TRANSFORMER ----------------------------------------------------------------
+
+  logging.info('training the dummy dataset on a Baseline Transformer...')
+
+  EPOCHS=10
 
   # Transformer - baseline.
   transformer = Transformer(num_layers=num_layers,
@@ -245,6 +259,8 @@ if __name__ == "__main__":
 
   for epoch in range(EPOCHS):
 
+    logging.info("Epoch {}/{}".format(epoch, EPOCHS))
+
     start = time.time()
 
     loss_baseline=train_step_dummy_classic_T(inputs=dummy_dataset)
@@ -252,6 +268,10 @@ if __name__ == "__main__":
     print('epoch', epoch)
     print('loss - Baseline', loss_baseline)
 
+    logging.info("loss - Baseline Transformer: {}".format(loss_baseline))
+
     print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+    logging.info('Time taken for 1 epoch: {} secs'.format(time.time() - start))
 
   print('training of Classic Transformer for dummy dataset done...')

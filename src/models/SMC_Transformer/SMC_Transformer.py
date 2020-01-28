@@ -148,7 +148,7 @@ class SMC_Transformer(tf.keras.Model):
 
   def __init__(self, num_layers, d_model, num_heads, dff,
                target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type,
-               rate=0.1, maximum_position_encoding=None):
+               rate=0.1, maximum_position_encoding=None, resampling=True):
     super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:
@@ -182,7 +182,8 @@ class SMC_Transformer(tf.keras.Model):
                                 num_heads=num_heads,
                                 sigma=sigma,
                                 noise=noise_SMC_layer,
-                                task_type=task_type)  # put here the Transformer cell.
+                                task_type=task_type,
+                                resampling=resampling)  # put here the Transformer cell.
 
     # for pre_processing words in the one_layer case.
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
@@ -258,7 +259,8 @@ class SMC_Transformer(tf.keras.Model):
       initial_word_tensor = tf.expand_dims(initial_word_id, axis=-1)
       initial_word_tensor=tf.cast(initial_word_tensor, dtype=tf.int32)
       initial_weights = tf.gather(log_probas_initial, initial_word_tensor, axis=-1, batch_dims=1)
-      initial_weights=tf.squeeze(initial_weights, axis=-1)
+      if len(tf.shape(initial_weights))==4: # trick, because in training, w_0 already of 'good' shape (B,P,1)
+        initial_weights=tf.squeeze(initial_weights, axis=-1) # should be of shape (B,P,1)
     elif self.task_type=='regression':
       assert self.target_vocab_size==1
       #TODO replace the tf.cast by an assert (not essential & urgent though).

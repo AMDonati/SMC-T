@@ -28,6 +28,7 @@ from preprocessing.NLP.text_to_dataset import text_to_dataset
 
 data_type = 'time_series'
 task_type = 'regression'
+resampling=True
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
 if data_type=='time_series':
@@ -46,7 +47,7 @@ if data_type=='time_series':
   print('batch size...', BATCH_SIZE)
   num_bins = 12 # correspond to the number of classes for a classification task
   num_classes=num_bins
-  reduce_for_test = 10000 # taking only 200,000 samples for testing.
+  reduce_for_test = 5000 # taking only 200,000 samples for testing.
 
   if task_type=='classification':
 
@@ -79,6 +80,8 @@ if data_type=='time_series':
     print('classes distributions for training data', df_train_samples.value_counts())
 
   elif task_type=='regression':
+
+    resampling=False
 
     train_dataset, val_dataset, uni_data_df, x_train=df_continuous_to_dataset(file_path=file_path,
                                                                           fname=fname,
@@ -116,8 +119,8 @@ optimizer = tf.keras.optimizers.Adam(learning_rate,
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
-# Model's hyperparameters.
-num_particles = 5
+# Model's hyper-parameters.
+num_particles = 1
 num_heads = 2
 d_model = 4
 dff = 8
@@ -126,7 +129,7 @@ target_vocab_size = num_classes if task_type=='classification' else 1 # correspo
 num_layers = 1
 sigma=1
 noise_encoder=False
-noise_SMC_layer=True
+noise_SMC_layer=False
 
 #----DEFINE THE MODEL---------------------------------------------------------------------------------------------------------------------------------------------------------------
 # SMC_Transformer
@@ -142,7 +145,8 @@ smc_transformer = SMC_Transformer(num_layers=num_layers,
                         noise_SMC_layer=noise_SMC_layer,
                         seq_len=seq_len,
                         data_type=data_type,
-                        task_type=task_type)
+                        task_type=task_type,
+                        resampling=resampling)
 
 # Transformer - baseline.
 transformer=Transformer(num_layers=num_layers,
@@ -215,17 +219,19 @@ if __name__ == "__main__":
       train_loss.reset_states()
       #TODO: in train_step_classic_T, add the option of the loss function for the regression_case.
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_baseline = train_step_classic_T(inputs=inp,
+        loss_baseline, average_loss_batch, train_accuracy_batch = train_step_classic_T(inputs=inp,
                                              targets=tar,
                                              transformer=transformer,
                                              train_loss=train_loss,
+                                             train_accuracy=train_accuracy,
                                              optimizer=optimizer)
 
         if batch % print_loss == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss -  Baseline Transformer', loss_baseline.numpy())
-          print('average loss', train_loss(loss_baseline).numpy())
+          print('average loss', average_loss_batch.numpy())
+          print('accuracy - Baseline Transformer', train_accuracy_batch.numpy())
 
       print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
@@ -236,6 +242,7 @@ if __name__ == "__main__":
   if train_smc_transformer:
     print('number of particles', num_particles)
     print ('noise in SMC_layer?', noise_SMC_layer)
+    print('resampling?', resampling)
 
     smc_transformer=SMC_Transformer(num_layers=num_layers,
                           d_model=d_model,
@@ -249,13 +256,14 @@ if __name__ == "__main__":
                           noise_SMC_layer=noise_SMC_layer,
                           seq_len=seq_len,
                           data_type=data_type,
-                          task_type=task_type)
+                          task_type=task_type,
+                          resampling=resampling)
 
     #print('SMC transformer model summary...', smc_transformer.summary())
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
-      (example_batch_predictions, _, _), _ = smc_transformer(inputs=input_example_batch,
+      (example_batch_predictions, _, _), (average_predictions, max_predictions), _ = smc_transformer(inputs=input_example_batch,
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape", example_batch_predictions.shape)
@@ -264,32 +272,35 @@ if __name__ == "__main__":
       start = time.time()
 
       train_loss.reset_states()
-      #train_accuracy.reset_states()
+      train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_smc=train_step_SMC_T(inputs=inp,
+        loss_smc, average_loss_batch, train_accuracy_batch=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
                                   optimizer=optimizer,
                                   train_loss=train_loss,
+                                  train_accuracy=train_accuracy,
                                   classic_loss=True,
                                   SMC_loss=True)
-        if noise_SMC_layer:
-          loss_smc_classic_part=train_step_SMC_T(inputs=inp,
-                                  targets=tar,
-                                  smc_transformer=smc_transformer,
-                                  optimizer=optimizer,
-                                  train_loss=train_loss,
-                                  classic_loss=True,
-                                  SMC_loss=False)
+        # if noise_SMC_layer:
+        #   loss_smc_classic_part=train_step_SMC_T(inputs=inp,
+        #                           targets=tar,
+        #                           smc_transformer=smc_transformer,
+        #                           optimizer=optimizer,
+        #                           train_loss=train_loss,
+        #                           train_accuracy=train_accuracy,
+        #                           classic_loss=True,
+        #                           SMC_loss=False)
 
         if batch % print_loss == 0:
           print('epoch', epoch)
           print('batch', batch)
           print('loss - SMC Transformer', loss_smc.numpy())
-          if noise_SMC_layer:
-            print('loss SMC Transformer - classic part', loss_smc_classic_part.numpy())
-          print('average SMC loss - SMC Transformer', train_loss(loss_smc).numpy())
+          # if noise_SMC_layer:
+          #   print('loss SMC Transformer - classic part', loss_smc_classic_part.numpy())
+          print('average SMC loss - SMC Transformer', average_loss_batch.numpy())
+          print('accuracy from average predictions - SMC Transformer', train_accuracy_batch.numpy())
 
       # if (epoch + 1) % 5 == 0:
       #   ckpt_save_path = ckpt_manager.save()
