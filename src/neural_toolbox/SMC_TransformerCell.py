@@ -81,10 +81,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
     # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
-    self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),
-                        tf.TensorShape([self.num_particles, 1, self.d_model]),
-                        tf.TensorShape([self.num_particles, 1, self.d_model]),
-                        tf.TensorShape([self.num_particles, 1, self.seq_len]))
+    self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]), # r^l
+                        tf.TensorShape([self.num_particles, 1, self.d_model]), # z
+                        tf.TensorShape([ 1, self.target_vocab_size]), # average_prediction
+                        tf.TensorShape([1, self.target_vocab_size]), # max_prediction
+                        tf.TensorShape([self.num_particles, 1, self.d_model]), # epsilon
+                        tf.TensorShape([self.num_particles, 1, self.seq_len])) # attention_weights
 
     self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model)
     if self.maximum_position_encoding is not None:
@@ -115,7 +117,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    #print('cell timestep', self.dec_timestep)
+    print('cell timestep', self.dec_timestep)
 
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
@@ -156,7 +158,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1)
-    predictions = self.output_layer(out3)  # (B,P,V)
+    predictions = self.output_layer(out3)  # (B,P,1,V)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -193,11 +195,18 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
 
+    # compute the average prediction & max_prediction for the set of particles from predictions & w
+    predictions=tf.squeeze(predictions, axis=-2) # (B,P,V)
+    w=w_squeezed
+    average_prediction=tf.expand_dims(tf.reduce_sum(predictions*w, axis=1), axis=1) # (B,1,V)
+    argmax_w=tf.argmax(w, axis=1)# (B, 1)
+    max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
+
     #-----------------end of weights computation--------------------------------------------------------------------
 
     # update the genealogy indices matrix from the weights.
     if self.dec_timestep < self.seq_len:
-      # update it only T-1
+      # update it only until T-1
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
@@ -206,14 +215,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-      # TODO check with Sylvain if this works for the resampling of z.
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
-    # get the output (r_t^l, z_t^l, epsilon_t^l)
+    # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
-    output = [out3, z, epsilon, attn_weights]# attn_weights > shape (B,P,H,1,D)
-    if len(tf.shape(w_squeezed))==2:
-      w = tf.expand_dims(w_squeezed, axis=-1)
+
+    output = [out3, z, average_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
     self.dec_timestep += 1
@@ -283,6 +291,7 @@ if __name__ == "__main__":
 
   cell_output = last_output[0]
   last_z = last_output[1]
+
   K = new_states[0]
   V = new_states[1]
   w = new_states[2]
@@ -290,13 +299,19 @@ if __name__ == "__main__":
 
   output_seq = outputs[0]
   z_seq = outputs[1]
-  epsilon_seq=outputs[2]
-  attn_w_seq=outputs[3]
+
+  average_predictions = outputs[2] # (B,S,1,V)
+  max_predictions = outputs[3] # (B,S,1,V)
+
+  epsilon_seq=outputs[4]
+  attn_w_seq=outputs[5]
 
   print('r_T', cell_output.shape)  # (B,P,1,D) # should be dff?
   print('z_T', last_z.shape)  # shape (B,P,1,D)
   print('r0_T', output_seq.shape)  # shape (B,S,P,1,D) > should be shape (B,S,P,D) instead
   print('z_0_T', z_seq.shape)  # shape (B,S,P,1,D)
+  print ('sequence of average predictions', average_predictions.shape) # (B,S,1,V)
+  print('sequence of max_predictions', max_predictions.shape) # (B,S,1,V)
   print('Epsilon_0_T', epsilon_seq.shape)  # shape (B,S,P,1,D)
   print('attention weights', attn_w_seq.shape) # shape (B,S,P,H,1,S)
   print('w_T', w.shape)  # shape (B,P,1)

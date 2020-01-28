@@ -399,7 +399,7 @@ class SMC_Transformer(tf.keras.Model):
 
     initial_state = NestedState(K=K0,
                                 V=V0,
-                                w=tf.expand_dims(w0, axis=-1),
+                                w=w0,
                                 I=I0)
 
     def step_function(inputs, states):
@@ -418,8 +418,11 @@ class SMC_Transformer(tf.keras.Model):
     z_T=last_output[1]
     r0_T=outputs[0] # shape (B,S,P,D)
     Z0_T=outputs[1] # shape (B,S,P,D)
-    Epsilon0_T=outputs[2] # shape (B,S,P,D)
 
+    average_predictions=outputs[2] # (B,S,V)
+    max_predictions=outputs[3] # (B,S,V)
+
+    Epsilon0_T=outputs[4] # shape (B,S,P,D)
 
     K=new_states[0]
     V=new_states[1]
@@ -436,7 +439,7 @@ class SMC_Transformer(tf.keras.Model):
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.epsilon_seq_last_layer = Epsilon0_T
 
-    attn_weights_SMC_layer=outputs[3] # shape (B,S,P,H,S)
+    attn_weights_SMC_layer=outputs[5] # shape (B,S,P,H,S)
     attn_weights_SMC_layer=tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
 
     if self.num_layers==1:
@@ -447,7 +450,7 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward=True
 
-    return (Y0_T, Z0_T, w_T), attn_weights
+    return (Y0_T, Z0_T, w_T), (average_predictions, max_predictions), attn_weights
 
 if __name__ == "__main__":
 
@@ -505,11 +508,14 @@ if __name__ == "__main__":
 
   mask=create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights), attn_weights = sample_transformer(inputs=inputs, training=False, mask=mask)
+  (predictions, trajectories, weights), (average_predictions, max_predictions), attn_weights = sample_transformer(inputs=inputs, training=False, mask=mask)
 
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
+  print('average predictions', average_predictions.shape) # (B,P,V)
+  print('max_predictions', max_predictions.shape)
+
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)
 

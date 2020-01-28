@@ -235,6 +235,8 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, targets=Non
   # predictions should be the last element of the sequence of predictions (of shape (B,S,V)
   # prediction=prediction[:,-1,:] > shape (B,V)
 
+  # actually take: shape (B,S,1) for tar_real ; (B,S,V) for predictions. (accuracy over the whole sequence.)
+
   #train_accuracy(tar_real, predictions)
 
   return loss

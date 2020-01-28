@@ -2,15 +2,14 @@
 #TODO: add the testing on the loss on one batch.
 #TODO: add callbacks and checkpoints.
 #TODO: add logging (see Florian script to store all the loss values & train accuracy at each epoch / every certain number of batch...).
+
+#TODO: add a validation dataset > compute the training and validation accuracy.
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 
 #TODO: debug the mse_with_particles function for the regression case.
 #TODO: debug the issue of the seq_len for the training of the classic Transformer in the NLP dataset (it seems that it always want to process input_data of seq length eqaul to 100...)
 
-
 #TODO: for the nlp dataset, add a mask to the loss functions for padded sequences...
-
-#TODO: test if the loss of the SMC Transformer is the correct formula by replacing it with the one from the classic transformer (for the case of num_particles=1).
 
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
