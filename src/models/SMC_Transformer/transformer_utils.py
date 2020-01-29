@@ -67,21 +67,7 @@ def create_look_ahead_mask_v2(size):
   mask=1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
   return 1-mask
 
-
-def create_masks(tar):
-  # target is dim (B,P,S,D)
-  # Used in the 1st attention block in the decoder.
-  # It is used to pad and mask future tokens in the input received by
-  # the decoder.
-
-  # TO CHANGE: mask need to be of shape (B,P,num_heads, S,S)
-  look_ahead_mask = create_look_ahead_mask_v2(tf.shape(tar)[1]) #
-  #dec_target_padding_mask = create_padding_mask(tar, num_particles) # NOT NEEDED???
-  #combined_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
-
-  return look_ahead_mask
-
-def resample(params, indices):
+def resample_old(params, indices):
   '''GOOD RESAMPLING FUNCTION!!!'''
   seq_length=tf.shape(params)[2]
   params_list=[]
@@ -94,6 +80,30 @@ def resample(params, indices):
   params_resampl=tf.stack(params_list, axis=2)
   params_resampl=tf.squeeze(params_resampl, axis=-2)
   return params_resampl
+
+def resample(params, ind_matrix, t):
+  #TODO use tf.scatter_nd instead to avoid the for loop on the number of particles?
+  num_particles=tf.shape(params)[1]
+  i_t=ind_matrix[:,:,t]# shape (B,P)
+  past_params=params[:,:,:t+1,:] # (B,P,t,D)
+  print('past_params', past_params.shape)
+  future_params=params[:,:,t+1:,:] #(B,P,S-t,D)
+  print('future_params', future_params.shape)
+  rows_new_params=[]
+  for m in range(num_particles):
+    i_t_m=i_t[:,m] # shape B
+    # reshaping to (B,1)
+    i_t_m=tf.expand_dims(i_t_m, axis=-1)
+    row_m_new_params=tf.gather(past_params, i_t_m, axis=1, batch_dims=1) # shape (B,1,t-1,D)
+    # squeezing on 2nd dim:
+    row_m_new_params=tf.squeeze(row_m_new_params, axis=1)
+    rows_new_params.append(row_m_new_params)
+  # stacking the new rows in the a new tensor
+  new_params=tf.stack(rows_new_params, axis=1) # add a tf.expand_dims? # (B,P,t-1,D)
+  new_params=tf.concat([new_params, future_params], axis=2) # concatenating new_params (until t-1) and old params (from t)
+
+  return new_params, i_t
+
 
 def resample_z(z, indices, dec_timestep):
   curr_ind=indices[:,:,dec_timestep]
@@ -133,18 +143,9 @@ def sample_and_keep_indices(prev_sampling_weights, ind_matrix, num_particles, de
   J_t=tf.concat([J_t, indices], axis=-1)  # shape (B,P,dec_timestep)
 
   # updating Jt in the total J of shape (B,P,S)
-  ind_matrix=tf.concat([J_t, ind_matrix[:,:,dec_timestep+1:]], axis=-1)
+  ind_matrix=tf.concat([J_t, ind_matrix[:,:,dec_timestep+1:]], axis=-1) # is it dec_timstep+1 or dec_timestep?
 
   return indices, ind_matrix
-
-
-  # # Add this set of indices to the indices matrix tensor:
-  # indices = tf.cast(indices, tf.int32)
-  # indices = tf.expand_dims(indices, axis=-1)
-  # updated_ind_matrix = tf.concat(
-  #   [ind_matrix[:, :, :dec_timestep], indices, ind_matrix[:, :, dec_timestep + 1:]], axis=-1)
-  #
-  # return indices, updated_ind_matrix
 
 def initialize_indices_matrix(batch_size, seq_length, num_particles):
   # initialize it as the "identity transformation function"
@@ -194,67 +195,94 @@ def compute_direct_update_cov_matrix(self):
     return list_upd_sigmas
 
 if __name__ == "__main__":
-  #mask=create_look_ahead_mask_v2(3)
-  #print(mask)
+  test_resample_z=False
+  test_resample=True
+  test_sample_and_keep_indices=False
 
-  #Z=tf.random.uniform(shape=(8,10,8,3,6))
-  #print('Z before masking', Z)
-  #Z*=mask
-  #print('Z after masking', Z)
+  #---- resampling z test-------------------------------------------------------------------------------------------------
 
-  #---- resampling z test---------
+  if test_resample_z:
+    z=tf.random.uniform(shape=(8,10,64))
+    indices=tf.ones(shape=(8,10,20), dtype=tf.int32)
+    z_resampl=resample_z(z, indices, 5)
+    print('z resampled', z_resampl.shape)
 
-  # z=tf.random.uniform(shape=(8,10,64))
-  # indices=tf.ones(shape=(8,10,20), dtype=tf.int32)
-  # z_resampl=resample_z(z, indices, 5)
-  # print('z resampled', z_resampl.shape)
+  #---------- test of corrected resample function-------------------------------------------------------------------------
 
-  #---- test of sample_and_keep_indices function-----
-  B = 2
-  P = 3
-  S = 4
-  t=2
-  prev_sampling_weights = tf.random.uniform(shape=(B, P), maxval=1)
-  ind_matrix_T = tf.constant([0 for _ in range(P)], shape=(1, P, 1), dtype=tf.int32)
-  # S+1 is a trick to be able to update the last decoding timestep
-  ind_matrix_T = tf.tile(ind_matrix_T, [B, 1, S+1])
+  if test_resample:
+    B=2
+    S=3
+    P=4
+    D=1
 
-  # ind_matrix=tf.constant([[1,2,3],[2,2,2]], shape=(1,P,2), dtype=tf.int32)
-  # ind_matrix=tf.tile(ind_matrix, multiples=[B,1,1])
-  # ind_matrix_right = tf.tile(ind_matrix_right, [B, 1, S-2])
-  # ind_matrix_T=tf.concat([ind_matrix, ind_matrix_right],axis=-1)
+    ind_matrix= tf.constant([[1, 1, 2, 2], [0, 0, 0, 0], [1, 1, 1, 0]], shape=(S, P))
+    ind_matrix = tf.transpose(ind_matrix)
+    ind_matrix = tf.tile(tf.expand_dims(ind_matrix, axis=0), multiples=[B, 1, 1])  # (B,P,S)
 
-  # FOR TESTING - to remove
-  indices_t1 = tf.constant([2, 2, 2], shape=(1, P, 1), dtype=tf.int32)
-  indices_t1 = tf.tile(indices_t1, multiples=[B, 1, 1])
+    print('indices_matrices', ind_matrix[0,:,:].numpy())
 
-  indices_t2 = tf.constant([1, 2, 2], shape=(1, P, 1), dtype=tf.int32)
-  indices_t2= tf.tile(indices_t2, multiples=[B, 1, 1])
+    K=tf.constant([[1,2,3,4],[5,6,7,8],[9,10,11,12]], shape=(S,P))
+    K=tf.transpose(K)
+    K=tf.tile(tf.expand_dims(K, axis=0), multiples=[B,1,1]) # (B,P,S)
+    K=tf.expand_dims(K, axis=-1) # (B,P,S,D=1)
+    print('init K', K[0,:,:,0])
 
-  indices_t3 = tf.constant([1, 1, 3], shape=(1, P, 1), dtype=tf.int32)
-  indices_t3 = tf.tile(indices_t3, multiples=[B, 1, 1])
+    new_K=K
+    for t in range(S):
+      new_K, i_t=resample(params=new_K, ind_matrix=ind_matrix, t=t)
+      print('current set of indices', i_t[0,:])
+      print('new K at time_step {}: {}'.format(t,new_K[0,:,:,0]))
 
-  curr_indices, matrix_updated_t1 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
-                                                            ind_matrix=ind_matrix_T,
-                                                            num_particles=P,
-                                                            dec_timestep=1,
-                                                            indices=indices_t1)
+    # ok, test passed.
 
-  curr_indices, matrix_updated_t2=sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
-                                                  ind_matrix=matrix_updated_t1,
-                                                  num_particles=P,
-                                                  dec_timestep=2,
-                                                  indices=indices_t2)
+  #---- test of sample_and_keep_indices function---------------------------------------------------------------------
 
-  #TODO: solve the bug happening at the last_timestep.
-  # # does not work for the last time_step
-  # curr_indices, matrix_updated_t3 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
-  #                                                           ind_matrix=matrix_updated_t2,
-  #                                                           num_particles=P,
-  #                                                           dec_timestep=3,
-  #                                                           indices=indices_t3)
+  if test_sample_and_keep_indices:
+    B = 2
+    P = 3
+    S = 4
+    t=2
+    prev_sampling_weights = tf.random.uniform(shape=(B, P), maxval=1)
+    ind_matrix_T = tf.constant([0 for _ in range(P)], shape=(1, P, 1), dtype=tf.int32)
+    # S+1 is a trick to be able to update the last decoding timestep
+    ind_matrix_T = tf.tile(ind_matrix_T, [B, 1, S+1])
+
+    # ind_matrix=tf.constant([[1,2,3],[2,2,2]], shape=(1,P,2), dtype=tf.int32)
+    # ind_matrix=tf.tile(ind_matrix, multiples=[B,1,1])
+    # ind_matrix_right = tf.tile(ind_matrix_right, [B, 1, S-2])
+    # ind_matrix_T=tf.concat([ind_matrix, ind_matrix_right],axis=-1)
+
+    # FOR TESTING - to remove
+    indices_t1 = tf.constant([2, 2, 2], shape=(1, P, 1), dtype=tf.int32)
+    indices_t1 = tf.tile(indices_t1, multiples=[B, 1, 1])
+
+    indices_t2 = tf.constant([1, 2, 2], shape=(1, P, 1), dtype=tf.int32)
+    indices_t2= tf.tile(indices_t2, multiples=[B, 1, 1])
+
+    indices_t3 = tf.constant([1, 1, 3], shape=(1, P, 1), dtype=tf.int32)
+    indices_t3 = tf.tile(indices_t3, multiples=[B, 1, 1])
+
+    curr_indices, matrix_updated_t1 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
+                                                              ind_matrix=ind_matrix_T,
+                                                              num_particles=P,
+                                                              dec_timestep=1,
+                                                              indices=indices_t1)
+
+    curr_indices, matrix_updated_t2=sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
+                                                    ind_matrix=matrix_updated_t1,
+                                                    num_particles=P,
+                                                    dec_timestep=2,
+                                                    indices=indices_t2)
+
+    #TODO: solve the bug happening at the last_timestep.
+    # # does not work for the last time_step
+    # curr_indices, matrix_updated_t3 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
+    #                                                           ind_matrix=matrix_updated_t2,
+    #                                                           num_particles=P,
+    #                                                           dec_timestep=3,
+    #                                                           indices=indices_t3)
 
 
-  print('indices matrix at time t1', matrix_updated_t1[0,:,:])
-  print('indices matrix at time t2', matrix_updated_t2[0, :, :])
-  #print('indices matrix at time t3', matrix_updated_t3[0, :, :])
+    print('indices matrix at time t1', matrix_updated_t1[0,:,:])
+    print('indices matrix at time t2', matrix_updated_t2[0, :, :])
+    #print('indices matrix at time t3', matrix_updated_t3[0, :, :])

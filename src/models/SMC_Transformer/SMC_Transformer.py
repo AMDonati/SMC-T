@@ -129,8 +129,9 @@ class Encoder(tf.keras.layers.Layer):
 
     return inputs, attention_weights
 
+#------------------------CREATE THE SMC TRANSFORMER MODEL ------------------------------------------------------------
 
-"""## Create the Transformer"""
+
 class SMC_Transformer(tf.keras.Model):
   '''class for the Transformer Model
   -args
@@ -169,8 +170,6 @@ class SMC_Transformer(tf.keras.Model):
     else:
       raise ValueError("num_layers should be superior or equal to 1.")
 
-    # get the output layer of the last decoder layer as final layer.
-    # self.final_layer = self.decoder.dec_layers[num_layers - 1].output_layer # to change.
 
     self.cell = SMC_Transf_Cell(d_model=d_model,
                                 dff=dff,
@@ -261,6 +260,7 @@ class SMC_Transformer(tf.keras.Model):
       initial_weights = tf.gather(log_probas_initial, initial_word_tensor, axis=-1, batch_dims=1)
       if len(tf.shape(initial_weights))==4: # trick, because in training, w_0 already of 'good' shape (B,P,1)
         initial_weights=tf.squeeze(initial_weights, axis=-1) # should be of shape (B,P,1)
+
     elif self.task_type=='regression':
       assert self.target_vocab_size==1
       #TODO replace the tf.cast by an assert (not essential & urgent though).
