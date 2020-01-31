@@ -63,7 +63,7 @@ def text_to_dataset(file_path, seq_len, train_split, buffer_size, batch_size):
   val_dataset = val_sequences.map(split_input_target)
 
   train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
-  val_dataset = train_dataset.batch(batch_size, drop_remainder=True)
+  val_dataset = val_dataset.batch(batch_size, drop_remainder=True)
 
   return train_dataset, val_dataset, vocab_size, num_samples_train
 
@@ -72,15 +72,19 @@ if __name__ == "__main__":
 
   file_path='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/shakespeare_short.txt'
 
-  BATCH_SIZE = 64
-  BUFFER_SIZE = 10000
-  TRAIN_SPLIT=0.8
+  BATCH_SIZE = 50
+  BUFFER_SIZE = 500
+  TRAIN_SPLIT=0.9
   seq_len=50
   train_dataset, val_dataset, vocab_size, training_samples = text_to_dataset(file_path=file_path, seq_len=seq_len,
                                                            train_split=TRAIN_SPLIT,
                                                            buffer_size=BUFFER_SIZE,
                                                            batch_size=64)
-  print('dataset', train_dataset)
+  steps_per_epoch=int(training_samples)/BATCH_SIZE
+
+  #TODO: solve this issue of enumerate here...
+  for (batch, (inp, tar)) in enumerate(train_dataset):
+    print(inp.shape)
 
 
 

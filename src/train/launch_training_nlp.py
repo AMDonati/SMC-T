@@ -40,17 +40,22 @@ task_type='classification'
 
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
-file_path = tf.keras.utils.get_file('shakespeare.txt',
-                                    'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
-BATCH_SIZE = 64
-BUFFER_SIZE = 10000
-seq_len = 100
+# file_path = tf.keras.utils.get_file('shakespeare.txt',
+#                                     'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
+
+file_path='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/shakespeare_short.txt'
+
+BATCH_SIZE = 100
+BUFFER_SIZE = 200
+seq_len = 50
 train_split = 0.9
 train_dataset, val_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
                                                           seq_len=seq_len,
                                                           train_split=train_split,
                                                           buffer_size=BUFFER_SIZE,
                                                           batch_size=BATCH_SIZE)
+
+steps_per_epochs=int(training_samples / BATCH_SIZE)
 
 # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 ## Optimizer
@@ -64,8 +69,8 @@ train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy
 perplexity=PerplexityMetric(name='perplexity')
 
 # Model's hyper-parameters.
-num_particles = 5
-num_heads = 4
+num_particles = 1
+num_heads = 1
 d_model = 4
 dff = 8
 
@@ -77,7 +82,7 @@ num_layers = 1
 
 sigma=1
 noise_encoder=False
-noise_SMC_layer=True
+noise_SMC_layer=False
 resampling=True
 
 #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
@@ -97,14 +102,12 @@ if __name__ == "__main__":
   dataset = train_dataset
   EPOCHS = 20
   train_smc_transformer=True
-  train_classic_transformer=True
+  train_classic_transformer=False
 
   print('number of heads...', num_heads)
   print('depth model', d_model)
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
-
-  # add utils to create directories. (cf Nicolas script.)
 
   output_path = '../../output'
   out_folder = '{}_{}_heads_{}_particles_{}_depth_{}_sigma_{}_noise_{}'.format(data_type,
@@ -118,7 +121,7 @@ if __name__ == "__main__":
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # create the logging:
-  out_file_log=os.path.join(output_path, 'training_log.log')
+  out_file_log=output_path+ '/'+'training_log.log'
   logging.basicConfig(filename=out_file_log, level=logging.INFO)
 
   #  creating the checkpoint manager:
@@ -151,7 +154,7 @@ if __name__ == "__main__":
 
     baseline_ckpt_path=os.path.join(checkpoint_path, "transformer_baseline")
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
@@ -163,6 +166,8 @@ if __name__ == "__main__":
 
       train_loss.reset_states()
       for (batch, (inp, tar)) in enumerate(dataset):
+        print('doing one training step...')
+        #TODO: solve the fact that the process is not entering this loop.
         _, average_loss_batch, train_accuracy_batch = train_step_classic_T(inputs=inp,
                                              targets=tar,
                                              transformer=transformer,
@@ -184,11 +189,8 @@ if __name__ == "__main__":
     keys=['loss', 'accuracy']
     values=[average_losses_baseline, training_accuracies_baseline]
     history=dict(zip(keys,values))
-    # save it on a .txt file:
-    baseline_history_fn=os.path.join(output_path, 'baseline_history.csv') # use a create_directory function instead.
+    baseline_history_fn=output_path+'/'+'baseline_history.csv' # use a create_directory function instead.
     write_to_csv(baseline_history_fn, history)
-    #TODO: use function write_to_csv instead.
-    #np.savetxt(history_path, history)
     logging.info('saving loss and metrics information...')
 
     # making predictions with the trained model and saving them on .npy files
@@ -197,8 +199,8 @@ if __name__ == "__main__":
                                                   training=False,
                                                   mask=mask)
     model_output_path=create_run_dir(path_dir=output_path, path_name="model_outputs")
-    predictions_fn=os.path.join(model_output_path, 'baseline_predictions.npy')
-    attn_weights_fn=os.path.join(model_output_path, 'baseline_attn_weights.npy')
+    predictions_fn=model_output_path + '/' + 'baseline_predictions.npy'
+    attn_weights_fn=model_output_path + '/' + 'baseline_attn_weights.npy'
     np.save(predictions_fn, predictions_bas)
     np.save(attn_weights_fn, attn_weights_bas)
     logging.info("saving model output in .npy files...")
@@ -227,19 +229,17 @@ if __name__ == "__main__":
                           resampling=resampling)
 
     # creating checkpoint manager
-    ckpt = tf.train.Checkpoint(transformer=transformer,
+    ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                optimizer=optimizer)
 
     smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
       ckpt.restore(ckpt_manager.latest_checkpoint)
       logging.info('Latest checkpoint restored!!')
-
-    logging.info('SMC transformer model summary...', smc_transformer.summary())
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
@@ -248,6 +248,8 @@ if __name__ == "__main__":
                                               mask=create_look_ahead_mask(seq_len))
       logging.info("predictions shape: {}", example_batch_predictions.shape)
 
+      logging.info('SMC transformer model summary...', smc_transformer.summary())
+
     for epoch in range(EPOCHS):
       start = time.time()
 
@@ -255,6 +257,7 @@ if __name__ == "__main__":
       train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
+        # TODO: solve the fact that the process is not entering this loop.
         loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
@@ -264,12 +267,6 @@ if __name__ == "__main__":
                                   classic_loss=True,
                                   SMC_loss=True)
 
-        # print('epoch', epoch)
-        # print('batch', batch)
-        # print('loss - SMC Transformer', loss_smc.numpy())
-        # print('average SMC loss - SMC Transformer', average_loss_batch.numpy())
-        # print('accuracy from average predictions - SMC Transformer', train_accuracy_average_pred.numpy())
-
       logging.info('epoch {} - average training loss {} - training accuracy, average: {} - training accuracy, max: {}'.format((
         epoch+1, average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), train_accuracy_max_pred.numpy())))
 
@@ -277,6 +274,34 @@ if __name__ == "__main__":
       logging.info('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
       logging.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+      # saving loss and metrics information:
+      average_losses_baseline.append(average_loss_batch.numpy())
+      training_accuracies_baseline.append(train_accuracy_batch.numpy())
+
+    # storing history of losses and accuracies in a csv file
+    keys = ['loss', 'accuracy']
+    values = [average_losses_baseline, training_accuracies_baseline]
+    history = dict(zip(keys, values))
+    baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'  # use a create_directory function instead.
+    write_to_csv(baseline_history_fn, history)
+    logging.info('saving loss and metrics information...')
+
+    # making predictions with the trained model and saving them on .npy files
+    mask = create_look_ahead_mask(seq_len)
+    (predictions, trajectories, weights), (_,_), attn_weights = transformer(input=val_dataset,
+                                                    training=False,
+                                                    mask=mask)
+    model_output_path = create_run_dir(path_dir=output_path, path_name="model_outputs")
+    predictions_fn = model_output_path + '/' + 'smc_predictions.npy'
+    traj_fn = model_output_path + '/' + 'smc_trajectories.npy'
+    weights_fn = model_output_path + '/' + 'smc_weights.npy'
+    attn_weights_fn = model_output_path + '/' + 'smc_attn_weights.npy'
+    np.save(predictions_fn, predictions)
+    np.save(traj_fn, trajectories)
+    np.save(weights_fn, weights)
+    np.save(attn_weights_fn, attn_weights)
+    logging.info("saving model outputs in .npy files...")
 
     print('training of SMC Transformer for nlp dataset done...')
 

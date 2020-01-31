@@ -2,6 +2,7 @@ import os
 import csv
 import shutil
 import pickle as pkl
+import numpy as np
 
 def write_to_csv(output_dir, dic):
   """Write a python dic to csv."""
@@ -62,4 +63,12 @@ if __name__ == "__main__":
   path_dir='../../output'
   path_name='checkpoints'
   temp_path=create_run_dir(path_dir=path_dir, path_name=path_name)
-  temp_npy_fn=os.path.join(temp_path, 'temp_file.npy')
+
+  file_temp=temp_path+'/temp.pkl'
+  array=np.zeros(shape=(10,10))
+  save_to_pickle(file_temp, array)
+
+  csv_temp=path_dir+'/temp_table.csv'
+  l1=['key', 'value']
+  l2=[1,2]
+  write_to_csv(csv_temp, dict(zip(l1,l2)))
