@@ -20,17 +20,18 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
 
-def loss_function_classic_T_classif(real, pred):
-  '''add a mask in the loss for padded sequences - only useful for nlp dataset.'''
-  #mask = tf.math.logical_not(tf.math.equal(real, 0))
+def loss_function_classic_T_classif(real, pred, data_type):
+  if data_type=='nlp':
+    mask = tf.math.logical_not(tf.math.equal(real, 0))
   loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
   loss_ = loss_object(real, pred)
-  #mask = tf.cast(mask, dtype=loss_.dtype)
-  #loss_ *= mask
+  if data_type=='nlp':
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
   return tf.reduce_mean(loss_)
 
 
-def categorical_ce_with_particules(real, pred, sampling_weights):
+def categorical_ce_with_particules(real, pred, sampling_weights, data_type):
   '''
   :param real: targets tensor > shape (B,S)
   :param pred: predictions (particules logits) > shape (B,P,S,V)
@@ -44,12 +45,17 @@ def categorical_ce_with_particules(real, pred, sampling_weights):
     real = tf.expand_dims(real, axis=1)
     real = tf.tile(real, multiples=[1, num_particles, 1])
 
+  if data_type=='nlp':
+    mask = tf.math.logical_not(tf.math.equal(real, 0))
+
   loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
   loss_ = loss_object(real, pred)  # shape (B,P,S)
 
+  if data_type=='nlp':
+    mask = tf.cast(mask, dtype=loss_.dtype)
+    loss_ *= mask
+
   # mean over sequence elements
-  #TODO: ask / check if the reduction over the seq dimension should be a sum or a mean... (a sum according to the blog post below)
-  # https://towardsdatascience.com/recurrent-neural-networks-rnns-3f06d7653a85
   loss_ = tf.reduce_mean(loss_, axis=-1)  # shape (B,P)
   # weighted sum over number of particles
   loss_ = tf.reduce_sum(sampling_weights * loss_, axis=-1)
@@ -129,7 +135,10 @@ def loss_function_classification(real, predictions, weights, transformer, classi
   a scalar computing the SMC loss as defined in the paper.
   '''
   if classic_loss:
-    loss_ce = categorical_ce_with_particules(real=real, pred=predictions, sampling_weights=weights)
+    loss_ce = categorical_ce_with_particules(real=real,
+                                             pred=predictions,
+                                             sampling_weights=weights,
+                                             data_type=transformer.data_type)
   else:
     loss_ce = 0
   if SMC_loss:
@@ -198,7 +207,7 @@ train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
 ]
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, targets=None):
+def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, targets=None):
   '''training step for the classic Transformer model (dummy dataset)'''
   if targets is None:
     tar_inp = inputs[:, :-1]
@@ -222,7 +231,7 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
   with tf.GradientTape() as tape:
     predictions, _ = transformer(inputs=tar_inp, training=True, mask=mask_transformer)
 
-    loss = loss_function_classic_T_classif(real=tar_real, pred=predictions)
+    loss = loss_function_classic_T_classif(real=tar_real, pred=predictions, data_type=data_type)
 
   gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
@@ -305,10 +314,11 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   #TODO: compute the metric for the regression case.
   if smc_transformer.task_type=='classification':
     train_accuracy_batch=train_accuracy(tar_real, average_predictions) # accuracy from average_predictions for now.
+    train_accuracy_from_max_pred=train_accuracy(tar_real, max_predictions)
   else:
-    train_accuracy_batch=tf.zeros(shape=(1,), dtype=tf.float32)
+    train_accuracy_batch=None
 
-  return loss, average_loss_batch, train_accuracy_batch
+  return loss, average_loss_batch, train_accuracy_batch, train_accuracy_from_max_pred
 
 
 
@@ -338,14 +348,14 @@ if __name__ == "__main__":
 
   #------------------------ testing of categorical ce with particules function......-----------------------------------------------------
   B=8
-  P=1
+  P=5
   S=10
   V=50
 
   real=tf.ones(shape=(B,P,S))
   logits=tf.random.uniform(shape=(B,P,S,V))
   sampling_weights=tf.ones(shape=(B,P))
-  loss=categorical_ce_with_particules(real, logits, sampling_weights)
+  loss=categorical_ce_with_particules(real, logits, sampling_weights, data_type='nlp')
 
   print('categorical ce loss for {} classes'.format(V), loss.numpy())
 
@@ -353,7 +363,7 @@ if __name__ == "__main__":
   V=2
   logits = tf.random.uniform(shape=(B, P, S, V))
   sampling_weights = tf.ones(shape=(B, P))
-  loss_binary = categorical_ce_with_particules(real, logits, sampling_weights)
+  loss_binary = categorical_ce_with_particules(real, logits, sampling_weights, data_type='nlp')
 
   print('categorical ce loss - binary case', loss_binary.numpy())
 

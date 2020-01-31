@@ -11,6 +11,7 @@ from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 from train.SMC_loss import compute_SMC_log_likelihood
 from train.SMC_loss import compute_SMC_ll_one_layer
 import collections
+from models.SMC_Transformer.transformer_utils import resample
 
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
@@ -289,6 +290,10 @@ class SMC_Transformer(tf.keras.Model):
     # adding a tf.stop_gradient on the weights and the ind_matrix_init to avoid backpropagation on this set of parameters:
     initial_weights=tf.stop_gradient(initial_weights)
     ind_matrix_init=tf.stop_gradient(ind_matrix_init)
+
+    # resample K & Z using indices 0 of ind_matrix_init
+    K=resample(params=K, ind_matrix=ind_matrix_init, t=0)
+    V = resample(params=V, ind_matrix=ind_matrix_init, t=0)
 
     return (K, V), initial_weights, ind_matrix_init
 

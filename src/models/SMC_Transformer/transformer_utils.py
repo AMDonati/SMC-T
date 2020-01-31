@@ -86,9 +86,7 @@ def resample(params, ind_matrix, t):
   num_particles=tf.shape(params)[1]
   i_t=ind_matrix[:,:,t]# shape (B,P)
   past_params=params[:,:,:t+1,:] # (B,P,t,D)
-  print('past_params', past_params.shape)
   future_params=params[:,:,t+1:,:] #(B,P,S-t,D)
-  print('future_params', future_params.shape)
   rows_new_params=[]
   for m in range(num_particles):
     i_t_m=i_t[:,m] # shape B
@@ -102,7 +100,7 @@ def resample(params, ind_matrix, t):
   new_params=tf.stack(rows_new_params, axis=1) # add a tf.expand_dims? # (B,P,t-1,D)
   new_params=tf.concat([new_params, future_params], axis=2) # concatenating new_params (until t-1) and old params (from t)
 
-  return new_params, i_t
+  return new_params
 
 
 def resample_z(z, indices, dec_timestep):
@@ -229,8 +227,7 @@ if __name__ == "__main__":
 
     new_K=K
     for t in range(S):
-      new_K, i_t=resample(params=new_K, ind_matrix=ind_matrix, t=t)
-      print('current set of indices', i_t[0,:])
+      new_K=resample(params=new_K, ind_matrix=ind_matrix, t=t)
       print('new K at time_step {}: {}'.format(t,new_K[0,:,:,0]))
 
     # ok, test passed.

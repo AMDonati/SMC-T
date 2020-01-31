@@ -11,6 +11,15 @@
 
 #TODO: for the nlp dataset, add a mask to the loss functions for padded sequences...
 
+""""# to store:
+# in a fichier .log: for each epoch, the average loss (train & val dataset), the training accuracy (train & val datasets
+- 2 accuracies for the SMC Transformer), the time taken for each epoch, and the total training time
+# - in a fichier .txt: the list of losses (train & val), accuracies (train & val) for plotting & comparing.
+# - in files .npy: the output of the model (predictions, trajectories, attention_weights...).
+# - checkpoints of the model in a file .ckpt.
+# dictionary of hparams (cf Nicolas's script...).
+"""
+
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
@@ -26,8 +35,8 @@ from preprocessing.time_series.df_to_dataset import df_to_dataset
 from preprocessing.time_series.df_to_dataset import df_continuous_to_dataset
 from preprocessing.NLP.text_to_dataset import text_to_dataset
 
-data_type = 'time_series'
-task_type = 'regression'
+data_type = 'nlp'
+task_type = 'classification'
 resampling=True
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
@@ -44,7 +53,6 @@ if data_type=='time_series':
   buffer_frac = 0.2 # fraction of total dataset to be taken in the buffer when shuffling.
   seq_len =10 # one more than for the transformer.
   BATCH_SIZE = 128 # small batch_size to avoid memory errors.
-  print('batch size...', BATCH_SIZE)
   num_bins = 12 # correspond to the number of classes for a classification task
   num_classes=num_bins
   reduce_for_test = 5000 # taking only 200,000 samples for testing.
@@ -104,10 +112,19 @@ if data_type=='time_series':
 elif data_type=='nlp':
   file_path = tf.keras.utils.get_file('shakespeare.txt',
                                       'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
-  BATCH_SIZE = 128
+  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/shakespeare_reduced_for_testing.txt'
+
+  BATCH_SIZE = 512
   BUFFER_SIZE = 10000
-  seq_len = 100
-  train_dataset, num_classes = text_to_dataset(file_path=file_path, seq_len=seq_len, buffer_size=BUFFER_SIZE, batch_size=64)
+  seq_len = 50
+  train_split=0.9
+  train_dataset, val_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
+                                               seq_len=seq_len,
+                                               buffer_size=BUFFER_SIZE,
+                                               train_split=train_split,
+                                               batch_size=BATCH_SIZE)
+
+  steps_per_epochs=int(training_samples/BATCH_SIZE)
 
 # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 ## Optimizer
@@ -120,42 +137,18 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
 # Model's hyper-parameters.
-num_particles = 1
+num_particles = 5
 num_heads = 2
-d_model = 4
-dff = 8
-maximum_position_encoding = None if data_type=='time_series' else seq_len # no positional encoding for time_series dataset.
+d_model = 64
+dff = 1024
+maximum_position_encoding_baseline=25
+maximum_position_encoding_smc=None
 target_vocab_size = num_classes if task_type=='classification' else 1 # correspond to the number of classes: multi-class classification problem.
 num_layers = 1
 sigma=1
 noise_encoder=False
-noise_SMC_layer=False
+noise_SMC_layer=True
 
-#----DEFINE THE MODEL---------------------------------------------------------------------------------------------------------------------------------------------------------------
-# SMC_Transformer
-smc_transformer = SMC_Transformer(num_layers=num_layers,
-                        d_model=d_model,
-                        num_heads=num_heads,
-                        dff=dff,
-                        target_vocab_size=target_vocab_size,
-                        maximum_position_encoding=maximum_position_encoding,
-                        num_particles=num_particles,
-                        sigma=sigma,
-                        noise_encoder=noise_encoder,
-                        noise_SMC_layer=noise_SMC_layer,
-                        seq_len=seq_len,
-                        data_type=data_type,
-                        task_type=task_type,
-                        resampling=resampling)
-
-# Transformer - baseline.
-transformer=Transformer(num_layers=num_layers,
-                        d_model=d_model,
-                        num_heads=num_heads,
-                        dff=dff,
-                        target_vocab_size=target_vocab_size,
-                        maximum_position_encoding=maximum_position_encoding,
-                        data_type=data_type)
 
 #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
 #TODO: adapt this with the variables of this script.
@@ -189,17 +182,36 @@ if __name__ == "__main__":
   train_smc_transformer=True
   train_classic_transformer=False
 
-  print_loss=int(num_batches/2)
+  print('task type...', task_type)
+  print('data type...', data_type)
+
+  print('number of heads...', num_heads)
+  print('depth model', d_model)
+  print('num_classes', num_classes)
+
+  print('steps per epochs', steps_per_epochs)
+
+  print_loss=100
+
+  #resampling=True if num_particles > 1 else False
+  resampling=False
+
+  print('resampling trajectories?', resampling)
 
   # -------------------------------------------TRAIN ON THE DATASET - CLASSIC TRANSFORMER -------------------------------------------
   if train_classic_transformer:
+  #TODO: solve problem of sequence length & max_position_encoding in the classic model
+  # (it seems that the output of the attention weights are of shape (B,H,S*E, S*E) instead of being of size (B,H,S,S).
+    if maximum_position_encoding_baseline is not None:
+      print('training a baseline transformer with positional encoding of size: {}'.format(maximum_position_encoding_baseline))
+
     # Transformer - baseline.
     transformer = Transformer(num_layers=num_layers,
                               d_model=d_model,
                               num_heads=num_heads,
                               dff=dff,
                               target_vocab_size=target_vocab_size,
-                              maximum_position_encoding=maximum_position_encoding,
+                              maximum_position_encoding=maximum_position_encoding_baseline,
                               data_type=data_type)
 
     # TEST THE LOSS ON A BATCH
@@ -224,7 +236,8 @@ if __name__ == "__main__":
                                              transformer=transformer,
                                              train_loss=train_loss,
                                              train_accuracy=train_accuracy,
-                                             optimizer=optimizer)
+                                             optimizer=optimizer,
+                                             data_type=data_type)
 
         if batch % print_loss == 0:
           print('epoch', epoch)
@@ -240,6 +253,7 @@ if __name__ == "__main__":
 
 #-------------------TRAINING ON THE DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
   if train_smc_transformer:
+
     print('number of particles', num_particles)
     print ('noise in SMC_layer?', noise_SMC_layer)
     print('resampling?', resampling)
@@ -249,7 +263,7 @@ if __name__ == "__main__":
                           num_heads=num_heads,
                           dff=dff,
                           target_vocab_size=target_vocab_size,
-                          maximum_position_encoding=maximum_position_encoding,
+                          maximum_position_encoding=maximum_position_encoding_smc,
                           num_particles=num_particles,
                           sigma=sigma,
                           noise_encoder=noise_encoder,
@@ -275,7 +289,7 @@ if __name__ == "__main__":
       train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_smc, average_loss_batch, train_accuracy_batch=train_step_SMC_T(inputs=inp,
+        loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
                                   optimizer=optimizer,
@@ -294,13 +308,11 @@ if __name__ == "__main__":
         #                           SMC_loss=False)
 
         if batch % print_loss == 0:
-          print('epoch', epoch)
-          print('batch', batch)
-          print('loss - SMC Transformer', loss_smc.numpy())
+          print('epoch', epoch+1)
           # if noise_SMC_layer:
           #   print('loss SMC Transformer - classic part', loss_smc_classic_part.numpy())
           print('average SMC loss - SMC Transformer', average_loss_batch.numpy())
-          print('accuracy from average predictions - SMC Transformer', train_accuracy_batch.numpy())
+          print('accuracy from average predictions - SMC Transformer', train_accuracy_average_pred.numpy())
 
       # if (epoch + 1) % 5 == 0:
       #   ckpt_save_path = ckpt_manager.save()

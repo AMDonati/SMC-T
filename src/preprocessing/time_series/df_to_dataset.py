@@ -33,6 +33,7 @@ def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, n
   #create_bins
   bins=create_bins(min_value, size_bin, num_bins)
 
+  #TODO: use pd.qcut instead...
   df_bins=pd.cut(uni_data_df, bins)
   bins_list=list(set(list(df_bins.values)))
 
@@ -138,12 +139,12 @@ if __name__ == "__main__":
   index_name='Date Time'
   TRAIN_SPLIT = 0.8
   min_value = -25
-  size_bin = 5
-  num_bins = 12
+  size_bin = 10
+  num_bins = 6
   BATCH_SIZE = 256
   buffer_frac = 0.05
   seq_len = 9
-  reduce_for_test=10000
+  reduce_for_test=None
 
 #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
 from models.SMC_Transformer.transformer_utils import positional_encoding
 
 from models.SMC_Transformer.transformer_utils import resample
+from models.SMC_Transformer.transformer_utils import resample_old
 from models.SMC_Transformer.transformer_utils import resample_z
 from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 
@@ -127,12 +128,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
 
-    batch_size = tf.shape(K)[0]
-
     # resampling of (K,V) to compute the new set of (z,K,V)
-    if self.resampling:
-      K = resample(K, I)
-      V = resample(V, I)
+    #if self.resampling:
+      #K = resample_old(K, I)
+      #V = resample_old(V, I)
 
     # multi-head attention:
     input_mha = tf.expand_dims(r, axis=2)  # shape (B,P,1,D)
@@ -210,6 +209,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # update the genealogy indices matrix from the weights.
     if self.dec_timestep < self.seq_len:
       # update it only until T-1
+      #TODO: remove this function & consider only the current indice i_t.
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
@@ -218,6 +218,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
+        K = resample(params=K, ind_matrix=I, t=self.dec_timestep)
+        V = resample(params=K, ind_matrix=I, t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
