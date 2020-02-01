@@ -67,7 +67,9 @@ optimizer = tf.keras.optimizers.Adam(learning_rate,
                                      epsilon=1e-9)
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-perplexity=PerplexityMetric(name='perplexity')
+val_accuracy=tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
+train_perplexity=PerplexityMetric(name='train_perplexity')
+val_perplexity=PerplexityMetric(name='val_perplexity')
 
 # Model's hyper-parameters.
 num_particles = 1
@@ -87,8 +89,7 @@ noise_SMC_layer=False
 resampling=True
 
 #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
-#TODO: adapt this with the variables of this script.
-
+# experiments done on a notebook aside.
 
 #-----------------TRAINING-----------------------------------------------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -161,12 +162,20 @@ if __name__ == "__main__":
       ckpt.restore(ckpt_manager.latest_checkpoint)
       print('Latest checkpoint restored!!')
 
+    start_training=time.time()
+
     for epoch in range(EPOCHS):
       start = time.time()
 
       train_loss.reset_states()
+      train_accuracy.reset_states()
+      val_accuracy.reset_states()
+      #train_perplexity.reset_states()
+      #val_perplexity.reset_states()
+
       for (batch, (inp, tar)) in enumerate(dataset):
         #TODO: check the training boolean in the train_step_classic_T function.
+        #TODO: add the computation of the perplexityMetric
         _, average_loss_batch, train_accuracy_batch = train_step_classic_T(inputs=inp,
                                              targets=tar,
                                              transformer=transformer,
@@ -175,21 +184,22 @@ if __name__ == "__main__":
                                              optimizer=optimizer,
                                              data_type=data_type)
 
-      #val_acc_epoch=[]
-      for (batch, (inp, tar)) in enumerate(val_dataset):
+      train_acc=train_accuracy.result()
+
+
+      for (inp, tar) in val_dataset:
         predictions_val, attn_weights_val = transformer(inputs=inp,
                                                       training=False,
                                                       mask=create_look_ahead_mask(seq_len))
         # computing the validation accuracy for each batch...
-        val_accuracy_batch=train_accuracy(tar, predictions_val)
+        val_accuracy_batch=val_accuracy(tar, predictions_val)
 
-        #val_acc_epoch.append(val_accuracy_batch)
-      #val_acc_epoch=val_acc_epoch.mean()
+      val_acc=val_accuracy.result()
 
       logging.info('epoch {} - training_loss {} - training_accuracy {} - validation accuracy {}'.format(epoch+1,
                                                                                                       average_loss_batch,
-                                                                                                      train_accuracy_batch,
-                                                                                                        val_accuracy_batch))
+                                                                                                      train_acc,
+                                                                                                        val_acc))
       logging.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
       # saving loss and metrics information:
@@ -197,7 +207,7 @@ if __name__ == "__main__":
       training_accuracies_baseline.append(train_accuracy_batch.numpy())
       val_accuracies_baseline.append(val_accuracy_batch.numpy())
 
-    logging.info('total training time for {} epochs:{}'.format(EPOCHS,time.time() - start))
+    logging.info('total training time for {} epochs:{}'.format(EPOCHS,time.time() - start_training))
 
     # storing history of losses and accuracies in a csv file
     keys=['loss', 'train_accuracy', 'val_accuracy']
@@ -216,6 +226,16 @@ if __name__ == "__main__":
     logging.info("saving model output in .npy files...")
 
     logging.info('training of a classic Transformer for a nlp dataset done...')
+
+    #TODO: this for running the validation loss and metric.
+    # Run a validation loop at the end of each epoch.
+    # for x_batch_val, y_batch_val in val_dataset:
+    #   val_logits = model(x_batch_val)
+    #   # Update val metrics
+    #   val_acc_metric(y_batch_val, val_logits)
+    # val_acc = val_acc_metric.result()
+    # val_acc_metric.reset_states()
+    # print('Validation acc: %s' % (float(val_acc),))
 
 #-------------------TRAINING ON THE DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
   if train_smc_transformer:
@@ -267,6 +287,8 @@ if __name__ == "__main__":
     acc_from_avg_val=[]
     acc_from_max_val=[]
 
+    start_training=time.time()
+
     for epoch in range(EPOCHS):
       start = time.time()
 
@@ -275,6 +297,7 @@ if __name__ == "__main__":
 
       for (batch, (inp, tar)) in enumerate(dataset):
         #TODO: check the value of the training Boolean in the train_step function.
+        #TODO: add the computation of the perplexity in the train_step.
         loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
@@ -285,13 +308,13 @@ if __name__ == "__main__":
                                   SMC_loss=True)
 
       #compute the validation accuracy on the validation dataset:
-      for (batch, (inp, tar)) in enumerate(val_dataset):
+      for (inp, tar) in val_dataset:
         (predictions_val,_,weights_val),(avg_pred_val, max_pred_val), attn_weights_val = smc_transformer(inputs=inp,
                                                       training=False,
                                                       mask=create_look_ahead_mask(seq_len))
         # computing the validation accuracy for each batch...
-        val_accuracy_from_avg_pred=train_accuracy(tar, avg_pred_val)
-        val_accuracy_from_max_pred=train_accuracy(tar, max_pred_val)
+        val_accuracy_from_avg_pred=val_accuracy(tar, avg_pred_val)
+        val_accuracy_from_max_pred=val_accuracy(tar, max_pred_val)
 
       template='epoch {} - average training loss {} - training accuracy, average: {} - validation accuracy, average: {}'
       logging.info(template.format(
@@ -304,12 +327,15 @@ if __name__ == "__main__":
       # saving loss and metrics information:
       avg_loss_train.append(average_loss_batch.numpy())
       acc_from_avg_train.append(train_accuracy_average_pred.numpy())
-      acc_from_max_train.append(train_accuracy_max_pred)
-      acc_from_avg_val.append(val_accuracy_from_avg_pred)
-      acc_from_max_val.append(val_accuracy_from_max_pred)
+      acc_from_max_train.append(train_accuracy_max_pred.numpy())
+      acc_from_avg_val.append(val_accuracy_from_avg_pred.numpy())
+      acc_from_max_val.append(val_accuracy_from_max_pred.numpy())
+
+    logging.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
     # storing history of losses and accuracies in a csv file
-    keys = ['train loss', 'training accuracy, from avg', 'training accuracy, from max', 'valdiation accuracy, from avg', 'validation accuracy, from max']
+    keys = ['train loss', 'training accuracy, from avg', 'training accuracy, from max',
+            'validation accuracy, from avg', 'validation accuracy, from max']
     values = [avg_loss_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val]
     history = dict(zip(keys, values))
     baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'

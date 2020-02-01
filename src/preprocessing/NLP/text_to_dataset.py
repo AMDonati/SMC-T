@@ -82,7 +82,6 @@ if __name__ == "__main__":
                                                            batch_size=64)
   steps_per_epoch=int(training_samples)/BATCH_SIZE
 
-  #TODO: solve this issue of enumerate here...
   for (batch, (inp, tar)) in enumerate(train_dataset):
     print(inp.shape)
 
