@@ -9,19 +9,18 @@
 
   "model": {
       "num_layers": 1,
-      "num_heads": 8,
+      "num_heads": 4,
       "d_model": 128,
-      "dff": 512,
+      "dff": 256,
       "maximum_position_encoding_baseline": 65,
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 1,
+    "num_particles": 10,
     "noise_encoder": "False",
-    "noise_SMC_layer": "False",
-    "sigma" : 1,
-    "resampling": "True"
+    "noise_SMC_layer": "True",
+    "sigma" : 0.05
   },
 
   "optim": {

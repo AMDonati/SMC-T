@@ -87,8 +87,8 @@ if __name__ == "__main__":
   noise_SMC_layer_str=hparams["smc"]["noise_SMC_layer"]
   noise_SMC_layer=True if noise_SMC_layer_str=="True" else False
   sigma=hparams["smc"]["sigma"]
-  resampling_str=hparams["smc"]["resampling"]
-  resampling=True if resampling_str=="True" else False
+  # computing manually resampling parameter
+  resampling=False if num_particles==1 else True
 
   # optim params
   BATCH_SIZE=hparams["optim"]["BATCH_SIZE"]
@@ -296,6 +296,8 @@ if __name__ == "__main__":
     logger.info('starting the training of the smc transformer...')
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
+    if not resampling:
+      logger.info("no resampling because only one particle is taken...")
 
     smc_transformer=SMC_Transformer(num_layers=num_layers,
                           d_model=d_model,
@@ -325,7 +327,7 @@ if __name__ == "__main__":
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
-      (example_batch_predictions, _, _), (average_predictions, max_predictions), _ = smc_transformer(inputs=input_example_batch,
+      (example_batch_predictions, traj, _), (average_predictions, max_predictions), _ = smc_transformer(inputs=input_example_batch,
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
@@ -367,6 +369,8 @@ if __name__ == "__main__":
         # computing the validation accuracy for each batch...
         val_accuracy_from_avg_pred=val_accuracy(tar, avg_pred_val)
         val_accuracy_from_max_pred=val_accuracy(tar, max_pred_val)
+
+        # computing the variance in accuracy for each 'prediction particle':
 
       template='avg train loss {} - train acc, avg: {} - val acc, avg: {}'
       logger.info(template.format(average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), val_accuracy_from_avg_pred.numpy()))

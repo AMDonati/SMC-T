@@ -3,6 +3,8 @@
 
 #TODO: debug the mse_with_particles function for the regression case.
 import tensorflow as tf
+import itertools
+
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 
@@ -226,6 +228,25 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
 #     print(loss.shape)
 #     return loss
 
+def compute_val_accuracy_variance(predictions_val, tar, accuracy_metric):
+  """
+  :param predictions_val: particles of predictions > shape (B,P,S,V)
+  :param tar: targets > shape (B,S)
+  :param accuracy_metric: the tf.keras.metric object used to compute the accuracy.
+  :return:
+  """
+  accuracies=[]
+  num_particles=tf.shape(predictions_val)[1]
+
+  for m in range(num_particles):
+    pred_particle=predictions_val[:,m,:,:] # shape (B,S,V)
+    acc_particle=accuracy_metric(tar, pred_particle)
+    accuracies.append(acc_particle.numpy())
+
+  accuracies.sort()
+  variance_acc=accuracies[num_particles-1]-accuracies[0]
+
+  return variance_acc
 
 if __name__ == "__main__":
 
@@ -264,6 +285,12 @@ if __name__ == "__main__":
 
   print('regression loss', loss_regression.numpy())
 
+  #------- test of compute accuracy_variance-------
+  predictions_val=tf.ones(shape=(8,3,10,65))
+  tar=tf.zeros((8,10))
+  accuracy_metric=tf.keras.metrics.SparseCategoricalAccuracy()
+  acc_variance=compute_val_accuracy_variance(predictions_val, tar, accuracy_metric)
+  print('variance', acc_variance)
 
 
 
