@@ -51,6 +51,8 @@ if __name__ == "__main__":
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
   parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-out_folder", type=str, default='../../output',
+                      help="path for the outputs folder")
 
   args=parser.parse_args()
   config_path=args.config
@@ -122,7 +124,7 @@ if __name__ == "__main__":
   target_vocab_size = num_classes
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
-  output_path = '../../output'
+  output_path = args.out_folder
   out_folder = '{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_sigma_{}_noise_{}'.format(data_type,
                                                                                       task,
                                                                                       num_heads,
