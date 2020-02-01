@@ -127,6 +127,7 @@ if __name__ == "__main__":
   checkpoint_path = create_run_dir(output_path, "checkpoints")
 
   # -------------------------------------------TRAIN ON THE DATASET - CLASSIC TRANSFORMER -------------------------------------------
+
   if train_classic_transformer:
     logging.info("training the baseline Transformer on the nlp dataset...")
 
@@ -174,7 +175,6 @@ if __name__ == "__main__":
                                              optimizer=optimizer,
                                              data_type=data_type)
 
-      #TODO: add the computation of the validation accuracy for the current epoch:
       #val_acc_epoch=[]
       for (batch, (inp, tar)) in enumerate(val_dataset):
         predictions_val, attn_weights_val = transformer(inputs=inp,
@@ -223,6 +223,8 @@ if __name__ == "__main__":
     print ('noise in SMC_layer?', noise_SMC_layer)
     print('resampling?', resampling)
 
+    logging.info('starting the training of the smc transformer...')
+
     smc_transformer=SMC_Transformer(num_layers=num_layers,
                           d_model=d_model,
                           num_heads=num_heads,
@@ -241,9 +243,7 @@ if __name__ == "__main__":
     # creating checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                optimizer=optimizer)
-
     smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
-
     ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
@@ -256,9 +256,16 @@ if __name__ == "__main__":
       (example_batch_predictions, _, _), (average_predictions, max_predictions), _ = smc_transformer(inputs=input_example_batch,
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
-      logging.info("predictions shape: {}", example_batch_predictions.shape)
+      print("predictions shape: {}", example_batch_predictions.shape)
 
-      logging.info('SMC transformer model summary...', smc_transformer.summary())
+    print('SMC transformer model summary...', smc_transformer.summary())
+
+    # preparing recording of loss and metrics information
+    avg_loss_train=[]
+    acc_from_avg_train=[]
+    acc_from_max_train=[]
+    acc_from_avg_val=[]
+    acc_from_max_val=[]
 
     for epoch in range(EPOCHS):
       start = time.time()
@@ -267,7 +274,7 @@ if __name__ == "__main__":
       train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        # TODO: solve the fact that the process is not entering this loop.
+        #TODO: check the value of the training Boolean in the train_step function.
         loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
@@ -277,40 +284,47 @@ if __name__ == "__main__":
                                   classic_loss=True,
                                   SMC_loss=True)
 
-      logging.info('epoch {} - average training loss {} - training accuracy, average: {} - training accuracy, max: {}'.format((
-        epoch+1, average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), train_accuracy_max_pred.numpy())))
+      #compute the validation accuracy on the validation dataset:
+      for (batch, (inp, tar)) in enumerate(val_dataset):
+        (predictions_val,_,weights_val),(avg_pred_val, max_pred_val), attn_weights_val = smc_transformer(inputs=inp,
+                                                      training=False,
+                                                      mask=create_look_ahead_mask(seq_len))
+        # computing the validation accuracy for each batch...
+        val_accuracy_from_avg_pred=train_accuracy(tar, avg_pred_val)
+        val_accuracy_from_max_pred=train_accuracy(tar, max_pred_val)
+
+      template='epoch {} - average training loss {} - training accuracy, average: {} - validation accuracy, average: {}'
+      logging.info(template.format(
+        epoch+1, average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), val_accuracy_from_avg_pred.numpy()))
 
       ckpt_save_path = ckpt_manager.save()
-      logging.info('Saving checkpoint for epoch {} at {}'.format(epoch + 1, ckpt_save_path))
 
       logging.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
       # saving loss and metrics information:
-      average_losses_baseline.append(average_loss_batch.numpy())
-      training_accuracies_baseline.append(train_accuracy_batch.numpy())
+      avg_loss_train.append(average_loss_batch.numpy())
+      acc_from_avg_train.append(train_accuracy_average_pred.numpy())
+      acc_from_max_train.append(train_accuracy_max_pred)
+      acc_from_avg_val.append(val_accuracy_from_avg_pred)
+      acc_from_max_val.append(val_accuracy_from_max_pred)
 
     # storing history of losses and accuracies in a csv file
-    keys = ['loss', 'accuracy']
-    values = [average_losses_baseline, training_accuracies_baseline]
+    keys = ['train loss', 'training accuracy, from avg', 'training accuracy, from max', 'valdiation accuracy, from avg', 'validation accuracy, from max']
+    values = [avg_loss_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val]
     history = dict(zip(keys, values))
-    baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'  # use a create_directory function instead.
+    baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'
     write_to_csv(baseline_history_fn, history)
     logging.info('saving loss and metrics information...')
 
     # making predictions with the trained model and saving them on .npy files
     mask = create_look_ahead_mask(seq_len)
-    (predictions, trajectories, weights), (_,_), attn_weights = transformer(input=val_dataset,
-                                                    training=False,
-                                                    mask=mask)
     model_output_path = create_run_dir(path_dir=output_path, path_name="model_outputs")
     predictions_fn = model_output_path + '/' + 'smc_predictions.npy'
-    traj_fn = model_output_path + '/' + 'smc_trajectories.npy'
     weights_fn = model_output_path + '/' + 'smc_weights.npy'
     attn_weights_fn = model_output_path + '/' + 'smc_attn_weights.npy'
-    np.save(predictions_fn, predictions)
-    np.save(traj_fn, trajectories)
-    np.save(weights_fn, weights)
-    np.save(attn_weights_fn, attn_weights)
+    np.save(predictions_fn, predictions_val)
+    np.save(weights_fn, weights_val)
+    np.save(attn_weights_fn, attn_weights_val)
     logging.info("saving model outputs in .npy files...")
 
     print('training of SMC Transformer for nlp dataset done...')
