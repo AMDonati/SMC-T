@@ -1,9 +1,5 @@
-#TODO: add the testing on the loss on one batch.
-#TODO: improve the logging display...
 
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
-
-#TODO: debug the issue of the seq_len for the training of the classic Transformer in the NLP dataset (it seems that it always want to process input_data of seq length eqaul to 100...)
 
 """"# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
@@ -13,6 +9,13 @@ the training accuracy (train & val datasets),
 # - in files .npy: the output of the model (predictions, trajectories, attention_weights...).
 # - checkpoints of the model in a file .ckpt.
 # dictionary of hparams (cf Nicolas's script...).
+"""
+
+"""Transformer model parameters (from the tensorflow tutorial):
+d_model: 512
+num_heads: 8
+dff: 1048
+num_layers: 2
 """
 
 import tensorflow as tf
@@ -47,7 +50,7 @@ if __name__ == "__main__":
 
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
   parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
 
   args=parser.parse_args()
   config_path=args.config
@@ -113,8 +116,8 @@ if __name__ == "__main__":
   train_loss = tf.keras.metrics.Mean(name='train_loss')
   train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
   val_accuracy=tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
-  train_perplexity=PerplexityMetric(name='train_perplexity')
-  val_perplexity=PerplexityMetric(name='val_perplexity')
+  #train_perplexity=PerplexityMetric(name='train_perplexity')
+  #val_perplexity=PerplexityMetric(name='val_perplexity')
 
   target_vocab_size = num_classes
 
@@ -202,7 +205,7 @@ if __name__ == "__main__":
 
     baseline_ckpt_path=os.path.join(checkpoint_path, "transformer_baseline")
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
@@ -244,12 +247,14 @@ if __name__ == "__main__":
         #val_perplexity_batch=val_perplexity(tar, predictions_val)
 
       val_acc=val_accuracy.result()
-      val_perplx=val_perplexity.result()
+      #val_perplx=val_perplexity.result()
 
       log_template='train loss {} - train acc {} - val acc {}'
       logger.info(log_template.format(average_loss_batch,
                                       train_acc,
                                       val_acc))
+
+      ckpt_save_path = ckpt_manager.save()
       logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
       # saving loss and metrics information:
