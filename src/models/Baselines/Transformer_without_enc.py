@@ -111,7 +111,10 @@ class DecoderLayer(tf.keras.layers.Layer):
     attn1 = self.dropout1(attn1, training=training) # (B,S,D)
     # casting x to dtype=tf.float32
     input=tf.cast(input, dtype=tf.float32)
-    out1 = self.layernorm1(attn1 + input)
+    # squeezing x if needed (needs to be of shape (B,S,D)
+    if len(tf.shape(input))==4:
+      input=tf.squeeze(input, axis=2)
+    out1 = self.layernorm1(attn1 + input) # (B,S,D)
 
     ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
     ffn_output = self.dropout3(ffn_output, training=training)
@@ -137,6 +140,8 @@ class Decoder(tf.keras.layers.Layer):
     super(Decoder, self).__init__()
     self.d_model = d_model
     self.num_layers = num_layers
+    self.maximum_position_encoding=maximum_position_encoding
+
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
@@ -147,14 +152,20 @@ class Decoder(tf.keras.layers.Layer):
     self.data_type=data_type
 
   def call(self, inputs, training, look_ahead_mask):
+
     seq_len = tf.shape(inputs)[1]
     attention_weights = {}
     if self.data_type=='nlp':
-      # adding an embedding and positional encoding only if x is a nlp dataset.
-      inputs = self.embedding(inputs)  # (batch_size, target_seq_len, d_model)
+
+      # adding an embedding only if x is a nlp dataset.
+      inputs = self.embedding(inputs)  # (batch_size, target_seq_len, d_model) # CAUTION: target_vocab_size needs to be bigger than d_model...
+      #TODO: see if this needs to be added for time_series as well. Yes, I think!
       inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+
+    if self.maximum_position_encoding is not None:
       inputs += self.pos_encoding[:, :seq_len, :]
-      inputs = self.dropout(inputs, training=training)
+
+    inputs = self.dropout(inputs, training=training)
 
     for i in range(self.num_layers):
       inputs, block = self.dec_layers[i](inputs=inputs, training=training,
@@ -162,8 +173,7 @@ class Decoder(tf.keras.layers.Layer):
 
       attention_weights['decoder_layer{}'.format(i + 1)] = block
 
-    # x.shape == (batch_size, target_seq_len, d_model)
-    return inputs, attention_weights
+    return inputs, attention_weights #(B,S,D), # (B,S,S)?
 
 """## Create the Transformer
 
@@ -206,8 +216,8 @@ if __name__ == "__main__":
   num_heads = 2
   dff = 128
   maximum_position_encoding = None
-  data_type = 'time_series'
-  C = 12 #
+  data_type = 'nlp'
+  C = 300 #
   S=10
 
   sample_transformer = Transformer(
@@ -216,13 +226,13 @@ if __name__ == "__main__":
     maximum_position_encoding=maximum_position_encoding,
     data_type=data_type)
 
-  temp_input = tf.random.uniform((B, S, 1), dtype=tf.float32, minval=0, maxval=200)
+  temp_input = tf.random.uniform((B, S), dtype=tf.float32, minval=0, maxval=200)
 
   mask=create_look_ahead_mask(S)
 
 
   fn_out, attn_weights= sample_transformer(inputs=temp_input,
-                                 training=False,
+                                 training=True,
                                  mask=mask)
 
   #print('attention weights', attn_weights) # shape (B,H,D,D)

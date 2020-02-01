@@ -21,13 +21,17 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
 
 def loss_function_classic_T_classif(real, pred, data_type):
+  # squeezing 'real' to have a shape of (B,S):
+  real=tf.squeeze(real, axis=-1)
   if data_type=='nlp':
     mask = tf.math.logical_not(tf.math.equal(real, 0))
   loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-  loss_ = loss_object(real, pred)
+  loss_ = loss_object(real, pred) # shape (B,S)
   if data_type=='nlp':
     mask = tf.cast(mask, dtype=loss_.dtype)
     loss_ *= mask
+  # averaging over the sequences dimension:
+  loss_=tf.reduce_mean(loss_, axis=-1) # (B,)
   return tf.reduce_mean(loss_)
 
 

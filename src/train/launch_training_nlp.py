@@ -37,16 +37,17 @@ from utils.utils_train import create_run_dir
 
 data_type='nlp'
 task_type='classification'
+task='char-LM'
 
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
-# file_path = tf.keras.utils.get_file('shakespeare.txt',
-#                                     'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
+file_path = tf.keras.utils.get_file('shakespeare.txt',
+                                     'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
 
-file_path='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/shakespeare_short.txt'
+#file_path='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/shakespeare_short.txt'
 
-BATCH_SIZE = 100
-BUFFER_SIZE = 200
+BATCH_SIZE = 1024
+BUFFER_SIZE = 10000
 seq_len = 50
 train_split = 0.9
 train_dataset, val_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
@@ -100,21 +101,19 @@ if __name__ == "__main__":
   tf.config.experimental_run_functions_eagerly(True)  # to remove TensorInacessibleError
 
   dataset = train_dataset
-  EPOCHS = 20
+  EPOCHS = 2
   train_smc_transformer=True
-  train_classic_transformer=False
-
-  print('number of heads...', num_heads)
-  print('depth model', d_model)
+  train_classic_transformer=True
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
 
   output_path = '../../output'
-  out_folder = '{}_{}_heads_{}_particles_{}_depth_{}_sigma_{}_noise_{}'.format(data_type,
-                                                                               task_type,
+  out_folder = '{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_sigma_{}_noise_{}'.format(data_type,
+                                                                               task,
                                                                                num_heads,
                                                                                num_particles,
                                                                                d_model,
+                                                                               dff,
                                                                                sigma,
                                                                                noise_SMC_layer)
 
@@ -134,7 +133,7 @@ if __name__ == "__main__":
     # storing the losses & accuracy in a list for each epoch
     average_losses_baseline=[]
     training_accuracies_baseline=[]
-    val_accuracy=[]
+    val_accuracies_baseline=[]
 
     if maximum_position_encoding_baseline is not None:
       logging.info('training a baseline transformer with positional encoding...')
@@ -166,8 +165,7 @@ if __name__ == "__main__":
 
       train_loss.reset_states()
       for (batch, (inp, tar)) in enumerate(dataset):
-        print('doing one training step...')
-        #TODO: solve the fact that the process is not entering this loop.
+        #TODO: check the training boolean in the train_step_classic_T function.
         _, average_loss_batch, train_accuracy_batch = train_step_classic_T(inputs=inp,
                                              targets=tar,
                                              transformer=transformer,
@@ -176,33 +174,45 @@ if __name__ == "__main__":
                                              optimizer=optimizer,
                                              data_type=data_type)
 
-      logging.info('epoch {} - training_loss {} - training_accuracy {}'.format((epoch+1,average_loss_batch, train_accuracy_batch)))
+      #TODO: add the computation of the validation accuracy for the current epoch:
+      #val_acc_epoch=[]
+      for (batch, (inp, tar)) in enumerate(val_dataset):
+        predictions_val, attn_weights_val = transformer(inputs=inp,
+                                                      training=False,
+                                                      mask=create_look_ahead_mask(seq_len))
+        # computing the validation accuracy for each batch...
+        val_accuracy_batch=train_accuracy(tar, predictions_val)
+
+        #val_acc_epoch.append(val_accuracy_batch)
+      #val_acc_epoch=val_acc_epoch.mean()
+
+      logging.info('epoch {} - training_loss {} - training_accuracy {} - validation accuracy {}'.format(epoch+1,
+                                                                                                      average_loss_batch,
+                                                                                                      train_accuracy_batch,
+                                                                                                        val_accuracy_batch))
       logging.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
       # saving loss and metrics information:
       average_losses_baseline.append(average_loss_batch.numpy())
       training_accuracies_baseline.append(train_accuracy_batch.numpy())
+      val_accuracies_baseline.append(val_accuracy_batch.numpy())
 
-    logging.info('total training time for {} epochs:{}'.format((EPOCHS,time.time() - start)))
+    logging.info('total training time for {} epochs:{}'.format(EPOCHS,time.time() - start))
 
     # storing history of losses and accuracies in a csv file
-    keys=['loss', 'accuracy']
-    values=[average_losses_baseline, training_accuracies_baseline]
+    keys=['loss', 'train_accuracy', 'val_accuracy']
+    values=[average_losses_baseline, training_accuracies_baseline, val_accuracies_baseline]
     history=dict(zip(keys,values))
     baseline_history_fn=output_path+'/'+'baseline_history.csv' # use a create_directory function instead.
     write_to_csv(baseline_history_fn, history)
     logging.info('saving loss and metrics information...')
 
     # making predictions with the trained model and saving them on .npy files
-    mask=create_look_ahead_mask(seq_len)
-    predictions_bas, attn_weights_bas=transformer(input=val_dataset,
-                                                  training=False,
-                                                  mask=mask)
     model_output_path=create_run_dir(path_dir=output_path, path_name="model_outputs")
     predictions_fn=model_output_path + '/' + 'baseline_predictions.npy'
     attn_weights_fn=model_output_path + '/' + 'baseline_attn_weights.npy'
-    np.save(predictions_fn, predictions_bas)
-    np.save(attn_weights_fn, attn_weights_bas)
+    np.save(predictions_fn, predictions_val) # DO IT FOR A TEST DATASET INSTEAD?
+    np.save(attn_weights_fn, attn_weights_val) # DO IT FOR A TEST DATASET INSTEAD?
     logging.info("saving model output in .npy files...")
 
     logging.info('training of a classic Transformer for a nlp dataset done...')
