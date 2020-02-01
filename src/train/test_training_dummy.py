@@ -2,9 +2,9 @@ import tensorflow as tf
 
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from train.training_algos import loss_function_classification
-from train.training_algos import loss_function_regression
-from train.training_algos import loss_function_classic_T_classif
+from train.loss_functions import loss_function_classification
+from train.loss_functions import loss_function_regression
+from train.loss_functions import loss_function_classic_T_classif
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 

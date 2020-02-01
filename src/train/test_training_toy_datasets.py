@@ -23,8 +23,8 @@
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from train.training_algos import train_step_classic_T
-from train.training_algos import train_step_SMC_T
+from train.loss_functions import train_step_classic_T
+from train.loss_functions import train_step_SMC_T
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 
