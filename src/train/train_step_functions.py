@@ -68,8 +68,10 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   :param SMC_loss: boolean to compute SMC_loss or not. Default is False.
   :param classic_loss: boolean to compute classic cross-entropy loss, or not. Default is True.
   :return:
-  The updated loss.
+  The updated loss, the training accuracy (from average predictions and from max predictions).
   '''
+
+  #TODO: add the computation of the variance between each prediction from a particule.
   if targets is None:
     tar_inp = inputs[:, :-1]
     tar_real = inputs[:, 1:]

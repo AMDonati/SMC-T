@@ -1,4 +1,6 @@
 
+#TODO: record also at each epoch the variance in accuracy for each particule.
+
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 
 """"# to store:
@@ -125,14 +127,17 @@ if __name__ == "__main__":
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
   output_path = args.out_folder
-  out_folder = '{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_sigma_{}_noise_{}'.format(data_type,
-                                                                                      task,
-                                                                                      num_heads,
-                                                                                      num_particles,
-                                                                                      d_model,
-                                                                                      dff,
-                                                                                      sigma,
-                                                                                      noise_SMC_layer)
+  folder_template='{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_pos-enc_{}_sigma_{}_noise_{}_smc-pos-enc_{}'
+  out_folder = folder_template.format(data_type,
+                                      task,
+                                      num_heads,
+                                      num_particles,
+                                      d_model,
+                                      dff,
+                                      maximum_position_encoding_baseline,
+                                      sigma,
+                                      noise_SMC_layer,
+                                      maximum_position_encoding_smc)
 
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
