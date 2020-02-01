@@ -1,5 +1,6 @@
 
 #TODO: record also at each epoch the variance in accuracy for each particule.
+#TODO: debug problem of positional encoding for baseline transformer (problem of shape being (seq_len * max_pos_enc) instead of (seq_len).
 
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 

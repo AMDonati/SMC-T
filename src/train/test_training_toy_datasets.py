@@ -23,8 +23,8 @@
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from train.loss_functions import train_step_classic_T
-from train.loss_functions import train_step_SMC_T
+from train.train_step_functions import train_step_classic_T
+from train.train_step_functions import train_step_SMC_T
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 
@@ -137,11 +137,11 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 
 # Model's hyper-parameters.
-num_particles = 5
+num_particles = 1
 num_heads = 2
-d_model = 64
-dff = 1024
-maximum_position_encoding_baseline=25
+d_model = 4
+dff = 2
+maximum_position_encoding_baseline=None
 maximum_position_encoding_smc=None
 target_vocab_size = num_classes if task_type=='classification' else 1 # correspond to the number of classes: multi-class classification problem.
 num_layers = 1
@@ -231,7 +231,7 @@ if __name__ == "__main__":
       train_loss.reset_states()
       #TODO: in train_step_classic_T, add the option of the loss function for the regression_case.
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_baseline, average_loss_batch, train_accuracy_batch = train_step_classic_T(inputs=inp,
+        loss_baseline, average_loss_batch, train_accuracy_batch, _= train_step_classic_T(inputs=inp,
                                              targets=tar,
                                              transformer=transformer,
                                              train_loss=train_loss,
@@ -289,7 +289,7 @@ if __name__ == "__main__":
       train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred=train_step_SMC_T(inputs=inp,
+        loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred, _=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
                                   optimizer=optimizer,

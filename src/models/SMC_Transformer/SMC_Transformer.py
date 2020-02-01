@@ -281,7 +281,7 @@ class SMC_Transformer(tf.keras.Model):
     # create an initial 'identity function' indices matrix.
     ind_matrix_init = initialize_indices_matrix(batch_size, seq_length, self.num_particles)
     # update it with i_o
-    _, ind_matrix_init=sample_and_keep_indices(prev_sampling_weights=initial_weights,
+    i0, ind_matrix_init=sample_and_keep_indices(prev_sampling_weights=initial_weights,
                                                      ind_matrix=ind_matrix_init,
                                                      num_particles=self.num_particles,
                                                      dec_timestep=0)
@@ -291,9 +291,9 @@ class SMC_Transformer(tf.keras.Model):
     initial_weights=tf.stop_gradient(initial_weights)
     ind_matrix_init=tf.stop_gradient(ind_matrix_init)
 
-    # resample K & Z using indices 0 of ind_matrix_init
-    K=resample(params=K, ind_matrix=ind_matrix_init, t=0)
-    V = resample(params=V, ind_matrix=ind_matrix_init, t=0)
+    # resample K & Z using i_0 (nned to be of shape (B,P)
+    K = resample(params=K, i_t=tf.squeeze(i0, axis=-1), t=0)
+    V = resample(params=V, i_t=tf.squeeze(i0, axis=-1), t=0)
 
     return (K, V), initial_weights, ind_matrix_init
 
@@ -515,7 +515,7 @@ if __name__ == "__main__":
 
   mask=create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights), (average_predictions, max_predictions), attn_weights = sample_transformer(inputs=inputs, training=False, mask=mask)
+  (predictions, trajectories, weights), (average_predictions, max_predictions), attn_weights = sample_transformer(inputs=inputs, training=True, mask=mask)
 
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)

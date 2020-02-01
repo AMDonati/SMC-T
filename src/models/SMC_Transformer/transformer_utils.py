@@ -81,10 +81,17 @@ def resample_old(params, indices):
   params_resampl=tf.squeeze(params_resampl, axis=-2)
   return params_resampl
 
-def resample(params, ind_matrix, t):
+def resample(params, i_t, t):
+  """
+  :param params: attention parameters tensor to be reshaped (K or V) > shape (B,P,S,D)
+  :param i_t: current set of indices at time t > shape (B,P)
+  :param t: decoding timestep (int from 0 until seq_len-1)
+  :return:
+  the trajectories of the attention parameters resampling according to i_t.
+  """
   #TODO use tf.scatter_nd instead to avoid the for loop on the number of particles?
   num_particles=tf.shape(params)[1]
-  i_t=ind_matrix[:,:,t]# shape (B,P)
+  #i_t=ind_matrix[:,:,t]# shape (B,P)
   past_params=params[:,:,:t+1,:] # (B,P,t,D)
   future_params=params[:,:,t+1:,:] #(B,P,S-t,D)
   rows_new_params=[]
@@ -227,7 +234,8 @@ if __name__ == "__main__":
 
     new_K=K
     for t in range(S):
-      new_K=resample(params=new_K, ind_matrix=ind_matrix, t=t)
+      i_t=ind_matrix[:,:,t]
+      new_K=resample(params=new_K, i_t=i_t, t=t)
       print('new K at time_step {}: {}'.format(t,new_K[0,:,:,0]))
 
     # ok, test passed.
