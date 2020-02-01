@@ -1,0 +1,39 @@
+{
+
+  "data": {
+    "file_name": "shakespeare.txt",
+    "url_path": "https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt",
+    "seq_len": 50,
+    "train_split" : 0.9
+  },
+
+  "model": {
+      "num_layers": 1,
+      "num_heads": 2,
+      "d_model": 4,
+      "dff": 8,
+      "maximum_position_encoding_baseline": "None",
+      "maximum_position_encoding_smc": "None"
+  },
+
+  "smc": {
+    "num_particles": 1,
+    "noise_encoder": "False",
+    "noise_SMC_layer": "False",
+    "sigma" : 1,
+    "resampling": "True"
+  },
+
+  "optim": {
+      "BATCH_SIZE": 256,
+      "learning_rate": 0.001,
+      "EPOCHS": 2
+  },
+
+   "task": {
+      "data_type": "nlp",
+      "task_type": "classification",
+      "task": "char-LM"
+  }
+
+}
