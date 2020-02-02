@@ -78,6 +78,7 @@ if __name__ == "__main__":
   num_heads=hparams["model"]["num_heads"]
   d_model=hparams["model"]["d_model"]
   dff=hparams["model"]["dff"]
+  rate=hparams["model"]["rate"] # p_dropout
   max_pos_enc_bas_str=hparams["model"]["maximum_position_encoding_baseline"]
   maximum_position_encoding_baseline=None if max_pos_enc_bas_str=="None" else max_pos_enc_bas_str
   max_pos_enc_smc_str=hparams["model"]["maximum_position_encoding_smc"]

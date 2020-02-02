@@ -183,7 +183,8 @@ class SMC_Transformer(tf.keras.Model):
                                 sigma=sigma,
                                 noise=noise_SMC_layer,
                                 task_type=task_type,
-                                resampling=resampling)  # put here the Transformer cell.
+                                resampling=resampling,
+                                rate=rate)  # put here the Transformer cell.
 
     # for pre_processing words in the one_layer case.
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
