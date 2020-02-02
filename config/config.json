@@ -9,7 +9,7 @@
 
   "model": {
       "num_layers": 1,
-      "num_heads": 4,
+      "num_heads": 8,
       "d_model": 512,
       "dff": 2048,
       "rate": 0,
@@ -27,7 +27,7 @@
   "optim": {
       "BATCH_SIZE": 2048,
       "learning_rate": 0.001,
-      "EPOCHS": 15
+      "EPOCHS": 30
   },
 
   "RNN_hparams": {
