@@ -3,7 +3,6 @@
 #TODO: keep the successive history_csv file from the different ckpts.
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
 
-#TODO: add the GRU baseline with a train step function identical to the one from the Baseline transformer.
 #TODO: add on the logging into the number of trainable variables for each model.
 
 """"# to store:
@@ -177,50 +176,106 @@ if __name__ == "__main__":
   if not os.path.isdir(checkpoint_path):
     os.makedirs(checkpoint_path)
 
-  #-------------------- TRAINING OF A SIMPLE RNN BASELINE FOR COMPARISON --------------------------------------------------------------------
+  #-------------------- Building the RNN Baseline & the associated training algo --------------------------------------------------------------------
+  def build_model(vocab_size, embedding_dim, rnn_units, batch_size):
+    model = tf.keras.Sequential([
+      tf.keras.layers.Embedding(vocab_size, embedding_dim,
+                                batch_input_shape=[batch_size, None]),
+      tf.keras.layers.GRU(rnn_units,
+                          return_sequences=True,
+                          stateful=True,
+                          recurrent_initializer='glorot_uniform'),
+      tf.keras.layers.Dense(vocab_size)
+    ])
+    return model
+
+  GRU_model=build_model(vocab_size=num_classes,
+                        embedding_dim=rnn_emb_dim,
+                        rnn_units=rnn_units,
+                        batch_size=rnn_bs)
+
+
+  @tf.function
+  def train_step(inp, target, model, accuracy_metric):
+    with tf.GradientTape() as tape:
+      predictions = model(inp)
+      loss = tf.reduce_mean(
+        tf.keras.losses.sparse_categorical_crossentropy(
+          target, predictions, from_logits=True))
+    grads = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    train_acc_batch=accuracy_metric(target, predictions)
+    return loss, train_acc_batch
+
+  # Directory where the checkpoints will be saved
+  checkpoint_dir = os.path.join(checkpoint_path, "RNN_baseline")
+  if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+  # Name of the checkpoint files
+  checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+  checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_prefix,
+    save_weights_only=True)
+
+  #---------------------- if training all models : comparison of model's capacity (number of trainable variables)-------------------------------
+  # Transformer - baseline.
+  transformer = Transformer(num_layers=num_layers,
+                              d_model=d_model,
+                              num_heads=num_heads,
+                              dff=dff,
+                              target_vocab_size=target_vocab_size,
+                              maximum_position_encoding=maximum_position_encoding_baseline,
+                              data_type=data_type)
+  # SMC Transformer
+  smc_transformer = SMC_Transformer(num_layers=num_layers,
+                                    d_model=d_model,
+                                    num_heads=num_heads,
+                                    dff=dff,
+                                    target_vocab_size=target_vocab_size,
+                                    maximum_position_encoding=maximum_position_encoding_smc,
+                                    num_particles=num_particles,
+                                    sigma=sigma,
+                                    noise_encoder=noise_encoder,
+                                    noise_SMC_layer=noise_SMC_layer,
+                                    seq_len=seq_len,
+                                    data_type=data_type,
+                                    task_type=task_type,
+                                    resampling=resampling)
+
+  # forward pass on a batch of training examples:
+  # GRU
+  for input_example_batch, target_example_batch in train_dataset.take(1):
+    prediction_GRU = GRU_model(input_example_batch)
+    prediction_T, attn_weights_T = transformer(input_example_batch,
+                                               training=False,
+                                               mask=create_look_ahead_mask(seq_len))
+    (prediction_smcT, _, _), (avg_pred_smcT, _), attn_weights_smcT = smc_transformer(inputs=input_example_batch,
+                                                                                     training=False,
+                                                                                     mask=create_look_ahead_mask(seq_len))
+
+  print('predictions from GRU shape:{}'.format(tf.shape(prediction_GRU)))
+  print('predictions from Baseline Transformer shape:{}'.format(tf.shape(prediction_T)))
+  print('predictions from SMC Transformer shape:{}'.format(tf.shape(prediction_smcT)))
+
+  print('showing GRU model summary...')
+  print(GRU_model.summary())
+  print('showing Baseline Transformer model summary...')
+  print(transformer.summary())
+  print('showing SMC Transformer model summary...')
+  print(smc_transformer.summary())
+
+  GRU_variables=len(GRU_model.trainable_variables)
+  T_variables = len(transformer.trainable_variables)
+  smcT_variables=len(smc_transformer.trainable_variables)
+
+  print('models capacity - GRU: {} - Baseline Transformer: {} - SMC Transformer: {}'.format(GRU_variables,
+                                                                                            T_variables,
+                                                                                            smcT_variables))
+  #----------------------TRAINING OF A SIMPLE RNN BASELINE--------------------------------------------------------------------------------------
   if args.train_rnn:
     logger.info("training a RNN Baseline on the nlp dataset...")
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
-
-    def build_model(vocab_size, embedding_dim, rnn_units, batch_size):
-      model = tf.keras.Sequential([
-        tf.keras.layers.Embedding(vocab_size, embedding_dim,
-                                  batch_input_shape=[batch_size, None]),
-        tf.keras.layers.GRU(rnn_units,
-                            return_sequences=True,
-                            stateful=True,
-                            recurrent_initializer='glorot_uniform'),
-        tf.keras.layers.Dense(vocab_size)
-      ])
-      return model
-
-    GRU_model=build_model(vocab_size=num_classes,
-                          embedding_dim=rnn_emb_dim,
-                          rnn_units=rnn_units,
-                          batch_size=rnn_bs)
-
-    @tf.function
-    def train_step(inp, target, model, accuracy_metric):
-      with tf.GradientTape() as tape:
-        predictions = model(inp)
-        loss = tf.reduce_mean(
-          tf.keras.losses.sparse_categorical_crossentropy(
-            target, predictions, from_logits=True))
-      grads = tape.gradient(loss, model.trainable_variables)
-      optimizer.apply_gradients(zip(grads, model.trainable_variables))
-      train_acc_batch=accuracy_metric(target, predictions)
-      return loss, train_acc_batch
-
-    # Directory where the checkpoints will be saved
-    checkpoint_dir = os.path.join(checkpoint_path, "RNN_baseline")
-    if not os.path.exists(checkpoint_dir):
-      os.makedirs(checkpoint_dir)
-    # Name of the checkpoint files
-    checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
-    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-      filepath=checkpoint_prefix,
-      save_weights_only=True)
 
     start_training=time.time()
 
@@ -259,6 +314,8 @@ if __name__ == "__main__":
 
   logger.info("model hyperparameters from the config file: {}".format(hparams["model"]))
   logger.info("smc hyperparameters from the config file: {}".format(hparams["smc"]))
+  if args.train_rnn:
+    logger.info("GRU model hparams from the config file: {}".format(hparams["RNN_hparams"]))
 
   # TF-2.0
   gpus = tf.config.experimental.list_physical_devices('GPU')
