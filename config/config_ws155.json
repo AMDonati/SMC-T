@@ -11,7 +11,7 @@
       "num_layers": 1,
       "num_heads": 1,
       "d_model": 32,
-      "dff": 64,
+      "dff": 32,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },
@@ -24,7 +24,7 @@
   },
 
   "optim": {
-      "BATCH_SIZE": 1024,
+      "BATCH_SIZE": 2048,
       "learning_rate": 0.001,
       "EPOCHS": 30
   },

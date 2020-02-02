@@ -10,8 +10,8 @@
   "model": {
       "num_layers": 1,
       "num_heads": 2,
-      "d_model": 32,
-      "dff": 64,
+      "d_model": 64,
+      "dff": 32,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },
@@ -24,9 +24,15 @@
   },
 
   "optim": {
-      "BATCH_SIZE": 1024,
+      "BATCH_SIZE": 2048,
       "learning_rate": 0.001,
-      "EPOCHS": 15
+      "EPOCHS": 30
+  },
+
+  "RNN_hparams": {
+      "rnn_bs": 1024,
+      "rnn_emb_dim":256,
+      "rnn_units": 1024
   },
 
    "task": {
@@ -34,5 +40,6 @@
       "task_type": "classification",
       "task": "char-LM"
   }
+
 
 }
