@@ -149,6 +149,8 @@ if __name__ == "__main__":
                                       noise_SMC_layer,
                                       maximum_position_encoding_smc,
                                       BATCH_SIZE)
+  if args.train_rnn:
+    out_folder=out_folder+'rnn-emb_{}_rnn-units_{}'.format(rnn_emb_dim, rnn_units)
 
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
@@ -226,7 +228,9 @@ if __name__ == "__main__":
                                 dff=dff,
                                 target_vocab_size=target_vocab_size,
                                 maximum_position_encoding=maximum_position_encoding_baseline,
-                                data_type=data_type)
+                                data_type=data_type,
+                              rate=rate)
+
     # SMC Transformer
     smc_transformer = SMC_Transformer(num_layers=num_layers,
                                       d_model=d_model,
@@ -241,7 +245,8 @@ if __name__ == "__main__":
                                       seq_len=seq_len,
                                       data_type=data_type,
                                       task_type=task_type,
-                                      resampling=resampling)
+                                      resampling=resampling,
+                                      rate=rate)
 
     # forward pass on a batch of training examples:
     # GRU
@@ -277,6 +282,8 @@ if __name__ == "__main__":
     logger.info("training a RNN Baseline on the nlp dataset...")
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
+    #train_param_GRU = int(np.sum([tf.keras.backend.count_params(p) for p in set(GRU_model.trainable_weights)]))
+    #logger.info("number of trainable parameters for the GRU: {}".format(train_param_GRU))
 
     start_training=time.time()
 
@@ -355,6 +362,9 @@ if __name__ == "__main__":
                               target_vocab_size=target_vocab_size,
                               maximum_position_encoding=maximum_position_encoding_baseline,
                               data_type=data_type)
+
+    #train_param_T = int(np.sum([tf.keras.backend.count_params(p) for p in set(transformer.trainable_weights)]))
+    #logger.info("number of trainable params for the baseline Transformer:{}".format(train_param_T))
 
     # creating checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=transformer,
@@ -504,7 +514,8 @@ if __name__ == "__main__":
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
 
-    print('SMC transformer model summary...', smc_transformer.summary())
+    # train_param_smcT = int(np.sum([tf.keras.backend.count_params(p) for p in set(smc_transformer.trainable_weights)]))
+    # logger.info("number of trainable params for the SMC Transformer:{}".format(train_param_smcT))
 
     # preparing recording of loss and metrics information
     avg_loss_train=[]
