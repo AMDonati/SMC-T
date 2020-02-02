@@ -9,6 +9,63 @@ import numpy as np
 
 #TODO: Makes sure that all the classes are represented in the training dataset for the function df_to_dataset.
 
+def split_dataset_into_seq(dataset, start_index, end_index, history_size,
+                      step):
+  data = []
+  start_index = start_index + history_size
+
+  if end_index is None:
+    end_index=len(dataset)
+
+  for i in range(start_index, end_index):
+    indices = range(i-history_size, i, step)
+    data.append(dataset[indices])
+
+  return np.array(data)
+
+def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, step, train_split, batch_size, buffer_frac, seq_len,)
+
+  zip_path = tf.keras.utils.get_file(
+      origin=file_path,
+      fname=fname,
+      extract=True)
+
+  csv_path, _ = os.path.splitext(zip_path)
+  df = pd.read_csv(csv_path)
+  uni_data_df = df[col_name]
+  uni_data_df.index = df[index_name]
+  print('length of original continuous dataset: {}'.format(len(uni_data_df)))
+
+  # temp_min: env -25.
+  # temp max: env. 40.
+  # temp_range: 65.
+
+  uni_data_categorized = pd.qcut(uni_data_df, q_cut, False)
+  uni_data_intervals = pd.qcut(uni_data_df, q_cut)
+  uni_data_merged = pd.merge(uni_data_categorized, uni_data_intervals, left_index=True, right_index=True)
+  print(uni_data_intervals.value_counts())
+
+  train_data = split_dataset_into_seq(uni_data_categorized, 0, TRAIN_SPLIT, history, step)
+  val_data = split_dataset_into_seq(uni_data_categorized, TRAIN_SPLIT, None, history,step)
+
+  # split between validation dataset and test set:
+  val_data, test_data=train_test_split(val_data, train_size=0.5)
+
+  return (train_data, val_data, test_data), uni_data_merged, uni_data_df
+
+def split_input_target_uni_step(chunk):
+  input_text = chunk[:-1]
+  target_text = chunk[1:]
+  return input_text, target_text
+
+def data_to_dataset_uni_step(train_data, val_data, split_fn):
+    x_train, y_train=split_fn(train_data)
+    x_val, y_val=split_fn(val_data)
+    # turning it into a tf.data.Dataset.
+
+
+
+
 def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, num_bins, train_split, batch_size, buffer_frac, seq_len, reduce_for_test=None):
 
   zip_path = tf.keras.utils.get_file(
