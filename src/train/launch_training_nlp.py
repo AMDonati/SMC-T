@@ -49,7 +49,6 @@ from utils.utils_train import create_run_dir
 
 if __name__ == "__main__":
 
-
   # -------- parsing arguments ------------------------------------------------------------------------------------------------
 
   parser = argparse.ArgumentParser()
