@@ -228,7 +228,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
 #     print(loss.shape)
 #     return loss
 
-def compute_val_accuracy_variance(predictions_val, tar, accuracy_metric):
+def compute_accuracy_variance(predictions_val, tar, accuracy_metric):
   """
   :param predictions_val: particles of predictions > shape (B,P,S,V)
   :param tar: targets > shape (B,S)
@@ -289,7 +289,7 @@ if __name__ == "__main__":
   predictions_val=tf.ones(shape=(8,3,10,65))
   tar=tf.zeros((8,10))
   accuracy_metric=tf.keras.metrics.SparseCategoricalAccuracy()
-  acc_variance=compute_val_accuracy_variance(predictions_val, tar, accuracy_metric)
+  acc_variance=compute_accuracy_variance(predictions_val, tar, accuracy_metric)
   print('variance', acc_variance)
 
 

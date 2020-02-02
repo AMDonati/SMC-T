@@ -26,6 +26,7 @@ from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
+from train.loss_functions import compute_accuracy_variance
 from train.Perplexity import PerplexityMetric
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
@@ -52,10 +53,10 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-out_folder", type=str, default='../../output',
-                      help="path for the outputs folder")
+  parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
   args=parser.parse_args()
   config_path=args.config
@@ -162,7 +163,7 @@ if __name__ == "__main__":
   logger.addHandler(ch)
 
   #  creating the checkpoint manager:
-  checkpoint_path = create_run_dir(output_path, "checkpoints")
+  checkpoint_path = os.path.join(output_path, "checkpoints")
 
   #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
   # experiments done on a notebook aside.
@@ -190,6 +191,9 @@ if __name__ == "__main__":
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
 
+    #putting as default start_epoch=0
+    start_epoch=0
+
     # storing the losses & accuracy in a list for each epoch
     average_losses_baseline=[]
     training_accuracies_baseline=[]
@@ -213,18 +217,29 @@ if __name__ == "__main__":
 
     baseline_ckpt_path=os.path.join(checkpoint_path, "transformer_baseline")
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=5)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
+    if ckpt_manager.latest_checkpoint and args.load_ckpt:
+      ckpt_restored_path=ckpt_manager.latest_checkpoint
+      ckpt_name = os.path.basename(ckpt_restored_path)
+      _, ckpt_num = ckpt_name.split('-')
+      start_epoch=int(ckpt_num)
       ckpt.restore(ckpt_manager.latest_checkpoint)
+      print("checkpoint restored from {}".format(ckpt_manager.latest_checkpoint))
       print('Latest checkpoint restored!!')
 
     start_training=time.time()
 
-    for epoch in range(EPOCHS):
-      start = time.time()
+    if start_epoch > 0:
+      if start_epoch > EPOCHS:
+        print("adding {} more epochs to existing training".format(EPOCHS))
+        start_epoch=0
+      else:
+        logger.info ("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
+    for epoch in range(start_epoch, EPOCHS):
+      start = time.time()
       logger.info("Epoch {}/{}".format(epoch+1, EPOCHS))
 
       train_loss.reset_states()
@@ -281,7 +296,7 @@ if __name__ == "__main__":
     logger.info('saving loss and metrics information...')
 
     # making predictions with the trained model and saving them on .npy files
-    model_output_path=create_run_dir(path_dir=output_path, path_name="model_outputs")
+    model_output_path = os.path.join(output_path, "model_outputs")
     predictions_fn=model_output_path + '/' + 'baseline_predictions.npy'
     attn_weights_fn=model_output_path + '/' + 'baseline_attn_weights.npy'
     np.save(predictions_fn, predictions_val) # DO IT FOR A TEST DATASET INSTEAD?
@@ -298,6 +313,8 @@ if __name__ == "__main__":
     logger.info("steps per epoch:{}".format(steps_per_epochs))
     if not resampling:
       logger.info("no resampling because only one particle is taken...")
+
+    start_epoch=0
 
     smc_transformer=SMC_Transformer(num_layers=num_layers,
                           d_model=d_model,
@@ -321,8 +338,13 @@ if __name__ == "__main__":
     ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=5)
 
     # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
+    if ckpt_manager.latest_checkpoint and args.load_ckpt:
+      ckpt_restored_path = ckpt_manager.latest_checkpoint
+      ckpt_name = os.path.basename(ckpt_restored_path)
+      _, ckpt_num = ckpt_name.split('-')
+      start_epoch = int(ckpt_num)
       ckpt.restore(ckpt_manager.latest_checkpoint)
+      print(" checkpoint restored from {}".format(ckpt_manager.latest_checkpoint))
       logger.info('Latest checkpoint restored!!')
 
     # check the pass forward.
@@ -340,10 +362,18 @@ if __name__ == "__main__":
     acc_from_max_train=[]
     acc_from_avg_val=[]
     acc_from_max_val=[]
+    val_acc_variances=[]
+
+    if start_epoch > 0:
+      if start_epoch > EPOCHS:
+        print("adding {} more epochs to existing training".format(EPOCHS))
+        start_epoch=0
+      else:
+        logger.info ("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
     start_training=time.time()
 
-    for epoch in range(EPOCHS):
+    for epoch in range(start_epoch, EPOCHS):
       start = time.time()
 
       logger.info('Epoch {}/{}'.format(epoch+1,EPOCHS))
@@ -370,7 +400,10 @@ if __name__ == "__main__":
         val_accuracy_from_avg_pred=val_accuracy(tar, avg_pred_val)
         val_accuracy_from_max_pred=val_accuracy(tar, max_pred_val)
 
-        # computing the variance in accuracy for each 'prediction particle':
+      # computing the variance in accuracy for each 'prediction particle':
+      val_acc_variance=compute_accuracy_variance(predictions_val=predictions_val, tar=tar, accuracy_metric=val_accuracy)
+
+
 
       template='avg train loss {} - train acc, avg: {} - val acc, avg: {}'
       logger.info(template.format(average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), val_accuracy_from_avg_pred.numpy()))
@@ -385,13 +418,14 @@ if __name__ == "__main__":
       acc_from_max_train.append(train_accuracy_max_pred.numpy())
       acc_from_avg_val.append(val_accuracy_from_avg_pred.numpy())
       acc_from_max_val.append(val_accuracy_from_max_pred.numpy())
+      val_acc_variances.append(val_acc_variance)
 
     logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
     # storing history of losses and accuracies in a csv file
     keys = ['train loss', 'training accuracy, from avg', 'training accuracy, from max',
-            'validation accuracy, from avg', 'validation accuracy, from max']
-    values = [avg_loss_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val]
+            'validation accuracy, from avg', 'validation accuracy, from max', 'variance of validation accuracy']
+    values = [avg_loss_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val, val_acc_variances]
     history = dict(zip(keys, values))
     baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'
     write_to_csv(baseline_history_fn, history)
@@ -399,7 +433,7 @@ if __name__ == "__main__":
 
     # making predictions with the trained model and saving them on .npy files
     mask = create_look_ahead_mask(seq_len)
-    model_output_path = create_run_dir(path_dir=output_path, path_name="model_outputs")
+    model_output_path = os.path.join(output_path, "model_outputs")
     predictions_fn = model_output_path + '/' + 'smc_predictions.npy'
     weights_fn = model_output_path + '/' + 'smc_weights.npy'
     attn_weights_fn = model_output_path + '/' + 'smc_attn_weights.npy'

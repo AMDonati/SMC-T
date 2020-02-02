@@ -40,18 +40,23 @@ def create_run_dir_from_hparams(path_dir, hparams):
     print('Suppression of old directory with same parameters')
     os.chmod(path, 0o777)
     shutil.rmtree(path, ignore_errors=True)
-  os.makedirs(path)
+    os.makedirs(path)
   return path
+
 
 def create_run_dir(path_dir, path_name):
   path = os.path.join(path_dir, path_name)
-
   if os.path.isdir(path):
-    print('Suppression of old directory with same parameters')
-    os.chmod(path, 0o777)
-    shutil.rmtree(path, ignore_errors=True)
-  os.makedirs(path)
-
+    ckpt_path = os.path.join(path, "checkpoints")
+    if os.path.exists(ckpt_path):
+      print("output folder already existing with checkpoints saved. keeping it and restoring checkpoints if allowed.")
+    else:
+      print('Suppression of old directory with same parameters')
+      os.chmod(path, 0o777)
+      shutil.rmtree(path, ignore_errors=True)
+      os.makedirs(path)
+  else:
+    os.makedirs(path)
   return path
 
 
@@ -61,14 +66,18 @@ def save_to_pickle(file_name, np_array):
 
 if __name__ == "__main__":
   path_dir='../../output'
-  path_name='checkpoints'
+  path_name='ckpt-1'
   temp_path=create_run_dir(path_dir=path_dir, path_name=path_name)
+  ckpt_name=os.path.basename(temp_path)
+  print('checkpt name', ckpt_name)
+  _, ckpt_num=ckpt_name.split('-')
+  print(int(ckpt_num))
 
-  file_temp=temp_path+'/temp.pkl'
-  array=np.zeros(shape=(10,10))
-  save_to_pickle(file_temp, array)
-
-  csv_temp=path_dir+'/temp_table.csv'
-  l1=['key', 'value']
-  l2=[1,2]
-  write_to_csv(csv_temp, dict(zip(l1,l2)))
+  # file_temp=temp_path+'/temp.pkl'
+  # array=np.zeros(shape=(10,10))
+  # save_to_pickle(file_temp, array)
+  #
+  # csv_temp=path_dir+'/temp_table.csv'
+  # l1=['key', 'value']
+  # l2=[1,2]
+  # write_to_csv(csv_temp, dict(zip(l1,l2)))
