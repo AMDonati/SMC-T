@@ -9,7 +9,7 @@
 
   "model": {
       "num_layers": 1,
-      "num_heads": 2,
+      "num_heads": 1,
       "d_model": 32,
       "dff": 64,
       "maximum_position_encoding_baseline": "None",
@@ -17,7 +17,7 @@
   },
 
   "smc": {
-    "num_particles": 1,
+    "num_particles": 10,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
     "sigma" : 0.05
@@ -26,7 +26,7 @@
   "optim": {
       "BATCH_SIZE": 1024,
       "learning_rate": 0.001,
-      "EPOCHS": 15
+      "EPOCHS": 30
   },
 
    "task": {
