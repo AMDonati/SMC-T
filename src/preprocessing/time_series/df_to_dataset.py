@@ -44,6 +44,8 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
   uni_data_merged = pd.merge(uni_data_categorized, uni_data_intervals, left_index=True, right_index=True)
   print(uni_data_intervals.value_counts())
 
+  TRAIN_SPLIT=int(TRAIN_SPLIT*len(uni_data_merged))
+
   train_data = split_dataset_into_seq(uni_data_categorized, 0, TRAIN_SPLIT, history, step)
   val_data = split_dataset_into_seq(uni_data_categorized, TRAIN_SPLIT, None, history,step)
 
@@ -76,42 +78,49 @@ if __name__ == "__main__":
   fname = 'jena_climate_2009_2016.csv.zip'
   col_name='T (degC)'
   index_name='Date Time'
+  q_cut=25
   TRAIN_SPLIT = 0.8
   BATCH_SIZE = 256
   BUFFER_SIZE = 10000
   history = 720 # 5 days worth of temperature (temp taken every 10 minutes.)
   step= 24 # sample a temperature every 4 hours.
 
+(train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
+                                                                                        fname=fname,
+                                                                                        col_name=col_name,
+                                                                                        index_name=index_name,
+                                                                                        q_cut=q_cut,
+                                                                                        TRAIN_SPLIT=TRAIN_SPLIT)
 
 
-#-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------
-
-  train_dataset, val_dataset, df_categorized, x_train, reduced_number_of_classes=df_to_dataset(file_path=file_path,
-                                                                        fname=fname,
-                                                                        col_name=col_name,
-                                                                        index_name=index_name,
-                                                                        min_value=min_value,
-                                                                        size_bin=size_bin,
-                                                                        train_split=TRAIN_SPLIT,
-                                                                        num_bins=num_bins,
-                                                                        batch_size=BATCH_SIZE,
-                                                                        buffer_frac=buffer_frac,
-                                                                        seq_len=seq_len,
-                                                                        reduce_for_test=reduce_for_test)
-
-  print('multi classes value counts', df_categorized.value_counts())
-  print('reduced_number of classes:', reduced_number_of_classes)
-
-#------------------------ test of dataset_continuous_to_dataset function-----------------------------------------------------------------------------
-
-  train_dataset, val_dataset, uni_data_df, x_train=df_continuous_to_dataset(file_path=file_path,
-                                                                          fname=fname,
-                                                                          col_name=col_name,
-                                                                          index_name=index_name,
-                                                                          train_split=TRAIN_SPLIT,
-                                                                          batch_size=BATCH_SIZE,
-                                                                          buffer_frac=buffer_frac,
-                                                                          seq_len=seq_len,
-                                                                          reduce_for_test=reduce_for_test)
+# #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------
+#
+#   train_dataset, val_dataset, df_categorized, x_train, reduced_number_of_classes=df_to_dataset(file_path=file_path,
+#                                                                         fname=fname,
+#                                                                         col_name=col_name,
+#                                                                         index_name=index_name,
+#                                                                         min_value=min_value,
+#                                                                         size_bin=size_bin,
+#                                                                         train_split=TRAIN_SPLIT,
+#                                                                         num_bins=num_bins,
+#                                                                         batch_size=BATCH_SIZE,
+#                                                                         buffer_frac=buffer_frac,
+#                                                                         seq_len=seq_len,
+#                                                                         reduce_for_test=reduce_for_test)
+#
+#   print('multi classes value counts', df_categorized.value_counts())
+#   print('reduced_number of classes:', reduced_number_of_classes)
+#
+# #------------------------ test of dataset_continuous_to_dataset function-----------------------------------------------------------------------------
+#
+#   train_dataset, val_dataset, uni_data_df, x_train=df_continuous_to_dataset(file_path=file_path,
+#                                                                           fname=fname,
+#                                                                           col_name=col_name,
+#                                                                           index_name=index_name,
+#                                                                           train_split=TRAIN_SPLIT,
+#                                                                           batch_size=BATCH_SIZE,
+#                                                                           buffer_frac=buffer_frac,
+#                                                                           seq_len=seq_len,
+#                                                                           reduce_for_test=reduce_for_test)
 
  #---------old functions-----------
