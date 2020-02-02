@@ -57,8 +57,9 @@ if __name__ == "__main__":
 
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
   args=parser.parse_args()
@@ -104,6 +105,11 @@ if __name__ == "__main__":
   task_type=hparams["task"]["task_type"]
   task=hparams["task"]["task"]
 
+  # adding RNN hyper-parameters
+  #rnn_bs = hparams["RNN_hparams"]["rnn_bs"]
+  rnn_bs=BATCH_SIZE
+  rnn_emb_dim = hparams["RNN_hparams"]["rnn_emb_dim"]
+  rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
   #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
   file_path = tf.keras.utils.get_file(file_name, url_path)
@@ -171,8 +177,83 @@ if __name__ == "__main__":
   if not os.path.isdir(checkpoint_path):
     os.makedirs(checkpoint_path)
 
-  #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
-  # experiments done on a notebook aside.
+  #-------------------- TRAINING OF A SIMPLE RNN BASELINE FOR COMPARISON --------------------------------------------------------------------
+  if args.train_rnn:
+    logger.info("training a RNN Baseline on the nlp dataset...")
+    logger.info("number of training samples: {}".format(training_samples))
+    logger.info("steps per epoch:{}".format(steps_per_epochs))
+
+    def build_model(vocab_size, embedding_dim, rnn_units, batch_size):
+      model = tf.keras.Sequential([
+        tf.keras.layers.Embedding(vocab_size, embedding_dim,
+                                  batch_input_shape=[batch_size, None]),
+        tf.keras.layers.GRU(rnn_units,
+                            return_sequences=True,
+                            stateful=True,
+                            recurrent_initializer='glorot_uniform'),
+        tf.keras.layers.Dense(vocab_size)
+      ])
+      return model
+
+    GRU_model=build_model(vocab_size=num_classes,
+                          embedding_dim=rnn_emb_dim,
+                          rnn_units=rnn_units,
+                          batch_size=rnn_bs)
+
+    @tf.function
+    def train_step(inp, target, model, accuracy_metric):
+      with tf.GradientTape() as tape:
+        predictions = model(inp)
+        loss = tf.reduce_mean(
+          tf.keras.losses.sparse_categorical_crossentropy(
+            target, predictions, from_logits=True))
+      grads = tape.gradient(loss, model.trainable_variables)
+      optimizer.apply_gradients(zip(grads, model.trainable_variables))
+      train_acc_batch=accuracy_metric(target, predictions)
+      return loss, train_acc_batch
+
+    # Directory where the checkpoints will be saved
+    checkpoint_dir = os.path.join(checkpoint_path, "RNN_baseline")
+    if not os.path.exists(checkpoint_dir):
+      os.makedirs(checkpoint_dir)
+    # Name of the checkpoint files
+    checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+      filepath=checkpoint_prefix,
+      save_weights_only=True)
+
+    start_training=time.time()
+
+    for epoch in range(EPOCHS):
+      start = time.time()
+      # resarting metrics:
+      train_accuracy.reset_states()
+      val_accuracy.reset_states()
+      # initializing the hidden state at the start of every epoch
+      # initally hidden is None
+      hidden = GRU_model.reset_states()
+
+      for (inp, target) in train_dataset:
+        loss, train_acc_batch = train_step(inp, target, model=GRU_model, accuracy_metric=train_accuracy)
+
+      GRU_model.save_weights(checkpoint_prefix.format(epoch=epoch))
+
+      # computing train and val acc for the current epoch:
+      train_acc = train_accuracy.result()
+      for (inp_val, tar_val) in val_dataset:
+        predictions_val = GRU_model(inp_val)
+        # computing the validation accuracy for each batch...
+        val_accuracy_batch=val_accuracy(tar_val, predictions_val)
+      val_acc=val_accuracy.result()
+
+      logger.info('Epoch {} - Loss {:.4f} - train acc {:.4f} - val acc {:.4f}'.format(epoch + 1, loss, train_acc, val_acc))
+      logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
+
+      GRU_model.save_weights(checkpoint_prefix.format(epoch=epoch))
+
+    logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
+    logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
+    logger.info(">>>---------------------------------------------------------------------------------------<<<")
 
   #-----------------TRAINING-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -346,7 +427,7 @@ if __name__ == "__main__":
     ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                optimizer=optimizer)
     smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
-    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=5)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint and args.load_ckpt:
@@ -445,6 +526,8 @@ if __name__ == "__main__":
     # making predictions with the trained model and saving them on .npy files
     mask = create_look_ahead_mask(seq_len)
     model_output_path = os.path.join(output_path, "model_outputs")
+    if not os.path.exists(model_output_path):
+      os.makedirs(model_output_path)
     predictions_fn = model_output_path + '/' + 'smc_predictions.npy'
     weights_fn = model_output_path + '/' + 'smc_weights.npy'
     attn_weights_fn = model_output_path + '/' + 'smc_attn_weights.npy'
