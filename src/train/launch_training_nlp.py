@@ -1,8 +1,10 @@
 
-#TODO: record also at each epoch the variance in accuracy for each particule.
 #TODO: debug problem of positional encoding for baseline transformer (problem of shape being (seq_len * max_pos_enc) instead of (seq_len).
-
+#TODO: keep the successive history_csv file from the different ckpts.
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
+
+#TODO: add the GRU baseline with a train step function identical to the one from the Baseline transformer.
+#TODO: add on the logging into the number of trainable variables for each model.
 
 """"# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
@@ -19,6 +21,7 @@ d_model: 512
 num_heads: 8
 dff: 1048
 num_layers: 2
+max_positional_encoding=
 """
 
 import tensorflow as tf
@@ -54,8 +57,8 @@ if __name__ == "__main__":
 
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
   args=parser.parse_args()
@@ -106,7 +109,7 @@ if __name__ == "__main__":
   file_path = tf.keras.utils.get_file(file_name, url_path)
   BUFFER_SIZE = 10000
 
-  train_dataset, val_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
+  train_dataset, val_dataset, test_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
                                                             seq_len=seq_len,
                                                             train_split=train_split,
                                                             buffer_size=BUFFER_SIZE,
@@ -129,7 +132,7 @@ if __name__ == "__main__":
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
   output_path = args.out_folder
-  folder_template='{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_pos-enc_{}_sigma_{}_noise_{}_smc-pos-enc_{}'
+  folder_template='{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_pos-enc_{}_sigma_{}_noise_{}_smc-pos-enc_{}_b_{}'
   out_folder = folder_template.format(data_type,
                                       task,
                                       num_heads,
@@ -139,11 +142,12 @@ if __name__ == "__main__":
                                       maximum_position_encoding_baseline,
                                       sigma,
                                       noise_SMC_layer,
-                                      maximum_position_encoding_smc)
+                                      maximum_position_encoding_smc,
+                                      BATCH_SIZE)
 
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
-  # copying the config file in the output directory.
+  # copying the config file in the output directory
   shutil.copyfile(config_path, output_path+'/config.json')
 
   # ------------------ create the logging-----------------------------------------------------------------------------
@@ -164,6 +168,8 @@ if __name__ == "__main__":
 
   #  creating the checkpoint manager:
   checkpoint_path = os.path.join(output_path, "checkpoints")
+  if not os.path.isdir(checkpoint_path):
+    os.makedirs(checkpoint_path)
 
   #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
   # experiments done on a notebook aside.
@@ -232,7 +238,7 @@ if __name__ == "__main__":
     start_training=time.time()
 
     if start_epoch > 0:
-      if start_epoch > EPOCHS:
+      if start_epoch >= EPOCHS:
         print("adding {} more epochs to existing training".format(EPOCHS))
         start_epoch=0
       else:
@@ -291,12 +297,17 @@ if __name__ == "__main__":
     keys=['loss', 'train_accuracy', 'val_accuracy']
     values=[average_losses_baseline, training_accuracies_baseline, val_accuracies_baseline]
     history=dict(zip(keys,values))
-    baseline_history_fn=output_path+'/'+'baseline_history.csv' # use a create_directory function instead.
+    baseline_history_fn=output_path+'/'+'baseline_history.csv'
+    if os.path.isdir(baseline_history_fn):
+      logger.info("saving the history from the restored ckpt # {} in a new csv file...".format(start_epoch))
+      baseline_history_fn=output_path+'/'+'baseline_history_from_ckpt{}.csv'.format(start_epoch)
     write_to_csv(baseline_history_fn, history)
     logger.info('saving loss and metrics information...')
 
     # making predictions with the trained model and saving them on .npy files
     model_output_path = os.path.join(output_path, "model_outputs")
+    if not os.path.isdir(model_output_path):
+      os.makedirs(model_output_path)
     predictions_fn=model_output_path + '/' + 'baseline_predictions.npy'
     attn_weights_fn=model_output_path + '/' + 'baseline_attn_weights.npy'
     np.save(predictions_fn, predictions_val) # DO IT FOR A TEST DATASET INSTEAD?
