@@ -12,7 +12,7 @@
       "num_heads": 1,
       "d_model": 512,
       "dff": 2048,
-      "rate": 0.1,
+      "rate": 0,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },

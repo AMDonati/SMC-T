@@ -137,20 +137,24 @@ if __name__ == "__main__":
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
   output_path = args.out_folder
-  folder_template='{}_{}_heads_{}_particles_{}_depth_{}_dff_{}_pos-enc_{}_sigma_{}_noise_{}_smc-pos-enc_{}_b_{}'
+  folder_template='{}_{}_heads_{}_depth_{}_dff_{}_pos-enc_{}_pdrop_{}_b_{}'
   out_folder = folder_template.format(data_type,
                                       task,
                                       num_heads,
-                                      num_particles,
                                       d_model,
                                       dff,
                                       maximum_position_encoding_baseline,
-                                      sigma,
-                                      noise_SMC_layer,
-                                      maximum_position_encoding_smc,
+                                      rate,
                                       BATCH_SIZE)
+
+  if args.train_smc_T:
+    out_folder=out_folder+'__particles_{}_noise_{}_sigma_{}_smc-pos-enc_{}'.format(num_particles,
+                                                                        noise_SMC_layer,
+                                                                        sigma,
+                                                                        maximum_position_encoding_smc)
+
   if args.train_rnn:
-    out_folder=out_folder+'rnn-emb_{}_rnn-units_{}'.format(rnn_emb_dim, rnn_units)
+    out_folder=out_folder+'__rnn-emb_{}_rnn-units_{}'.format(rnn_emb_dim, rnn_units)
 
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 

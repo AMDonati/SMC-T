@@ -9,8 +9,7 @@ import numpy as np
 
 #TODO: Makes sure that all the classes are represented in the training dataset for the function df_to_dataset.
 
-def split_dataset_into_seq(dataset, start_index, end_index, history_size,
-                      step):
+def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
   data = []
   start_index = start_index + history_size
 
@@ -23,7 +22,7 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size,
 
   return np.array(data)
 
-def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, step, train_split, batch_size, buffer_frac, seq_len,)
+def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, step, TRAIN_SPLIT):
 
   zip_path = tf.keras.utils.get_file(
       origin=file_path,
@@ -58,135 +57,18 @@ def split_input_target_uni_step(chunk):
   target_text = chunk[1:]
   return input_text, target_text
 
-def data_to_dataset_uni_step(train_data, val_data, split_fn):
+def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE):
     x_train, y_train=split_fn(train_data)
     x_val, y_val=split_fn(val_data)
+
     # turning it into a tf.data.Dataset.
+    train_dataset= tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    train_dataset = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
 
+    val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
+    val_dataset = val_dataset.batch(BATCH_SIZE).repeat()
 
-
-
-def df_to_dataset(file_path, fname, col_name, index_name, min_value, size_bin, num_bins, train_split, batch_size, buffer_frac, seq_len, reduce_for_test=None):
-
-  zip_path = tf.keras.utils.get_file(
-      origin=file_path,
-      fname=fname,
-      extract=True)
-
-  csv_path, _ = os.path.splitext(zip_path)
-
-  df = pd.read_csv(csv_path)
-
-  tf.random.set_seed(13)
-
-  uni_data_df = df[col_name]
-  uni_data_df.index = df[index_name]
-  print('length of original continuous dataset: {}'.format(len(uni_data_df)))
-
-  #temp_min: env -25.
-  # temp max: env. 40.
-  # temp_range: 65.
-
-  #create_bins
-  bins=create_bins(min_value, size_bin, num_bins)
-
-  #TODO: use pd.qcut instead...
-  df_bins=pd.cut(uni_data_df, bins)
-  bins_list=list(set(list(df_bins.values)))
-
-  print('list of bins...', bins_list)
-
-  dict_bins=OrderedDict(zip(range(num_bins), bins_list))
-  df_categorized=map_uni_data_classes(continuous_data=uni_data_df,
-                                      list_interval=list(bins),
-                                      dict_temp=dict_bins)
-
-  # reduce size of dataset for testing more quickly:
-  if reduce_for_test is not None:
-    df_categorized = df_categorized[:reduce_for_test]
-    print('selecting for testing {} samples...'.format(len(df_categorized)))
-
-  reduced_number_of_classes = len(list(set(df_categorized.values)))
-
-  #transform the series in a numpy array
-  data_array=np.array(df_categorized)
-
-  # split Test/ train set
-  x_train, x_val=train_test_split(data_array, train_size=train_split, shuffle=False)
-
-  # Transform the numpy_arrays in tf.data.Dataset.
-  train_univariate = tf.data.Dataset.from_tensor_slices(x_train)
-  sequences_train = train_univariate.batch(seq_len + 1, drop_remainder=True) # seq_len + 1 to have seq_len when splitting between inputs and targets.
-
-  val_univariate = tf.data.Dataset.from_tensor_slices(x_val)
-  # val_univariate = val_univariate.batch(BATCH_SIZE).repeat()
-  sequences_val = val_univariate.batch(seq_len + 1, drop_remainder=True)
-
-  def split_input_target(chunk):
-    input_text = chunk[:-1]
-    target_text = chunk[1:]
-    return input_text, target_text
-
-  train_dataset = sequences_train.map(split_input_target)
-  val_dataset = sequences_val.map(split_input_target)
-
-  # compute buffer_size from buffer_frac:
-  buffer_size=int(len(df_categorized)*buffer_frac)
-
-  train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
-
-  return train_dataset, val_dataset, df_categorized, x_train, reduced_number_of_classes
-
-def df_continuous_to_dataset(file_path, fname, col_name, index_name, train_split, batch_size, buffer_frac, seq_len, reduce_for_test=None):
-
-  zip_path = tf.keras.utils.get_file(
-      origin=file_path,
-      fname=fname,
-      extract=True)
-
-  csv_path, _ = os.path.splitext(zip_path)
-
-  df = pd.read_csv(csv_path)
-
-  tf.random.set_seed(13)
-
-  uni_data_df = df[col_name]
-  uni_data_df.index = df[index_name]
-  print('length of original continuous dataset: {}'.format(len(uni_data_df)))
-
-  # reduce size of dataset for testing more quickly:
-  if reduce_for_test is not None:
-    uni_data_df = uni_data_df[:reduce_for_test]
-    print('selecting for testing {} samples...'.format(len(uni_data_df)))
-
-  #transform the series in a numpy array
-  data_array=np.array(uni_data_df)
-
-  # split Test/ train set
-  x_train, x_val=train_test_split(data_array, train_size=train_split, shuffle=False)
-
-  # Transform the numpy_arrays in tf.data.Dataset.
-  train_univariate = tf.data.Dataset.from_tensor_slices(x_train)
-  sequences_train = train_univariate.batch(seq_len + 1, drop_remainder=True) # seq_len + 1 to have seq_len when splitting between inputs and targets.
-
-  val_univariate = tf.data.Dataset.from_tensor_slices(x_val)
-  # val_univariate = val_univariate.batch(BATCH_SIZE).repeat()
-  sequences_val = val_univariate.batch(seq_len + 1, drop_remainder=True)
-
-  def split_input_target(chunk):
-    input_text = chunk[:-1]
-    target_text = chunk[1:]
-    return input_text, target_text
-
-  train_dataset = sequences_train.map(split_input_target)
-  val_dataset = sequences_val.map(split_input_target)
-
-  # compute buffer_size from buffer_frac:
-  buffer_size=int(len(uni_data_df)*buffer_frac)
-
-  train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
-
-  return train_dataset, val_dataset, uni_data_df, x_train
+    return train_dataset, val_dataset
 
 if __name__ == "__main__":
 
@@ -195,13 +77,12 @@ if __name__ == "__main__":
   col_name='T (degC)'
   index_name='Date Time'
   TRAIN_SPLIT = 0.8
-  min_value = -25
-  size_bin = 10
-  num_bins = 6
   BATCH_SIZE = 256
-  buffer_frac = 0.05
-  seq_len = 9
-  reduce_for_test=None
+  BUFFER_SIZE = 10000
+  history = 720 # 5 days worth of temperature (temp taken every 10 minutes.)
+  step= 24 # sample a temperature every 4 hours.
+
+
 
 #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------
 
@@ -232,3 +113,5 @@ if __name__ == "__main__":
                                                                           buffer_frac=buffer_frac,
                                                                           seq_len=seq_len,
                                                                           reduce_for_test=reduce_for_test)
+
+ #---------old functions-----------
