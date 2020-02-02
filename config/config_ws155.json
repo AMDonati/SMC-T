@@ -29,6 +29,12 @@
       "EPOCHS": 30
   },
 
+   "RNN_hparams": {
+      "rnn_bs": 1024,
+      "rnn_emb_dim":256,
+      "rnn_units": 1024
+  },
+
    "task": {
       "data_type": "nlp",
       "task_type": "classification",
