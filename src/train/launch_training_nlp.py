@@ -56,9 +56,9 @@ if __name__ == "__main__":
 
   parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
   args=parser.parse_args()
@@ -219,58 +219,59 @@ if __name__ == "__main__":
 
   #---------------------- if training all models : comparison of model's capacity (number of trainable variables)-------------------------------
   # Transformer - baseline.
-  transformer = Transformer(num_layers=num_layers,
-                              d_model=d_model,
-                              num_heads=num_heads,
-                              dff=dff,
-                              target_vocab_size=target_vocab_size,
-                              maximum_position_encoding=maximum_position_encoding_baseline,
-                              data_type=data_type)
-  # SMC Transformer
-  smc_transformer = SMC_Transformer(num_layers=num_layers,
-                                    d_model=d_model,
-                                    num_heads=num_heads,
-                                    dff=dff,
-                                    target_vocab_size=target_vocab_size,
-                                    maximum_position_encoding=maximum_position_encoding_smc,
-                                    num_particles=num_particles,
-                                    sigma=sigma,
-                                    noise_encoder=noise_encoder,
-                                    noise_SMC_layer=noise_SMC_layer,
-                                    seq_len=seq_len,
-                                    data_type=data_type,
-                                    task_type=task_type,
-                                    resampling=resampling)
+  if args.train_rnn and args.train_baseline and args.train_smc_T:
+    transformer = Transformer(num_layers=num_layers,
+                                d_model=d_model,
+                                num_heads=num_heads,
+                                dff=dff,
+                                target_vocab_size=target_vocab_size,
+                                maximum_position_encoding=maximum_position_encoding_baseline,
+                                data_type=data_type)
+    # SMC Transformer
+    smc_transformer = SMC_Transformer(num_layers=num_layers,
+                                      d_model=d_model,
+                                      num_heads=num_heads,
+                                      dff=dff,
+                                      target_vocab_size=target_vocab_size,
+                                      maximum_position_encoding=maximum_position_encoding_smc,
+                                      num_particles=num_particles,
+                                      sigma=sigma,
+                                      noise_encoder=noise_encoder,
+                                      noise_SMC_layer=noise_SMC_layer,
+                                      seq_len=seq_len,
+                                      data_type=data_type,
+                                      task_type=task_type,
+                                      resampling=resampling)
 
-  # forward pass on a batch of training examples:
-  # GRU
-  for input_example_batch, target_example_batch in train_dataset.take(1):
-    prediction_GRU = GRU_model(input_example_batch)
-    prediction_T, attn_weights_T = transformer(input_example_batch,
-                                               training=False,
-                                               mask=create_look_ahead_mask(seq_len))
-    (prediction_smcT, _, _), (avg_pred_smcT, _), attn_weights_smcT = smc_transformer(inputs=input_example_batch,
-                                                                                     training=False,
-                                                                                     mask=create_look_ahead_mask(seq_len))
+    # forward pass on a batch of training examples:
+    # GRU
+    for input_example_batch, target_example_batch in train_dataset.take(1):
+      prediction_GRU = GRU_model(input_example_batch)
+      prediction_T, attn_weights_T = transformer(input_example_batch,
+                                                 training=False,
+                                                 mask=create_look_ahead_mask(seq_len))
+      (prediction_smcT, _, _), (avg_pred_smcT, _), attn_weights_smcT = smc_transformer(inputs=input_example_batch,
+                                                                                       training=False,
+                                                                                       mask=create_look_ahead_mask(seq_len))
 
-  print('predictions from GRU shape:{}'.format(tf.shape(prediction_GRU)))
-  print('predictions from Baseline Transformer shape:{}'.format(tf.shape(prediction_T)))
-  print('predictions from SMC Transformer shape:{}'.format(tf.shape(prediction_smcT)))
+    logger.info('predictions from GRU shape:{}'.format(tf.shape(prediction_GRU)))
+    logger.info('predictions from Baseline Transformer shape:{}'.format(tf.shape(prediction_T)))
+    logger.info('predictions from SMC Transformer shape:{}'.format(tf.shape(prediction_smcT)))
 
-  print('showing GRU model summary...')
-  print(GRU_model.summary())
-  print('showing Baseline Transformer model summary...')
-  print(transformer.summary())
-  print('showing SMC Transformer model summary...')
-  print(smc_transformer.summary())
+    print('showing GRU model summary...')
+    print(GRU_model.summary())
+    print('showing Baseline Transformer model summary...')
+    print(transformer.summary())
+    print('showing SMC Transformer model summary...')
+    print(smc_transformer.summary())
 
-  GRU_variables=len(GRU_model.trainable_variables)
-  T_variables = len(transformer.trainable_variables)
-  smcT_variables=len(smc_transformer.trainable_variables)
+    GRU_variables=len(GRU_model.trainable_variables)
+    T_variables = len(transformer.trainable_variables)
+    smcT_variables=len(smc_transformer.trainable_variables)
 
-  print('models capacity - GRU: {} - Baseline Transformer: {} - SMC Transformer: {}'.format(GRU_variables,
-                                                                                            T_variables,
-                                                                                            smcT_variables))
+    print('models capacity - GRU: {} - Baseline Transformer: {} - SMC Transformer: {}'.format(GRU_variables,
+                                                                                              T_variables,
+                                                                                              smcT_variables))
   #----------------------TRAINING OF A SIMPLE RNN BASELINE--------------------------------------------------------------------------------------
   if args.train_rnn:
     logger.info("training a RNN Baseline on the nlp dataset...")
