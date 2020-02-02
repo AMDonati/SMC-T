@@ -20,7 +20,7 @@
   "smc": {
     "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05
   },
 
@@ -32,7 +32,7 @@
 
   "RNN_hparams": {
       "rnn_bs": 2048,
-      "rnn_emb_dim": 256,
+      "rnn_emb_dim": 200,
       "rnn_units": 1024
   },
 

@@ -82,15 +82,29 @@ if __name__ == "__main__":
   TRAIN_SPLIT = 0.8
   BATCH_SIZE = 256
   BUFFER_SIZE = 10000
-  history = 720 # 5 days worth of temperature (temp taken every 10 minutes.)
+  history = 600 # 4 days worth of temperature (temp taken every 10 minutes.) + 24 more because on the one_step_split.
   step= 24 # sample a temperature every 4 hours.
 
-(train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
+  (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
                                                                                         fname=fname,
                                                                                         col_name=col_name,
                                                                                         index_name=index_name,
                                                                                         q_cut=q_cut,
-                                                                                        TRAIN_SPLIT=TRAIN_SPLIT)
+                                                                                        TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                                        history=history,
+                                                                                        step=step)
+
+  #TODO save datasets in .npy files.
+  print(data_categorized_df.head())
+  # for i in range(800,850):
+  #   print ('Single window of past history')
+  #   print (train_data[i])
+
+  train_dataset, val_dataset=data_to_dataset_uni_step(train_data=train_data,
+                                                      val_data=val_data,
+                                                      split_fn=split_input_target_uni_step,
+                                                      BUFFER_SIZE=BUFFER_SIZE,
+                                                      BATCH_SIZE=BATCH_SIZE)
 
 
 # #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------

@@ -68,6 +68,7 @@ def text_to_dataset(file_path, seq_len, train_split, buffer_size, batch_size):
 
   train_dataset = train_dataset.shuffle(buffer_size).batch(batch_size, drop_remainder=True)
   val_dataset = val_dataset.batch(batch_size, drop_remainder=True)
+  #TODO: FOR THE TEST SET: DO NOT SPLIT IT UP IN THE SAME NUMBER OF BATCH_SIZE. BATCH_SIZE=NUM OF TEST SAMPLES.
   test_dataset = test_dataset.batch(batch_size, drop_remainder=True)
 
   return train_dataset, val_dataset, test_dataset, vocab_size, num_samples_train
