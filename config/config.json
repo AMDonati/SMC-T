@@ -9,9 +9,9 @@
 
   "model": {
       "num_layers": 1,
-      "num_heads": 2,
+      "num_heads": 1,
       "d_model": 64,
-      "dff": 32,
+      "dff": 128,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },
@@ -31,8 +31,8 @@
 
   "RNN_hparams": {
       "rnn_bs": 1024,
-      "rnn_emb_dim":256,
-      "rnn_units": 1024
+      "rnn_emb_dim": 64,
+      "rnn_units": 64
   },
 
    "task": {
