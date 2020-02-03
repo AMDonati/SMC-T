@@ -55,8 +55,8 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
   return (train_data, val_data, test_data), uni_data_merged, uni_data_df
 
 def split_input_target_uni_step(chunk):
-  input_text = chunk[:-1]
-  target_text = chunk[1:]
+  input_text = chunk[:,:-1]
+  target_text = chunk[:,1:]
   return input_text, target_text
 
 def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE):
@@ -65,10 +65,10 @@ def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_
 
     # turning it into a tf.data.Dataset.
     train_dataset= tf.data.Dataset.from_tensor_slices((x_train, y_train))
-    train_dataset = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
+    train_dataset = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 
     val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-    val_dataset = val_dataset.batch(BATCH_SIZE).repeat()
+    val_dataset = val_dataset.batch(BATCH_SIZE, drop_remainder=True)
 
     return train_dataset, val_dataset
 
@@ -85,26 +85,45 @@ if __name__ == "__main__":
   history = 600 # 4 days worth of temperature (temp taken every 10 minutes.) + 24 more because on the one_step_split.
   step= 24 # sample a temperature every 4 hours.
 
-  (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
-                                                                                        fname=fname,
-                                                                                        col_name=col_name,
-                                                                                        index_name=index_name,
-                                                                                        q_cut=q_cut,
-                                                                                        TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                                        history=history,
-                                                                                        step=step)
+  # (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
+  #                                                                                       fname=fname,
+  #                                                                                       col_name=col_name,
+  #                                                                                       index_name=index_name,
+  #                                                                                       q_cut=q_cut,
+  #                                                                                       TRAIN_SPLIT=TRAIN_SPLIT,
+  #                                                                                       history=history,
+  #                                                                                       step=step)
 
   #TODO save datasets in .npy files.
-  print(data_categorized_df.head())
+  #print(data_categorized_df.head())
   # for i in range(800,850):
   #   print ('Single window of past history')
   #   print (train_data[i])
+
+  # load numpy arrays with preprocess data:
+  data_folder='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
+  train_data=np.load(data_folder+'/ts_weather_train_data.npy')
+  val_data = np.load(data_folder + '/ts_weather_val_data.npy')
+  test_data = np.load(data_folder + '/ts_weather_test_data.npy')
+
+  print('train_data', train_data.shape)
+  print('test_data', test_data.shape)
 
   train_dataset, val_dataset=data_to_dataset_uni_step(train_data=train_data,
                                                       val_data=val_data,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=BUFFER_SIZE,
                                                       BATCH_SIZE=BATCH_SIZE)
+
+  print(train_dataset)
+
+  for (inp, tar) in train_dataset.take(5):
+    print('input example', inp[0])
+    print('target example', tar[0])
+
+  for (inp, tar) in val_dataset.take(5):
+    print('inp val ex', inp[0])
+    print('inp tar ex', tar[0])
 
 
 # #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------

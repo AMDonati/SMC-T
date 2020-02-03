@@ -27,104 +27,35 @@ from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-
 import time
 import sys
+import numpy as np
 
-from preprocessing.time_series.df_to_dataset import df_to_dataset
-from preprocessing.time_series.df_to_dataset import df_continuous_to_dataset
-from preprocessing.NLP.text_to_dataset import text_to_dataset
-
-data_type = 'nlp'
+from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
+data_type = 'time_series'
 task_type = 'classification'
 resampling=True
 
 #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
-if data_type=='time_series':
+data_folder='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
+train_data = np.load(data_folder + '/ts_weather_train_data.npy')
+val_data = np.load(data_folder + '/ts_weather_val_data.npy')
+test_data = np.load(data_folder + '/ts_weather_test_data.npy')
 
-  file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
-  fname = 'jena_climate_2009_2016.csv.zip'
-  col_name = 'T (degC)'
-  index_name = 'Date Time'
-  TRAIN_SPLIT = 0.8
-  min_value = -25
-  size_bin = 5
-  num_bins = 12
-  buffer_frac = 0.2 # fraction of total dataset to be taken in the buffer when shuffling.
-  seq_len =10 # one more than for the transformer.
-  BATCH_SIZE = 128 # small batch_size to avoid memory errors.
-  num_bins = 12 # correspond to the number of classes for a classification task
-  num_classes=num_bins
-  reduce_for_test = 5000 # taking only 200,000 samples for testing.
+print('train_data', train_data.shape)
+print('test_data', test_data.shape)
 
-  if task_type=='classification':
+train_dataset, val_dataset = data_to_dataset_uni_step(train_data=train_data,
+                                                      val_data=val_data,
+                                                      split_fn=split_input_target_uni_step,
+                                                      BUFFER_SIZE=BUFFER_SIZE,
+                                                      BATCH_SIZE=BATCH_SIZE)
 
-    reduce_for_test=None
+print(train_dataset)
 
-    train_dataset, val_dataset, df_categorized, x_train, num_classes=df_to_dataset(file_path=file_path,
-                                                                      fname=fname,
-                                                                      col_name=col_name,
-                                                                      index_name=index_name,
-                                                                      min_value=min_value,
-                                                                      size_bin=size_bin,
-                                                                      train_split=TRAIN_SPLIT,
-                                                                      num_bins=num_bins,
-                                                                      batch_size=BATCH_SIZE,
-                                                                      buffer_frac=buffer_frac,
-                                                                      seq_len=seq_len,
-                                                                      reduce_for_test=reduce_for_test)
-
-    #TODO: save the data pre-processed in a .npy file so that the function is not called every-time.
-
-    print('multi-class classification problem with {} classes...'.format(num_classes))
-    num_samples_training=x_train.shape[0]
-    print('number of training samples...', num_samples_training)
-    df_train_samples=df_categorized[:num_samples_training]
-
-    num_batches=int(num_samples_training/BATCH_SIZE)
-    print('number of batches...', num_batches)
-
-    #TODO: replace class numbers in original df_to_dataset function so that it works when reducing nulmber of smaples for testing.
-    print('classes distributions for training data', df_train_samples.value_counts())
-
-  elif task_type=='regression':
-
-    resampling=False
-
-    train_dataset, val_dataset, uni_data_df, x_train=df_continuous_to_dataset(file_path=file_path,
-                                                                          fname=fname,
-                                                                          col_name=col_name,
-                                                                          index_name=index_name,
-                                                                          train_split=TRAIN_SPLIT,
-                                                                          batch_size=BATCH_SIZE,
-                                                                          buffer_frac=buffer_frac,
-                                                                          seq_len=seq_len,
-                                                                          reduce_for_test=reduce_for_test)
-
-    print('head of original dataset', uni_data_df.head())
-    print('first samples of corresponding numpy array:', x_train[:10])
-
-    num_samples_training=x_train.shape[0]
-    print('number of training samples...', num_samples_training)
-    num_batches=int(num_samples_training/BATCH_SIZE)
-    print ('number of batches...', num_batches)
-
-elif data_type=='nlp':
-  file_path = tf.keras.utils.get_file('shakespeare.txt',
-                                      'https://storage.googleapis.com/download.tensorflow.org/data/shakespeare.txt')
-  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/shakespeare_reduced_for_testing.txt'
-
-  BATCH_SIZE = 512
-  BUFFER_SIZE = 10000
-  seq_len = 50
-  train_split=0.9
-  train_dataset, val_dataset, num_classes, training_samples = text_to_dataset(file_path=file_path,
-                                               seq_len=seq_len,
-                                               buffer_size=BUFFER_SIZE,
-                                               train_split=train_split,
-                                               batch_size=BATCH_SIZE)
-
-  steps_per_epochs=int(training_samples/BATCH_SIZE)
+for (inp, tar) in train_dataset.take(5):
+  print('input example', inp[0])
+  print('target example', tar[0])
 
 # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 ## Optimizer
@@ -138,34 +69,20 @@ train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy
 
 # Model's hyper-parameters.
 num_particles = 1
-num_heads = 2
+num_heads = 1
 d_model = 4
-dff = 2
+dff = 16
 maximum_position_encoding_baseline=None
 maximum_position_encoding_smc=None
-target_vocab_size = num_classes if task_type=='classification' else 1 # correspond to the number of classes: multi-class classification problem.
+target_vocab_size = 25 if task_type=='classification' else 1
 num_layers = 1
 sigma=1
 noise_encoder=False
 noise_SMC_layer=True
 
-
 #-------------------- SIMPLE BASELINE FOR COMPARISON --------------------------------------------------------------------
 #TODO: adapt this with the variables of this script.
-# input_shape=0 #TODO: put the right input_shape here.
-# simple_lstm_model = tf.keras.models.Sequential([
-#     tf.keras.layers.LSTM(8, input_shape=input_shape),
-#     tf.keras.layers.Dense(1)
-# ])
-#
-# simple_lstm_model.compile(optimizer='adam', loss='categorical_crossentropy') #TODO change into the loss & optimizer of the classic Transformer.
-#
-# EVALUATION_INTERVAL = 200
-# EPOCHS = 10
-#
-# simple_lstm_model.fit(train_univariate, epochs=EPOCHS,
-#                       steps_per_epoch=EVALUATION_INTERVAL,
-#                       validation_data=val_univariate, validation_steps=50)
+
 
 #-----------------TRAINING-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
