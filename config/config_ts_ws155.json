@@ -11,10 +11,10 @@
   },
 
   "smc": {
-    "num_particles": 20,
+    "num_particles": 5,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
-    "sigma" : 0.05
+    "sigma" : 0.1
   },
 
   "optim": {
