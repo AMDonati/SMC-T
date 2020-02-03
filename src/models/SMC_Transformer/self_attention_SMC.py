@@ -151,10 +151,8 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     #TODO: Show to Sylvain how this is done in the VAE tutorial to compare with my method. https://www.tensorflow.org/tutorials/generative/cvae
     # initialize sigma as a 'positive' diagonal matrix as a start
     if self.sigma_scalar=='learned':
-      self.sigma=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
-      # apply tf.stop_gradient on sigma to avoid backprop for this set of parameters
-      self.sigma=tf.stop_gradient(self.sigma)
-      self.sigma = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,))), dtype=tf.float32)
+      diag=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
+      self.sigma = tf.matmul(diag, diag, transpose_b=True)
     else:
       sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
       self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
@@ -182,7 +180,7 @@ if __name__ == "__main__":
   S=20
   d_model=512
   dec_timestep=20
-  sigma=1
+  sigma='learned'
   noise=False
 
   x = tf.ones(shape=(B, num_particles, num_heads, 1, int(d_model/num_heads)))
