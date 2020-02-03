@@ -33,7 +33,7 @@
   "RNN_hparams": {
       "rnn_bs": 2048,
       "rnn_emb_dim": 200,
-      "rnn_units": 1024
+      "rnn_units": 1000
   },
 
    "task": {
