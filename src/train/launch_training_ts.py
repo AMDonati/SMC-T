@@ -56,7 +56,8 @@ if __name__ == "__main__":
 
   parser.add_argument("-config", type=str, default='../../config/config_ts.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
-  parser.add_argument("-data_folder", type=str, default='../../data', help="path for the outputs folder")
+  parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data',
+                      help="path for the outputs folder")
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
@@ -107,7 +108,7 @@ if __name__ == "__main__":
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
   #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
-  data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
+  data_folder = args.data_folder
   train_data = np.load(data_folder + '/ts_weather_train_data.npy')
   val_data = np.load(data_folder + '/ts_weather_val_data.npy')
   test_data = np.load(data_folder + '/ts_weather_test_data.npy')
