@@ -123,9 +123,12 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   #TODO: compute the metric for the regression case.
   if smc_transformer.task_type=='classification':
-    train_accuracy_inference=train_accuracy(tar_real, inference_pred) # accuracy from average_predictions for now.
-    train_accuracy_avg=train_accuracy(tar_real, good_avg_pred) # average over logits instead of after softmax (inference case).
-    train_accuracy_max_pred=train_accuracy(tar_real, max_pred)
+    #train_accuracy_inference=train_accuracy(tar_real, inference_pred) # accuracy from average_predictions for now.
+    train_accuracy_inference="N/A"
+    #train_accuracy_avg=train_accuracy(tar_real, good_avg_pred) # average over logits instead of after softmax (inference case).
+    train_accuracy_avg="N/A"
+    #train_accuracy_max_pred=train_accuracy(tar_real, max_pred)
+    train_accuracy_max_pred="N/A"
   else:
     train_accuracy_batch=None
 
