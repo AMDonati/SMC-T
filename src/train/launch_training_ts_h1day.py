@@ -20,7 +20,7 @@ d_model: 512
 num_heads: 8
 dff: 1048
 num_layers: 2
-max_positional_encoding=
+max_positional_encoding= number of classes. 
 """
 
 import tensorflow as tf
@@ -50,7 +50,7 @@ from utils.utils_train import create_run_dir
 
 if __name__ == "__main__":
 
-  # -------- parsing arguments ------------------------------------------------------------------------------------------------
+  # -------- parsing arguments --------------------------------------------------------------------------------------------------------------------
 
   parser = argparse.ArgumentParser()
 
@@ -108,6 +108,7 @@ if __name__ == "__main__":
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
   #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
+
   data_folder = args.data_folder
   train_data = np.load(data_folder + '/ts_weather_train_data.npy')
   val_data = np.load(data_folder + '/ts_weather_val_data.npy')
@@ -135,6 +136,7 @@ if __name__ == "__main__":
   steps_per_epochs=int(train_data.shape[0]/BATCH_SIZE)
 
   # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
+
   optimizer = tf.keras.optimizers.Adam(learning_rate,
                                        beta_1=0.9,
                                        beta_2=0.98,
@@ -143,7 +145,8 @@ if __name__ == "__main__":
   train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
   val_accuracy=tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
 
-  # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
+  # ------------- preparing the OUTPUT FOLDER-----------------------------------------------------------------------------------------------------
+
   output_path = args.out_folder
   folder_template='{}_{}_heads_{}_depth_{}_dff_{}_pos-enc_{}_pdrop_{}_b_{}'
   out_folder = folder_template.format(data_type,
@@ -169,7 +172,8 @@ if __name__ == "__main__":
   # copying the config file in the output directory
   shutil.copyfile(config_path, output_path+'/config.json')
 
-  # ------------------ create the logging-----------------------------------------------------------------------------
+  # ------------------ create the logging------------------------------------------------------------------------------------------------------------
+
   out_file_log = output_path + '/' + 'training_log.log'
   logging.basicConfig(filename=out_file_log, level=logging.INFO)
   # create logger
