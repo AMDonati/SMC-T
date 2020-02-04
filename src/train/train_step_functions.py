@@ -94,11 +94,12 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     # trajectories: shape (B,P,S,D) = [z0,z1,z2,...,zT]
     # weights: shape (B,P,1) = w_T: used in the computation of the loss.
 
-    inference_pred, good_avg_pred, _, max_pred=predictions_metric
+    train_inf_pred_batch, train_avg_pred_batch, train_avg_pred_old_batch, train_max_pred_batch=predictions_metric
 
     if smc_transformer.task_type== 'classification':
       assert tf.shape(predictions)[-1]>2
       loss = loss_function_classification(real=tar_real,
+
                                           predictions=predictions,
                                           weights=weights,
                                           transformer=smc_transformer,
@@ -123,12 +124,13 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   #TODO: compute the metric for the regression case.
   if smc_transformer.task_type=='classification':
-    #train_accuracy_inference=train_accuracy(tar_real, inference_pred) # accuracy from average_predictions for now.
-    train_accuracy_inference="N/A"
-    #train_accuracy_avg=train_accuracy(tar_real, good_avg_pred) # average over logits instead of after softmax (inference case).
-    train_accuracy_avg="N/A"
-    #train_accuracy_max_pred=train_accuracy(tar_real, max_pred)
-    train_accuracy_max_pred="N/A"
+    train_inf_batch=train_accuracy(tar_real, train_inf_pred_batch) # accuracy from average_predictions for now.
+    #train_accuracy_inference="N/A"
+    train_avg_acc_batch=train_accuracy(tar_real, train_avg_pred_batch) # average over logits instead of after softmax (inference case).
+    #train_accuracy_avg="N/A"
+    train_avg_acc_old_batch=train_accuracy(tar_real, train_avg_pred_old_batch)
+    train_max_acc_batch=train_accuracy(tar_real, train_max_pred_batch)
+    #train_accuracy_max_pred="N/A"
   else:
     train_accuracy_batch=None
 
@@ -137,7 +139,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   else:
     train_perplexity=None
 
-  return loss, average_loss_batch, (train_accuracy_inference, train_accuracy_avg, train_accuracy_max_pred), train_perplexity
+  return loss, average_loss_batch, (train_inf_batch, train_avg_acc_batch, train_avg_acc_old_batch, train_max_acc_batch), train_perplexity
 
 
 
