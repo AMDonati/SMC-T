@@ -435,10 +435,12 @@ class SMC_Transformer(tf.keras.Model):
     r0_T=outputs[0] # shape (B,S,P,D)
     Z0_T=outputs[1] # shape (B,S,P,D)
 
-    average_predictions=outputs[2] # (B,S,V)
-    max_predictions=outputs[3] # (B,S,V)
+    inference_pred=outputs[2]
+    good_avg_predictions=outputs[3]
+    avg_predictions=outputs[4] # (B,S,V)
+    max_predictions=outputs[5] # (B,S,V)
 
-    Epsilon0_T=outputs[4] # shape (B,S,P,D)
+    Epsilon0_T=outputs[6] # shape (B,S,P,D)
 
     K=new_states[0]
     V=new_states[1]
@@ -455,7 +457,7 @@ class SMC_Transformer(tf.keras.Model):
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.epsilon_seq_last_layer = Epsilon0_T
 
-    attn_weights_SMC_layer=outputs[5] # shape (B,S,P,H,S)
+    attn_weights_SMC_layer=outputs[7] # shape (B,S,P,H,S)
     attn_weights_SMC_layer=tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
 
     if self.num_layers==1:
@@ -466,7 +468,7 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward=True
 
-    return (Y0_T, Z0_T, w_T), (average_predictions, max_predictions), attn_weights
+    return (Y0_T, Z0_T, w_T), (inference_pred, good_avg_predictions, avg_predictions, max_predictions), attn_weights
 
 if __name__ == "__main__":
 
@@ -524,13 +526,16 @@ if __name__ == "__main__":
 
   mask=create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights), (average_predictions, max_predictions), attn_weights = sample_transformer(inputs=inputs, training=True, mask=mask)
+  (predictions, trajectories, weights), predictions_metric, attn_weights = sample_transformer(inputs=inputs, training=True, mask=mask)
 
+  inference_pred, good_avg_pred, avg_pred, max_pred=predictions_metric
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
-  print('average predictions', average_predictions.shape) # (B,P,V)
-  print('max_predictions', max_predictions.shape)
+  print('inference predictions', inference_pred.shape)  # (B,P,V)
+  print('good average predictions', good_avg_pred.shape)  # (B,P,V)
+  print('average predictions', avg_pred.shape) # (B,P,V)
+  print('max_predictions', max_pred.shape)
 
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)

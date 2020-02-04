@@ -191,7 +191,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     def compute_w_classification(predictions, x):
       # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
-      log_probas=tf.nn.softmax(predictions, axis=-1) # shape (B,P,S,V)
+      log_probas=tf.nn.softmax(predictions, axis=-1) # shape (B,P,1,V)
       w = tf.gather(log_probas, x, axis=-1, batch_dims=1)
       w = tf.squeeze(w, axis=-1)  # shape (B,P,1)
       w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
@@ -228,7 +228,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_for_pred=tf.expand_dims(w_squeezed, axis=-1)
     else:
       w_for_pred=w_squeezed
-    average_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V)
+    avg_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V) # logits before softmax.
+    good_avg_pred=tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1) # weights=1/M because of the resampling happening at the beginning of the cell.
+
+    # predictions after softmax: inference formula for N=1
+    log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
+    avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
+
     argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
     max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
 
@@ -253,8 +259,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
 
-    #TODO: caution: out3 is actually not resampled...
-    output = [r, z, average_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    output = [r, z, avg_pred_after_softmax, good_avg_pred, avg_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
     #TODO:
     # if not self.training:
     # output = [r, z, average_prediction, max_prediction, inf_prediction, epsilon, attn_weights]
@@ -344,16 +349,20 @@ if __name__ == "__main__":
   output_seq = outputs[0]
   z_seq = outputs[1]
 
-  average_predictions = outputs[2] # (B,S,1,V)
-  max_predictions = outputs[3] # (B,S,1,V)
+  avg_pred_after_softmax=outputs[2] # (B,S,1,V)
+  good_avg_pred=outputs[3] # (B,S,1,V)
+  average_predictions = outputs[4] # (B,S,1,V)
+  max_predictions = outputs[5] # (B,S,1,V)
 
-  epsilon_seq=outputs[4]
-  attn_w_seq=outputs[5]
+  epsilon_seq=outputs[6]
+  attn_w_seq=outputs[7]
 
   print('r_T', cell_output.shape)  # (B,P,1,D) # should be dff?
   print('z_T', last_z.shape)  # shape (B,P,1,D)
   print('r0_T', output_seq.shape)  # shape (B,S,P,1,D) > should be shape (B,S,P,D) instead
   print('z_0_T', z_seq.shape)  # shape (B,S,P,1,D)
+  print('sequence of average predictions after softmax', avg_pred_after_softmax.shape)  # (B,S,1,V)
+  print('sequence of good avg pred from logits', good_avg_pred.shape)  # (B,S,1,V)
   print ('sequence of average predictions', average_predictions.shape) # (B,S,1,V)
   print('sequence of max_predictions', max_predictions.shape) # (B,S,1,V)
   print('Epsilon_0_T', epsilon_seq.shape)  # shape (B,S,P,1,D)

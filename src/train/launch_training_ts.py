@@ -62,8 +62,8 @@ if __name__ == "__main__":
   # parser.add_argument("-train_smc_T", type=bool, required=True, help="Training the SMC Transformer?")
   # parser.add_argument("-train_rnn", type=bool, required=True, help="Training the SMC Transformer?")
 
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
 
 
@@ -273,7 +273,7 @@ if __name__ == "__main__":
       prediction_T, attn_weights_T = transformer(input_example_batch,
                                                  training=False,
                                                  mask=create_look_ahead_mask(seq_len))
-      (prediction_smcT, _, _), (avg_pred_smcT, _), attn_weights_smcT = smc_transformer(inputs=input_example_batch,
+      (prediction_smcT, _, _), predictions_metric, attn_weights_smcT = smc_transformer(inputs=input_example_batch,
                                                                                        training=False,
                                                                                        mask=create_look_ahead_mask(seq_len))
 
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     np.save(attn_weights_fn, attn_weights_val) # DO IT FOR A TEST DATASET INSTEAD?
     logger.info("saving model output in .npy files...")
 
-    logger.info('training of a classic Transformer for a nlp dataset done...')
+    logger.info('training of a classic Transformer for a time-series dataset done...')
     logger.info(">>>---------------------------------------------------------------------------------------<<<")
 
 #-------------------TRAINING ON THE DATASET - SMC_TRANSFORMER-----------------------------------------------------------------------------------------------------------
@@ -520,7 +520,7 @@ if __name__ == "__main__":
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
-      (example_batch_predictions, traj, _), (average_predictions, max_predictions), _ = smc_transformer(inputs=input_example_batch,
+      (example_batch_predictions, traj, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
@@ -530,10 +530,12 @@ if __name__ == "__main__":
 
     # preparing recording of loss and metrics information
     avg_loss_train=[]
+    acc_inference_train=[]
     acc_from_avg_train=[]
     acc_from_max_train=[]
     acc_from_avg_val=[]
     acc_from_max_val=[]
+    inference_acc_val=[]
     val_acc_variances=[]
 
     if start_epoch > 0:
@@ -554,7 +556,7 @@ if __name__ == "__main__":
       train_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        loss_smc, average_loss_batch, train_accuracy_average_pred, train_accuracy_max_pred, _=train_step_SMC_T(inputs=inp,
+        loss_smc, average_loss_batch, train_accuracies, _=train_step_SMC_T(inputs=inp,
                                   targets=tar,
                                   smc_transformer=smc_transformer,
                                   optimizer=optimizer,
@@ -562,25 +564,32 @@ if __name__ == "__main__":
                                   train_accuracy=train_accuracy,
                                   classic_loss=True,
                                   SMC_loss=True)
+        inference_acc_train, avg_acc_train, max_acc_train=train_accuracies
 
       # compute the validation accuracy on the validation dataset:
       # TODO: here consider a validation set with a batch_size equal to the number of samples.
       for (inp, tar) in val_dataset:
-        (predictions_val,_,weights_val),(avg_pred_val, max_pred_val), attn_weights_val = smc_transformer(inputs=inp,
+        (predictions_val,_,weights_val),predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                       training=False,
                                                       mask=create_look_ahead_mask(seq_len))
 
         # computing the validation accuracy for each batch...
-        val_accuracy_from_avg_pred=val_accuracy(tar, avg_pred_val)
-        val_accuracy_from_max_pred=val_accuracy(tar, max_pred_val)
+        inference_pred, good_avg_pred, old_avg_pred, max_pred=predictions_metric
+        inference_acc=val_accuracy(tar, inference_pred)
+        good_val_acc_from_avg_pred=val_accuracy(tar, good_avg_pred)
+        old_val_acc_from_avg_pred = val_accuracy(tar, old_avg_pred)
+        val_acc_from_max_pred=val_accuracy(tar, max_pred)
 
       # computing the variance in accuracy for each 'prediction particle':
       val_acc_variance=compute_accuracy_variance(predictions_val=predictions_val, tar=tar, accuracy_metric=val_accuracy)
 
-
-
-      template='avg train loss {} - train acc, avg: {} - val acc, avg: {}'
-      logger.info(template.format(average_loss_batch.numpy(), train_accuracy_average_pred.numpy(), val_accuracy_from_avg_pred.numpy()))
+      template='train loss {} - train acc, inf: {} - train acc, avg: {} - val acc, inf: {} - val acc, avg: {} - val acc, old avg: {}'
+      logger.info(template.format(average_loss_batch.numpy(),
+                                  inference_acc_train.numpy(),
+                                  avg_acc_train.numpy(),
+                                  inference_pred.numpy(),
+                                  good_val_acc_from_avg_pred.numpy(),
+                                  old_val_acc_from_avg_pred.numpy()))
 
       ckpt_save_path = ckpt_manager.save()
 
@@ -588,18 +597,21 @@ if __name__ == "__main__":
 
       # saving loss and metrics information:
       avg_loss_train.append(average_loss_batch.numpy())
-      acc_from_avg_train.append(train_accuracy_average_pred.numpy())
-      acc_from_max_train.append(train_accuracy_max_pred.numpy())
-      acc_from_avg_val.append(val_accuracy_from_avg_pred.numpy())
-      acc_from_max_val.append(val_accuracy_from_max_pred.numpy())
+      acc_inference_train.append(inference_acc_train)
+      acc_from_avg_train.append(avg_acc_train.numpy())
+      acc_from_max_train.append(max_acc_train.numpy())
+      acc_from_avg_val.append(good_val_acc_from_avg_pred.numpy())
+      inference_acc_val.append(inference_pred.numpy())
+      #acc_from_avg_val.append(old_val_acc_from_avg_pred.numpy())
+      acc_from_max_val.append(val_acc_from_max_pred.numpy())
       val_acc_variances.append(val_acc_variance)
 
     logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
     # storing history of losses and accuracies in a csv file
-    keys = ['train loss', 'training accuracy, from avg', 'training accuracy, from max',
-            'validation accuracy, from avg', 'validation accuracy, from max', 'variance of validation accuracy']
-    values = [avg_loss_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val, val_acc_variances]
+    keys = ['train loss','training accuracy, inference' 'training accuracy, from avg', 'training accuracy, from max',
+            'validation accuracy, from avg', 'validation accuracy, from max', 'validation accuracy - inference', 'variance of validation accuracy']
+    values = [avg_loss_train, acc_inference_train, acc_from_avg_train, acc_from_max_train, acc_from_avg_val, acc_from_max_val, inference_acc_val, val_acc_variances]
     history = dict(zip(keys, values))
     baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'
     write_to_csv(baseline_history_fn, history)
@@ -618,7 +630,7 @@ if __name__ == "__main__":
     np.save(attn_weights_fn, attn_weights_val)
     logger.info("saving model outputs in .npy files...")
 
-    logger.info('training of SMC Transformer for nlp dataset done...')
+    logger.info('training of SMC Transformer for a time-series dataset done...')
 
     logger.info(">>>-------------------------------------------------------------------------------------------<<<")
 
