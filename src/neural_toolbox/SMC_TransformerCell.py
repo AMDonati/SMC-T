@@ -248,7 +248,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    I=tf.stop_gradient(I)
+    #I=tf.stop_gradient(I)
 
     # resample z:
     if self.resampling:
@@ -272,7 +272,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
-    w=tf.stop_gradient(w)
+    #w=tf.stop_gradient(w)
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
