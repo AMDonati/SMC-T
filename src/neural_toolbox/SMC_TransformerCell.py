@@ -139,25 +139,53 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                   range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     if self.dec_timestep < self.seq_len:
       # store (K,V) only in that case.
+      #TODO: for inference, sample N samples of z_t^m > z_t^m,i.
       (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
     else:
       # otherwise K,V is not updated.
       (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
+      #TODO: put this as an (external) function of call if possible... or at least an internal one.
+      #TODO: needs as input: (Kt-1), V(t-1), r^(t-1)(l-1) (X(t-1))
+    #def inference_pred(N):
+      #TODO: add N as a parameter for the SMC Cell. requires (r_(t-1)^(l-1), K(t-1), V(t-1), w(t-1)
+      #sampled_z = []
+      # for n in range(N):
+      # (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+      # sampled_z.append(z)
+      # sampled_z=tf.stack(z, axis=1) > (B,N,P,1,D)
+      # PASS FORWARD UNTIL OUTPUT LAYER:
+      #z = self.dropout1(sampled_z, training=self.training)
+      #r = tf.expand_dims(r, axis=2)
+      #out1 = self.layernorm1(z + r)
+      #ffn_output = self.ffn(out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
+      #ffn_output = self.dropout3(ffn_output, training=self.training)
+      #sampled_out3 = self.layernorm3(ffn_output + out1)  # (batch_size, N, P, 1, D)
+      #sampled_pred=self.output_layer(sampled_out3) # (B,N,P,1,V) CAUTION logits before softmax!
+      #inf_prediction=tf.scalar_mul(1/N, tf.reduce_sum(sampled_pred, axis=1)) # (B,P,1,V)
+      #inf_prediction=tf.reduce_sum(w * inf_prediction, axis=1) # see if this needs reshaping. # (B,1,V)
+
+    #return inf_prediction
+
+    # if not self.training:
+    #inf_pred=inference_pred(N)
+
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
+    #TODO: put this as an internal function of the cell to be used for inference as well.
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     r = tf.expand_dims(r, axis=2)
-    out1 = self.layernorm1(z + r)
+    out1 = self.layernorm1(z + r) # r corresponds here to r^(l-1) (input of the cell).
 
     ffn_output = self.ffn(out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
     ffn_output = self.dropout3(ffn_output, training=self.training)
-    out3 = self.layernorm3(ffn_output + out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
+    r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
 
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1)
-    predictions = self.output_layer(out3)  # (B,P,1,V)
+    predictions = self.output_layer(r_)  # (B,P,1,V)
+
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -225,7 +253,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon=self.mha_smc.stddev # shape (B,P,1,D)
 
-    output = [out3, z, average_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    #TODO: caution: out3 is actually not resampled...
+    output = [r, z, average_prediction, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    #TODO:
+    # if not self.training:
+    # output = [r, z, average_prediction, max_prediction, inf_prediction, epsilon, attn_weights]
 
     if len(tf.shape(w_squeezed))==2:
       w=tf.expand_dims(w_squeezed, axis=-1)

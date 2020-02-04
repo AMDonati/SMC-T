@@ -313,6 +313,7 @@ if __name__ == "__main__":
 
       # computing train and val acc for the current epoch:
       train_acc = train_accuracy.result()
+
       for (inp_val, tar_val) in val_dataset:
         predictions_val = GRU_model(inp_val)
         # computing the validation accuracy for each batch...
@@ -563,10 +564,12 @@ if __name__ == "__main__":
                                   SMC_loss=True)
 
       # compute the validation accuracy on the validation dataset:
+      # TODO: here consider a validation set with a batch_size equal to the number of samples.
       for (inp, tar) in val_dataset:
         (predictions_val,_,weights_val),(avg_pred_val, max_pred_val), attn_weights_val = smc_transformer(inputs=inp,
                                                       training=False,
                                                       mask=create_look_ahead_mask(seq_len))
+
         # computing the validation accuracy for each batch...
         val_accuracy_from_avg_pred=val_accuracy(tar, avg_pred_val)
         val_accuracy_from_max_pred=val_accuracy(tar, max_pred_val)

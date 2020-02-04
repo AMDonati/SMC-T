@@ -418,6 +418,14 @@ class SMC_Transformer(tf.keras.Model):
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                             inputs=inputs,
                                                             initial_states=initial_state)
+    #TODO: if not self.training: create another 'inference cell'?
+    #def step_function_inference(inputs, states):
+      #return self.cell.inf_fonction(inputs, states)
+
+    #inf_predictions=tf.keras.backend.rnn(step_function=step_function_inference,
+                                                            #inputs=inputs,
+                                                            #initial_states=initial_state)
+
     # last_output > (B,P,1,D)
     last_output = [tf.squeeze(out, axis=-2) for out in last_output] # (B,P,D)
     outputs = [tf.squeeze(out, axis=-2) for out in outputs]  # (B,S,P,D) for r,z,epsilon, (B,S,P,H,S) for attn_weights
