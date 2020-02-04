@@ -219,7 +219,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = compute_w_regression(predictions=predictions, x=x)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
-    w_squeezed=tf.stop_gradient(w_squeezed)
+    #w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
 
     # compute the average prediction & max_prediction for the set of particles from predictions & w
@@ -270,6 +270,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w=w_squeezed
     else:
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
+
+    w=tf.stop_gradient(w)
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
