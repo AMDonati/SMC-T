@@ -221,23 +221,30 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
     w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
+    predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
+    if not self.training:
     # compute the average prediction & max_prediction for the set of particles from predictions & w
-    predictions=tf.squeeze(predictions, axis=-2) # (B,P,V)
-    if len(tf.shape(w_squeezed))==2:
-      w_for_pred=tf.expand_dims(w_squeezed, axis=-1)
+      predictions=tf.squeeze(predictions, axis=-2) # (B,P,V)
+      if len(tf.shape(w_squeezed))==2:
+        w_for_pred=tf.expand_dims(w_squeezed, axis=-1)
+      else:
+        w_for_pred=w_squeezed
+      avg_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V) # logits before softmax.
+      good_avg_pred=tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1) # weights=1/M because of the resampling happening at the beginning of the cell.
+
+      # predictions after softmax: inference formula for N=1
+      log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
+      avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
+
+      argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
+      max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
+      #avg_pred_after_softmax=tf.zeros(shape=tf.shape(max_prediction))
     else:
-      w_for_pred=w_squeezed
-    avg_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V) # logits before softmax.
-    good_avg_pred=tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1) # weights=1/M because of the resampling happening at the beginning of the cell.
-
-    # predictions after softmax: inference formula for N=1
-    log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-    #avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
-
-    argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
-    max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
-    avg_pred_after_softmax=tf.zeros(shape=tf.shape(max_prediction))
+      avg_pred_after_softmax = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+      avg_prediction=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+      good_avg_pred=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+      max_prediction=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
