@@ -3,24 +3,24 @@
   "model": {
       "num_layers": 1,
       "num_heads": 8,
-      "d_model": 128,
-      "dff": 512,
+      "d_model": 32,
+      "dff": 128,
       "rate": 0.1,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 20,
+    "num_particles": 5,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
-    "sigma" : "learned"
+    "sigma" : 0.05
   },
 
   "optim": {
       "BATCH_SIZE": 1024,
       "learning_rate": 0.001,
-      "EPOCHS": 100
+      "EPOCHS": 30
   },
 
   "RNN_hparams": {
