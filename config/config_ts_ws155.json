@@ -3,8 +3,8 @@
   "model": {
       "num_layers": 1,
       "num_heads": 8,
-      "d_model": 32,
-      "dff": 128,
+      "d_model": 128,
+      "dff": 512,
       "rate": 0.1,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
@@ -20,7 +20,7 @@
   "optim": {
       "BATCH_SIZE": 1024,
       "learning_rate": 0.001,
-      "EPOCHS": 10
+      "EPOCHS": 100
   },
 
   "RNN_hparams": {
