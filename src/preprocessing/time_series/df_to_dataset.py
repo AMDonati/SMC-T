@@ -78,52 +78,62 @@ if __name__ == "__main__":
   fname = 'jena_climate_2009_2016.csv.zip'
   col_name='T (degC)'
   index_name='Date Time'
-  q_cut=25
+  q_cut=10
   TRAIN_SPLIT = 0.8
   BATCH_SIZE = 256
   BUFFER_SIZE = 10000
   history = 600 # 4 days worth of temperature (temp taken every 10 minutes.) + 24 more because on the one_step_split.
   step= 24 # sample a temperature every 4 hours.
 
-  # (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
-  #                                                                                       fname=fname,
-  #                                                                                       col_name=col_name,
-  #                                                                                       index_name=index_name,
-  #                                                                                       q_cut=q_cut,
-  #                                                                                       TRAIN_SPLIT=TRAIN_SPLIT,
-  #                                                                                       history=history,
-  #                                                                                       step=step)
+  (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
+                                                                                        fname=fname,
+                                                                                        col_name=col_name,
+                                                                                        index_name=index_name,
+                                                                                        q_cut=q_cut,
+                                                                                        TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                                        history=history,
+                                                                                        step=step)
 
   #TODO save datasets in .npy files.
   #print(data_categorized_df.head())
   # for i in range(800,850):
   #   print ('Single window of past history')
   #   print (train_data[i])
+  data_folder='data'
+  train_array_path=os.path.join(data_folder, 'ts_weather_train_data_c10')
+  val_array_path = os.path.join(data_folder, 'ts_weather_val_data_c10')
+  test_array_path = os.path.join(data_folder, 'ts_weather_test_data_c10')
 
-  # load numpy arrays with preprocess data:
-  data_folder='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
-  train_data=np.load(data_folder+'/ts_weather_train_data.npy')
-  val_data = np.load(data_folder + '/ts_weather_val_data.npy')
-  test_data = np.load(data_folder + '/ts_weather_test_data.npy')
+  # saving arrays in .npy files
+  np.save(train_array_path, train_data)
+  np.save(val_array_path, val_data)
+  np.save(test_array_path, test_data)
+  print('arrays saved on npy files...')
 
-  print('train_data', train_data.shape)
-  print('test_data', test_data.shape)
-
-  train_dataset, val_dataset=data_to_dataset_uni_step(train_data=train_data,
-                                                      val_data=val_data,
-                                                      split_fn=split_input_target_uni_step,
-                                                      BUFFER_SIZE=BUFFER_SIZE,
-                                                      BATCH_SIZE=BATCH_SIZE)
-
-  print(train_dataset)
-
-  for (inp, tar) in train_dataset.take(5):
-    print('input example', inp[0])
-    print('target example', tar[0])
-
-  for (inp, tar) in val_dataset.take(5):
-    print('inp val ex', inp[0])
-    print('inp tar ex', tar[0])
+  # # load numpy arrays with preprocess data:
+  # data_folder='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
+  # train_data=np.load(data_folder+'/ts_weather_train_data.npy')
+  # val_data = np.load(data_folder + '/ts_weather_val_data.npy')
+  # test_data = np.load(data_folder + '/ts_weather_test_data.npy')
+  #
+  # print('train_data', train_data.shape)
+  # print('test_data', test_data.shape)
+  #
+  # train_dataset, val_dataset=data_to_dataset_uni_step(train_data=train_data,
+  #                                                     val_data=val_data,
+  #                                                     split_fn=split_input_target_uni_step,
+  #                                                     BUFFER_SIZE=BUFFER_SIZE,
+  #                                                     BATCH_SIZE=BATCH_SIZE)
+  #
+  # print(train_dataset)
+  #
+  # for (inp, tar) in train_dataset.take(5):
+  #   print('input example', inp[0])
+  #   print('target example', tar[0])
+  #
+  # for (inp, tar) in val_dataset.take(5):
+  #   print('inp val ex', inp[0])
+  #   print('inp tar ex', tar[0])
 
 
 # #-------------------------test of df_to_dataset_function--------------------------------------------------------------------------------------------------------
