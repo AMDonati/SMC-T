@@ -219,7 +219,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = compute_w_regression(predictions=predictions, x=x)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
-    #w_squeezed=tf.stop_gradient(w_squeezed)
+    w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
 
     # compute the average prediction & max_prediction for the set of particles from predictions & w
@@ -248,7 +248,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    #I=tf.stop_gradient(I)
+    I=tf.stop_gradient(I)
 
     # resample z:
     if self.resampling:
