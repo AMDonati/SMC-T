@@ -233,10 +233,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # predictions after softmax: inference formula for N=1
     log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-    avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
+    #avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
 
     argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
     max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
+    avg_pred_after_softmax=tf.zeros(shape=tf.shape(max_prediction))
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
