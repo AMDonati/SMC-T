@@ -1,0 +1,217 @@
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 8, 'd_model': 32, 'dff': 128, 'rate': 0.1, 'maximum_position_encoding_baseline': 'None', 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 5, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 1}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336364
+INFO:training log:steps per epoch:328
+INFO:training log:Epoch 1/50
+INFO:training log:train loss 1.386548638343811 - train acc 0.35397079586982727 - val acc 0.414511114358902
+INFO:training log:Time taken for 1 epoch: 49.541264295578 secs
+
+INFO:training log:Epoch 2/50
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 8, 'd_model': 32, 'dff': 128, 'rate': 0.1, 'maximum_position_encoding_baseline': 'None', 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 5, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 1}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336364
+INFO:training log:steps per epoch:328
+INFO:training log:starting training after checkpoint restoring from epoch 1
+INFO:training log:Epoch 2/50
+INFO:training log:train loss 1.2461973428726196 - train acc 0.36969080567359924 - val acc 0.418832391500473
+INFO:training log:Time taken for 1 epoch: 49.62519907951355 secs
+
+INFO:training log:Epoch 3/50
+INFO:training log:train loss 1.2338944673538208 - train acc 0.37366926670074463 - val acc 0.4239054322242737
+INFO:training log:Time taken for 1 epoch: 51.60435771942139 secs
+
+INFO:training log:Epoch 4/50
+INFO:training log:train loss 1.2291595935821533 - train acc 0.3760256767272949 - val acc 0.4279581606388092
+INFO:training log:Time taken for 1 epoch: 51.22625660896301 secs
+
+INFO:training log:Epoch 5/50
+INFO:training log:train loss 1.2269145250320435 - train acc 0.376991331577301 - val acc 0.4284474551677704
+INFO:training log:Time taken for 1 epoch: 51.643402338027954 secs
+
+INFO:training log:Epoch 6/50
+INFO:training log:train loss 1.2256271839141846 - train acc 0.37789732217788696 - val acc 0.42906492948532104
+INFO:training log:Time taken for 1 epoch: 52.054837226867676 secs
+
+INFO:training log:Epoch 7/50
+INFO:training log:train loss 1.224326491355896 - train acc 0.3786913752555847 - val acc 0.42913106083869934
+INFO:training log:Time taken for 1 epoch: 51.941797971725464 secs
+
+INFO:training log:Epoch 8/50
+INFO:training log:train loss 1.2237805128097534 - train acc 0.3787969648838043 - val acc 0.4279673397541046
+INFO:training log:Time taken for 1 epoch: 52.15791893005371 secs
+
+INFO:training log:Epoch 9/50
+INFO:training log:train loss 1.2228575944900513 - train acc 0.3793967664241791 - val acc 0.4280080199241638
+INFO:training log:Time taken for 1 epoch: 52.30104446411133 secs
+
+INFO:training log:Epoch 10/50
+INFO:training log:train loss 1.2222222089767456 - train acc 0.37965816259384155 - val acc 0.4278360903263092
+INFO:training log:Time taken for 1 epoch: 52.491782665252686 secs
+
+INFO:training log:Epoch 11/50
+INFO:training log:train loss 1.2216951847076416 - train acc 0.3798602223396301 - val acc 0.4273885190486908
+INFO:training log:Time taken for 1 epoch: 52.222068548202515 secs
+
+INFO:training log:Epoch 12/50
+INFO:training log:train loss 1.221213459968567 - train acc 0.38004234433174133 - val acc 0.42773234844207764
+INFO:training log:Time taken for 1 epoch: 52.137187242507935 secs
+
+INFO:training log:Epoch 13/50
+INFO:training log:train loss 1.2207908630371094 - train acc 0.38020944595336914 - val acc 0.42763978242874146
+INFO:training log:Time taken for 1 epoch: 52.27522850036621 secs
+
+INFO:training log:Epoch 14/50
+INFO:training log:train loss 1.2204753160476685 - train acc 0.3804735541343689 - val acc 0.42757976055145264
+INFO:training log:Time taken for 1 epoch: 51.64815163612366 secs
+
+INFO:training log:Epoch 15/50
+INFO:training log:train loss 1.2199198007583618 - train acc 0.380374938249588 - val acc 0.4275614321231842
+INFO:training log:Time taken for 1 epoch: 51.608919858932495 secs
+
+INFO:training log:Epoch 16/50
+INFO:training log:train loss 1.2195769548416138 - train acc 0.3805921673774719 - val acc 0.42849427461624146
+INFO:training log:Time taken for 1 epoch: 52.283387184143066 secs
+
+INFO:training log:Epoch 17/50
+INFO:training log:train loss 1.2190309762954712 - train acc 0.3808174431324005 - val acc 0.4279032349586487
+INFO:training log:Time taken for 1 epoch: 51.59552550315857 secs
+
+INFO:training log:Epoch 18/50
+INFO:training log:train loss 1.2185683250427246 - train acc 0.380989134311676 - val acc 0.4274648129940033
+INFO:training log:Time taken for 1 epoch: 51.73283934593201 secs
+
+INFO:training log:Epoch 19/50
+INFO:training log:train loss 1.2184295654296875 - train acc 0.3810003101825714 - val acc 0.42728474736213684
+INFO:training log:Time taken for 1 epoch: 52.19624733924866 secs
+
+INFO:training log:Epoch 20/50
+INFO:training log:train loss 1.2182140350341797 - train acc 0.38097599148750305 - val acc 0.42738646268844604
+INFO:training log:Time taken for 1 epoch: 51.7815523147583 secs
+
+INFO:training log:Epoch 21/50
+INFO:training log:train loss 1.2179102897644043 - train acc 0.381074994802475 - val acc 0.42639973759651184
+INFO:training log:Time taken for 1 epoch: 52.08788514137268 secs
+
+INFO:training log:Epoch 22/50
+INFO:training log:train loss 1.2175856828689575 - train acc 0.3813735842704773 - val acc 0.4256022274494171
+INFO:training log:Time taken for 1 epoch: 52.0754234790802 secs
+
+INFO:training log:Epoch 23/50
+INFO:training log:train loss 1.2173590660095215 - train acc 0.3815391957759857 - val acc 0.425515741109848
+INFO:training log:Time taken for 1 epoch: 51.73467135429382 secs
+
+INFO:training log:Epoch 24/50
+INFO:training log:train loss 1.2171494960784912 - train acc 0.38141030073165894 - val acc 0.42552489042282104
+INFO:training log:Time taken for 1 epoch: 52.09746599197388 secs
+
+INFO:training log:Epoch 25/50
+INFO:training log:train loss 1.2170519828796387 - train acc 0.38165369629859924 - val acc 0.426107794046402
+INFO:training log:Time taken for 1 epoch: 52.58118152618408 secs
+
+INFO:training log:Epoch 26/50
+INFO:training log:train loss 1.2167575359344482 - train acc 0.3816297650337219 - val acc 0.425424188375473
+INFO:training log:Time taken for 1 epoch: 52.62990164756775 secs
+
+INFO:training log:Epoch 27/50
+INFO:training log:train loss 1.2167514562606812 - train acc 0.38164663314819336 - val acc 0.4257965087890625
+INFO:training log:Time taken for 1 epoch: 52.238168239593506 secs
+
+INFO:training log:Epoch 28/50
+INFO:training log:train loss 1.2166670560836792 - train acc 0.381727397441864 - val acc 0.42655232548713684
+INFO:training log:Time taken for 1 epoch: 52.56930208206177 secs
+
+INFO:training log:Epoch 29/50
+INFO:training log:train loss 1.2163991928100586 - train acc 0.3819361627101898 - val acc 0.42535603046417236
+INFO:training log:Time taken for 1 epoch: 52.67347192764282 secs
+
+INFO:training log:Epoch 30/50
+INFO:training log:train loss 1.2162089347839355 - train acc 0.3820001780986786 - val acc 0.4256632626056671
+INFO:training log:Time taken for 1 epoch: 52.10770606994629 secs
+
+INFO:training log:Epoch 31/50
+INFO:training log:train loss 1.2160413265228271 - train acc 0.3820337951183319 - val acc 0.42553913593292236
+INFO:training log:Time taken for 1 epoch: 52.69411015510559 secs
+
+INFO:training log:Epoch 32/50
+INFO:training log:train loss 1.2158511877059937 - train acc 0.38214993476867676 - val acc 0.42539265751838684
+INFO:training log:Time taken for 1 epoch: 52.10931181907654 secs
+
+INFO:training log:Epoch 33/50
+INFO:training log:train loss 1.2157450914382935 - train acc 0.3823193907737732 - val acc 0.42574870586395264
+INFO:training log:Time taken for 1 epoch: 52.08268666267395 secs
+
+INFO:training log:Epoch 34/50
+INFO:training log:train loss 1.2156713008880615 - train acc 0.3823636770248413 - val acc 0.425454705953598
+INFO:training log:Time taken for 1 epoch: 51.82204818725586 secs
+
+INFO:training log:Epoch 35/50
+INFO:training log:train loss 1.215606927871704 - train acc 0.3823290467262268 - val acc 0.4250997006893158
+INFO:training log:Time taken for 1 epoch: 52.828261375427246 secs
+
+INFO:training log:Epoch 36/50
+INFO:training log:train loss 1.215375304222107 - train acc 0.38236117362976074 - val acc 0.4251108765602112
+INFO:training log:Time taken for 1 epoch: 52.51422166824341 secs
+
+INFO:training log:Epoch 37/50
+INFO:training log:train loss 1.215312123298645 - train acc 0.38251277804374695 - val acc 0.42453205585479736
+INFO:training log:Time taken for 1 epoch: 53.0176260471344 secs
+
+INFO:training log:Epoch 38/50
+INFO:training log:train loss 1.2152485847473145 - train acc 0.38254937529563904 - val acc 0.42436015605926514
+INFO:training log:Time taken for 1 epoch: 52.64798974990845 secs
+
+INFO:training log:Epoch 39/50
+INFO:training log:train loss 1.2150362730026245 - train acc 0.3825579285621643 - val acc 0.4243316650390625
+INFO:training log:Time taken for 1 epoch: 52.21677541732788 secs
+
+INFO:training log:Epoch 40/50
+INFO:training log:train loss 1.2151082754135132 - train acc 0.38249391317367554 - val acc 0.4243052303791046
+INFO:training log:Time taken for 1 epoch: 52.48110842704773 secs
+
+INFO:training log:Epoch 41/50
+INFO:training log:train loss 1.2150027751922607 - train acc 0.38262566924095154 - val acc 0.42354634404182434
+INFO:training log:Time taken for 1 epoch: 52.551650285720825 secs
+
+INFO:training log:Epoch 42/50
+INFO:training log:train loss 1.2148396968841553 - train acc 0.3826192319393158 - val acc 0.42414653301239014
+INFO:training log:Time taken for 1 epoch: 52.562007904052734 secs
+
+INFO:training log:Epoch 43/50
+INFO:training log:train loss 1.214537262916565 - train acc 0.3828788697719574 - val acc 0.4235585629940033
+INFO:training log:Time taken for 1 epoch: 52.64307188987732 secs
+
+INFO:training log:Epoch 44/50
+INFO:training log:train loss 1.2144417762756348 - train acc 0.3828399181365967 - val acc 0.4241780638694763
+INFO:training log:Time taken for 1 epoch: 52.600167751312256 secs
+
+INFO:training log:Epoch 45/50
+INFO:training log:train loss 1.214430809020996 - train acc 0.3828805983066559 - val acc 0.42330220341682434
+INFO:training log:Time taken for 1 epoch: 52.35319447517395 secs
+
+INFO:training log:Epoch 46/50
+INFO:training log:train loss 1.2141170501708984 - train acc 0.3830198049545288 - val acc 0.42415159940719604
+INFO:training log:Time taken for 1 epoch: 52.47129487991333 secs
+
+INFO:training log:Epoch 47/50
+INFO:training log:train loss 1.214277744293213 - train acc 0.3828689455986023 - val acc 0.42415568232536316
+INFO:training log:Time taken for 1 epoch: 52.517595529556274 secs
+
+INFO:training log:Epoch 48/50
+INFO:training log:train loss 1.2141560316085815 - train acc 0.38290467858314514 - val acc 0.4240976870059967
+INFO:training log:Time taken for 1 epoch: 52.26142454147339 secs
+
+INFO:training log:Epoch 49/50
+INFO:training log:train loss 1.2140651941299438 - train acc 0.38301584124565125 - val acc 0.4245106875896454
+INFO:training log:Time taken for 1 epoch: 52.32949924468994 secs
+
+INFO:training log:Epoch 50/50
+INFO:training log:train loss 1.2141410112380981 - train acc 0.38313183188438416 - val acc 0.42440998554229736
+INFO:training log:Time taken for 1 epoch: 52.335410356521606 secs
+
+INFO:training log:total training time for 50 epochs:2556.3807044029236
+INFO:training log:saving loss and metrics information...
+INFO:training log:saving model output in .npy files...
+INFO:training log:training of a classic Transformer for a time-series dataset done...
+INFO:training log:>>>---------------------------------------------------------------------------------------<<<
