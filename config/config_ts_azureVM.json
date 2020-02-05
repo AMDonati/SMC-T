@@ -11,16 +11,16 @@
   },
 
   "smc": {
-    "num_particles": 10,
+    "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05
   },
 
   "optim": {
       "BATCH_SIZE": 1024,
       "learning_rate": 0.001,
-      "EPOCHS": 100
+      "EPOCHS": 50
   },
 
   "RNN_hparams": {

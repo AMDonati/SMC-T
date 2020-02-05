@@ -65,8 +65,8 @@ if __name__ == "__main__":
   # parser.add_argument("-train_smc_T", type=bool, required=True, help="Training the SMC Transformer?")
   # parser.add_argument("-train_rnn", type=bool, required=True, help="Training the SMC Transformer?")
 
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
 
 
