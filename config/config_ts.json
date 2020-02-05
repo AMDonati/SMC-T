@@ -3,30 +3,30 @@
   "model": {
       "num_layers": 1,
       "num_heads": 1,
-      "d_model": 2,
-      "dff": 8,
+      "d_model": 32,
+      "dff": 128,
       "rate": 0.1,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 2,
+    "num_particles": 1,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
     "sigma" : 0.05
   },
 
   "optim": {
-      "BATCH_SIZE": 20000,
+      "BATCH_SIZE": 2048,
       "learning_rate": 0.001,
-      "EPOCHS": 70
+      "EPOCHS": 10
   },
 
   "RNN_hparams": {
       "rnn_bs": 256,
-      "rnn_emb_dim": 12,
-      "rnn_units": 4
+      "rnn_emb_dim": 10,
+      "rnn_units": 32
   },
 
    "task": {

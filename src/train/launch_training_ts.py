@@ -49,6 +49,8 @@ from preprocessing.time_series.df_to_dataset import split_input_target_uni_step
 from utils.utils_train import write_to_csv
 from utils.utils_train import create_run_dir
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 if __name__ == "__main__":
 
   # -------- parsing arguments ------------------------------------------------------------------------------------------------
@@ -56,15 +58,15 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-config", type=str, default='../../config/config_ts.json', help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
-  parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data',
+  parser.add_argument("-out_folder", type=str, default='../../output/ts_10c', help="path for the outputs folder")
+  parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24',
                       help="path for the outputs folder")
   # parser.add_argument("-train_baseline", type=bool, required=True, help="Training a Baseline Transformer?")
   # parser.add_argument("-train_smc_T", type=bool, required=True, help="Training the SMC Transformer?")
   # parser.add_argument("-train_rnn", type=bool, required=True, help="Training the SMC Transformer?")
 
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
 
 
@@ -114,7 +116,11 @@ if __name__ == "__main__":
   rnn_emb_dim = hparams["RNN_hparams"]["rnn_emb_dim"]
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
+
+  test_loss=False
+
   #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
+
   data_folder = args.data_folder
   train_data = np.load(data_folder + '/ts_weather_train_data.npy')
   val_data = np.load(data_folder + '/ts_weather_val_data.npy')
@@ -244,7 +250,7 @@ if __name__ == "__main__":
 
   #---------------------- if training all models : comparison of model's capacity (number of trainable variables)-------------------------------
   # Transformer - baseline.
-  if args.train_rnn and args.train_baseline and args.train_smc_T:
+  if args.train_rnn and args.train_baseline:
     transformer = Transformer(num_layers=num_layers,
                                 d_model=d_model,
                                 num_heads=num_heads,
@@ -549,7 +555,7 @@ if __name__ == "__main__":
         print("adding {} more epochs to existing training".format(EPOCHS))
         start_epoch=0
       else:
-        logger.info ("starting training after checkpoint restoring from epoch {}".format(start_epoch))
+        logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
     start_training=time.time()
 
@@ -560,6 +566,20 @@ if __name__ == "__main__":
 
       train_loss.reset_states()
       train_accuracy.reset_states()
+
+      if test_loss:
+      # TEST LOSS SUR ONE BATCH:
+      #TODO: check that the loss is the same for 1 particule, and 5 particules with no noise.
+        for (inp_ex_batch, target_ex_batch) in dataset.take(1):
+          _, loss_temp, accuracies_temp, _ = train_step_SMC_T(inputs=inp,
+                                                            targets=tar,
+                                                            smc_transformer=smc_transformer,
+                                                            optimizer=optimizer,
+                                                            train_loss=train_loss,
+                                                            train_accuracy=train_accuracy,
+                                                            classic_loss=True,
+                                                            SMC_loss=True)
+
 
       for (batch, (inp, tar)) in enumerate(dataset):
         loss_smc, avg_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
@@ -626,6 +646,9 @@ if __name__ == "__main__":
               val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history]
     history = dict(zip(keys, values))
     baseline_history_fn = output_path + '/' + 'smc_transformer_history.csv'
+    if os.path.isdir(baseline_history_fn):
+      logger.info("saving the history from the restored ckpt # {} in a new csv file...".format(start_epoch))
+      baseline_history_fn=output_path+'/'+'smc_history_from_ckpt{}.csv'.format(start_epoch)
     write_to_csv(baseline_history_fn, history)
     logger.info('saving loss and metrics information...')
 
