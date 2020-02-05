@@ -1,3 +1,4 @@
+#TODO: debug the case when the number of epochs is the same. (training is done...)
 
 #TODO: debug problem of positional encoding for baseline transformer (problem of shape being (seq_len * max_pos_enc) instead of (seq_len).
 #TODO: keep the successive history_csv file from the different ckpts.
@@ -176,6 +177,7 @@ if __name__ == "__main__":
   if not os.path.exists(output_path+'/config.json'):
     shutil.copyfile(config_path, output_path+'/config.json')
   else:
+    print("creating a new config file...")
     shutil.copyfile(config_path, output_path + '/config_new.json')
 
   # ------------------ create the logging-----------------------------------------------------------------------------
@@ -618,7 +620,7 @@ if __name__ == "__main__":
     logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
     # storing history of losses and accuracies in a csv file
-    keys = ['train loss','train accuracy, inference' 'train accuracy, from avg', 'train accuracy, from max',
+    keys = ['train loss','train accuracy, inference', 'train accuracy, from avg', 'train accuracy, from max',
             'val accuracy - inference', 'val accuracy, from avg', 'val accuracy, from max', 'variance of validation accuracy']
     values = [train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history,
               val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history]

@@ -20,7 +20,7 @@
   "optim": {
       "BATCH_SIZE": 1024,
       "learning_rate": 0.001,
-      "EPOCHS": 50
+      "EPOCHS": 100
   },
 
   "RNN_hparams": {
