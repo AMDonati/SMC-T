@@ -14,7 +14,7 @@
     "num_particles": 5,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
-    "sigma" : 1
+    "sigma" : 0.1
   },
 
   "optim": {
