@@ -54,6 +54,31 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
 
   return (train_data, val_data, test_data), uni_data_merged, uni_data_df
 
+def df_to_data_regression(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT):
+
+  zip_path = tf.keras.utils.get_file(
+      origin=file_path,
+      fname=fname,
+      extract=True)
+
+  csv_path, _ = os.path.splitext(zip_path)
+  df = pd.read_csv(csv_path)
+  uni_data_df = df[col_name]
+  uni_data_df.index = df[index_name]
+  print('length of original continuous dataset: {}'.format(len(uni_data_df)))
+
+  TRAIN_SPLIT=int(TRAIN_SPLIT*len(uni_data_df))
+
+  uni_data=uni_data_df.values
+
+  train_data = split_dataset_into_seq(uni_data, 0, TRAIN_SPLIT, history, step)
+  val_data = split_dataset_into_seq(uni_data, TRAIN_SPLIT, None, history,step)
+
+  # split between validation dataset and test set:
+  val_data, test_data=train_test_split(val_data, train_size=0.5)
+
+  return (train_data, val_data, test_data), uni_data_df
+
 def split_input_target_uni_step(chunk):
   input_text = chunk[:,:-1]
   target_text = chunk[:,1:]
@@ -74,41 +99,45 @@ def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_
 
 if __name__ == "__main__":
 
+  #------------ REGRESSION CASE -------------------------------------------------------------------------------------
   file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
   fname = 'jena_climate_2009_2016.csv.zip'
   col_name='T (degC)'
   index_name='Date Time'
-  q_cut=10
+  #q_cut=10
   TRAIN_SPLIT = 0.8
   BATCH_SIZE = 256
   BUFFER_SIZE = 10000
-  history = 600 # 4 days worth of temperature (temp taken every 10 minutes.) + 24 more because on the one_step_split.
-  step= 24 # sample a temperature every 4 hours.
+  history = 144+6
+  step= 6 # sample a temperature every 4 hours.
 
-  (train_data, val_data, test_data), data_categorized_df, original_df=df_to_data_uni_step(file_path=file_path,
-                                                                                        fname=fname,
-                                                                                        col_name=col_name,
-                                                                                        index_name=index_name,
-                                                                                        q_cut=q_cut,
-                                                                                        TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                                        history=history,
-                                                                                        step=step)
+  (train_data, val_data, test_data), original_df = df_to_data_regression(file_path=file_path,
+                                                                         fname=fname,
+                                                                         col_name=col_name,
+                                                                         index_name=index_name,
+                                                                         TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                         history=history,
+                                                                         step=step)
+
+  print(train_data[:50])
+
+
 
   #TODO save datasets in .npy files.
-  #print(data_categorized_df.head())
-  # for i in range(800,850):
-  #   print ('Single window of past history')
-  #   print (train_data[i])
-  data_folder='data'
-  train_array_path=os.path.join(data_folder, 'ts_weather_train_data_c10')
-  val_array_path = os.path.join(data_folder, 'ts_weather_val_data_c10')
-  test_array_path = os.path.join(data_folder, 'ts_weather_test_data_c10')
-
-  # saving arrays in .npy files
-  np.save(train_array_path, train_data)
-  np.save(val_array_path, val_data)
-  np.save(test_array_path, test_data)
-  print('arrays saved on npy files...')
+  # #print(data_categorized_df.head())
+  # # for i in range(800,850):
+  # #   print ('Single window of past history')
+  # #   print (train_data[i])
+  # data_folder='data'
+  # train_array_path=os.path.join(data_folder, 'ts_weather_train_data_c10')
+  # val_array_path = os.path.join(data_folder, 'ts_weather_val_data_c10')
+  # test_array_path = os.path.join(data_folder, 'ts_weather_test_data_c10')
+  #
+  # # saving arrays in .npy files
+  # np.save(train_array_path, train_data)
+  # np.save(val_array_path, val_data)
+  # np.save(test_array_path, test_data)
+  # print('arrays saved on npy files...')
 
   # # load numpy arrays with preprocess data:
   # data_folder='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'

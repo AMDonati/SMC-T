@@ -190,7 +190,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     def compute_w_classification(predictions, x):
-      # right now, the predictions corresponds to the logits. Adding a softmax layer to have the normalized log probas:
       log_probas=tf.nn.softmax(predictions, axis=-1) # shape (B,P,1,V)
       w = tf.gather(log_probas, x, axis=-1, batch_dims=1)
       w = tf.squeeze(w, axis=-1)  # shape (B,P,1)
@@ -206,7 +205,22 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       x=tf.expand_dims(x, axis=1)
       x=tf.tile(x, multiples=[1, self.num_particles, 1]) # shape (B,P,1)
       mu_t = x - predictions
-      w=tf.random.normal(shape=tf.shape(mu_t), mean=mu_t, stddev=omega)
+      #mu_t=tf.squeeze(mu_t, axis=-1)
+      w=tf.matmul(mu_t, mu_t, transpose_b=True) # should be of shape : (B,P,P)
+      w = tf.scalar_mul(-1 / 2, w)
+      # then, take the diagonal:
+      w=tf.linalg.diag_part(w)
+      w_min=tf.reduce_min(w, axis=-1, keepdims=True)
+      w=w-w_min
+      w=tf.math.exp(w)
+
+      # log of the gaussian...
+      #-0.5 * mu_t ^ T * mu_t / omega
+      #w = exp(...)
+      #logw = -0.5 * mu_t ^ T * mu_t / omega
+      #logw = logw - min(logw)
+      #w = exp(logw)
+
       # normalization
       w=w/tf.reduce_sum(w, axis=1, keepdims=True)
       return w
@@ -229,41 +243,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       w_for_pred = w_squeezed
     avg_prediction = tf.expand_dims(tf.reduce_sum(predictions * w_for_pred, axis=1), axis=1)  # (B,1,V) # logits before softmax.
-    #avg_prediction = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
-    # good_avg_pred = tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1)  # weights=1/M because of the resampling happening at the beginning of the cell.
-    good_avg_pred = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+    avg_prediction = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+    good_avg_pred = tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1)  # weights=1/M because of the resampling happening at the beginning of the cell.
 
     # predictions after softmax: inference formula for N=1
     log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
     avg_pred_after_softmax = tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1)  # shape (B,1,V)
 
     argmax_w = tf.argmax(w_for_pred, axis=1)  # (B, 1)
-    #max_prediction = tf.gather(predictions, argmax_w, axis=1, batch_dims=1)  # (B,1,V)
-    max_prediction = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
-    # avg_pred_after_softmax=tf.zeros(shape=tf.shape(max_prediction))
-
-    #
-    # if not self.training:
-    # # compute the average prediction & max_prediction for the set of particles from predictions & w
-    #   if len(tf.shape(w_squeezed))==2:
-    #     w_for_pred=tf.expand_dims(w_squeezed, axis=-1)
-    #   else:
-    #     w_for_pred=w_squeezed
-    #   avg_prediction=tf.expand_dims(tf.reduce_sum(predictions*w_for_pred, axis=1), axis=1) # (B,1,V) # logits before softmax.
-    #   good_avg_pred=tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1) # weights=1/M because of the resampling happening at the beginning of the cell.
-    #
-    #   # predictions after softmax: inference formula for N=1
-    #   log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-    #   avg_pred_after_softmax=tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1) # shape (B,1,V)
-    #
-    #   argmax_w=tf.argmax(w_for_pred, axis=1)# (B, 1)
-    #   max_prediction=tf.gather(predictions, argmax_w, axis=1, batch_dims=1) # (B,1,V)
-    #   #avg_pred_after_softmax=tf.zeros(shape=tf.shape(max_prediction))
-    # else:
-    #   avg_pred_after_softmax = tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
-    #   avg_prediction=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
-    #   good_avg_pred=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
-    #   max_prediction=tf.zeros(shape=(tf.shape(predictions)[0], 1, tf.shape(predictions)[-1]))
+    max_prediction = tf.gather(predictions, argmax_w, axis=1, batch_dims=1)  # (B,1,V)
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
@@ -314,7 +302,7 @@ if __name__ == "__main__":
   d_model = 64
   num_heads = 8
   dff = 32
-  target_vocab_size = 20
+  target_vocab_size = 1
   maximum_position_encoding = None
   num_particles = 5
   seq_len = 4
@@ -322,7 +310,7 @@ if __name__ == "__main__":
   sigma=1
   noise=False
   data_type='time_series'
-  task_type='classification'
+  task_type='regression'
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,

@@ -482,9 +482,9 @@ if __name__ == "__main__":
   dff=128
   maximum_position_encoding=seq_len
   sigma=1
-  data_type='nlp'
-  task_type='classification'
-  C=12 # vocabulary size or number of classes.
+  data_type='time_series'
+  task_type='regression'
+  C=1 # vocabulary size or number of classes.
   noise_encoder=False
   noise_SMC_layer=False
 
@@ -512,7 +512,7 @@ if __name__ == "__main__":
     d_model=d_model,
     num_heads=num_heads,
     dff=dff,
-    target_vocab_size=C,
+    target_vocab_size=1,
     maximum_position_encoding=None,
     num_particles=num_particles,
   seq_len=seq_len,

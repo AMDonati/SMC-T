@@ -42,22 +42,27 @@ import numpy as np
 import shutil
 import json
 import argparse
+import warnings
 
+from preprocessing.time_series.df_to_dataset import df_to_data_regression
 from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
 from preprocessing.time_series.df_to_dataset import split_input_target_uni_step
 
 from utils.utils_train import write_to_csv
 from utils.utils_train import create_run_dir
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 
 if __name__ == "__main__":
+
+  warnings.simplefilter("ignore")
 
   # -------- parsing arguments ------------------------------------------------------------------------------------------------
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default='../../config/config_ts.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-config", type=str, default='../../config/config_ts_reg.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output/ts_10c', help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24',
                       help="path for the outputs folder")
@@ -65,8 +70,8 @@ if __name__ == "__main__":
   # parser.add_argument("-train_smc_T", type=bool, required=True, help="Training the SMC Transformer?")
   # parser.add_argument("-train_rnn", type=bool, required=True, help="Training the SMC Transformer?")
 
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training the SMC Transformer?")
 
 
@@ -116,15 +121,37 @@ if __name__ == "__main__":
   rnn_emb_dim = hparams["RNN_hparams"]["rnn_emb_dim"]
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
+  # loading data arguments for the regression case
+  if task_type=='regression':
+    file_path=hparams["data"]["file_path"]
+    fname=hparams["data"]["fname"]
+    col_name=hparams["data"]["col_name"]
+    index_name=hparams["data"]["index_name"]
+    TRAIN_SPLIT=hparams["data"]["TRAIN_SPLIT"]
+    history=hparams["data"]["history"]
+    step=hparams["data"]["step"]
 
   test_loss=False
 
   #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
+  if task_type=='classification':
 
-  data_folder = args.data_folder
-  train_data = np.load(data_folder + '/ts_weather_train_data.npy')
-  val_data = np.load(data_folder + '/ts_weather_val_data.npy')
-  test_data = np.load(data_folder + '/ts_weather_test_data.npy')
+    data_folder = args.data_folder
+    train_data = np.load(data_folder + '/ts_weather_train_data.npy')
+    val_data = np.load(data_folder + '/ts_weather_val_data.npy')
+    test_data = np.load(data_folder + '/ts_weather_test_data.npy')
+
+  elif task_type=='regression':
+
+    (train_data, val_data, test_data), original_df = df_to_data_regression(file_path=file_path,
+                                                                           fname=fname,
+                                                                           col_name=col_name,
+                                                                           index_name=index_name,
+                                                                           TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                           history=history,
+                                                                           step=step)
+
+
 
   print('train_data', train_data.shape)
   print('test_data', test_data.shape)
@@ -137,11 +164,11 @@ if __name__ == "__main__":
                                                         BUFFER_SIZE=BUFFER_SIZE,
                                                         BATCH_SIZE=BATCH_SIZE)
 
-  for (inp, tar) in train_dataset.take(5):
+  for (inp, tar) in train_dataset.take(1):
     print('input example', inp[0])
     print('target example', tar[0])
 
-  num_classes= 25
+  num_classes= 25 if data_type=='classification' else 1
   target_vocab_size = num_classes # 25 bins
   seq_len=train_data.shape[1] - 1 # 24 observations
   training_samples=train_data.shape[0]
@@ -189,6 +216,7 @@ if __name__ == "__main__":
   # ------------------ create the logging-----------------------------------------------------------------------------
   out_file_log = output_path + '/' + 'training_log.log'
   logging.basicConfig(filename=out_file_log, level=logging.INFO)
+  logging.disable(level=logging.WARNING)
   # create logger
   logger = logging.getLogger('training log')
   logger.setLevel(logging.INFO)
