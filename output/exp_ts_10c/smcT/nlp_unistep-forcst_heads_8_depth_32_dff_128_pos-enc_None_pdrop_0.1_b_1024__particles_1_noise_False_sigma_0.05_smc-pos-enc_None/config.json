@@ -1,0 +1,38 @@
+{
+
+  "model": {
+      "num_layers": 1,
+      "num_heads": 8,
+      "d_model": 32,
+      "dff": 128,
+      "rate": 0.1,
+      "maximum_position_encoding_baseline": "None",
+      "maximum_position_encoding_smc": "None"
+  },
+
+  "smc": {
+    "num_particles": 1,
+    "noise_encoder": "False",
+    "noise_SMC_layer": "False",
+    "sigma" : 0.05
+  },
+
+  "optim": {
+      "BATCH_SIZE": 1024,
+      "learning_rate": 0.001,
+      "EPOCHS": 50
+  },
+
+  "RNN_hparams": {
+      "rnn_bs": 256,
+      "rnn_emb_dim": 12,
+      "rnn_units": 4
+  },
+
+   "task": {
+      "data_type": "nlp",
+      "task_type": "classification",
+      "task": "unistep-forcst"
+  }
+
+}
