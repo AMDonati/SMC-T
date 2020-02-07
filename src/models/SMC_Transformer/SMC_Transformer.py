@@ -522,11 +522,13 @@ if __name__ == "__main__":
   data_type=data_type,
   task_type=task_type)
 
-  inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
+  inputs = tf.ones(shape=(b, seq_len), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
 
   mask=create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights), predictions_metric, attn_weights = sample_transformer(inputs=inputs, training=True, mask=mask)
+  (predictions, trajectories, weights), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
+                                                                                              training=True,
+                                                                                              mask=mask)
 
   inference_pred, good_avg_pred, avg_pred, max_pred=predictions_metric
   print('Transformer output', predictions.shape)  # (B,P,S,C)

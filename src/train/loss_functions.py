@@ -9,6 +9,11 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
 
+def loss_function_classic_T_regression(real, pred):
+    loss
+
+
+
 def loss_function_classic_T_classif(real, pred, data_type):
   # squeezing 'real' to have a shape of (B,S):
   real=tf.squeeze(real, axis=-1)

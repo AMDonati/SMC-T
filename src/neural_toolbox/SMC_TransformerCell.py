@@ -198,12 +198,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     def compute_w_regression(predictions, x, omega=1):
       #TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
-      x=tf.cast(x, dtype=tf.float32)
+      x=tf.cast(x, dtype=tf.float32) # x of shape (B,P) for classif case / shape (B,P,F) for time_series case.
       if len(tf.shape(predictions))==4:
         predictions=tf.squeeze(predictions, axis=-1) # shape (B,P,1)
       # expanding and tiling x over the particle dimensions to have the right shape
       x=tf.expand_dims(x, axis=1)
-      x=tf.tile(x, multiples=[1, self.num_particles, 1]) # shape (B,P,1)
+      if len(tf.shape(x))==3: # nlp/classif case //
+        x=tf.tile(x, multiples=[1, self.num_particles, 1]) # shape (B,P,1)
+      elif len(tf.shape(x))==4:
+        x = tf.tile(x, multiples=[1, self.num_particles, 1, 1]) # shape (B,P,1,1) time_series case.
       mu_t = x - predictions
       #mu_t=tf.squeeze(mu_t, axis=-1)
       w=tf.matmul(mu_t, mu_t, transpose_b=True) # should be of shape : (B,P,P)

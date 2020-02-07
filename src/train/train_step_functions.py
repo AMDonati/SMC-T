@@ -15,7 +15,7 @@ train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
 ]
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, targets=None, perplexity_metric=None):
+def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, task_type, targets=None, perplexity_metric=None):
   '''training step for the classic Transformer model (dummy dataset)'''
   if targets is None:
     tar_inp = inputs[:, :-1]
@@ -39,22 +39,31 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
   with tf.GradientTape() as tape:
     predictions, _ = transformer(inputs=tar_inp, training=True, mask=mask_transformer)
 
-    loss = loss_function_classic_T_classif(real=tar_real, pred=predictions, data_type=data_type)
+    if task_type=='classification':
+      loss = loss_function_classic_T_classif(real=tar_real, pred=predictions, data_type=data_type)
+    elif task_type=='regression':
+      loss = tf.keras.losses.MSE(tar_real, predictions)
+    else:
+      raise ValueError("task_type should be either 'regression' or 'classification'")
 
   gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
   average_loss=train_loss(loss)
 
-  train_accuracy_batch=train_accuracy(tar_real, predictions)
+  if task_type=='classification':
+    train_accuracy_batch=train_accuracy(tar_real, predictions)
 
-  if perplexity_metric is not None:
-    # input predictions of the perplexity metric needs to be of shape (B,S) (and not (B,S,1)
-    train_perplexity=perplexity_metric(tf.expand_dims(tar_real, axis=-1), predictions)
-  else:
-    train_perplexity=None
+    if perplexity_metric is not None:
+      # input predictions of the perplexity metric needs to be of shape (B,S) (and not (B,S,1)
+      train_perplexity=perplexity_metric(tf.expand_dims(tar_real, axis=-1), predictions)
+    else:
+      train_perplexity=None
 
-  return loss, average_loss, train_accuracy_batch, train_perplexity
+    return loss, average_loss, train_accuracy_batch, train_perplexity
+
+  elif task_type=='regression':
+    return loss, average_loss, None, None
 
 #--------------SMC Transformer train_step------------------------------------
 
@@ -125,12 +134,9 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   #TODO: compute the metric for the regression case.
   if smc_transformer.task_type=='classification':
     train_inf_batch=train_accuracy(tar_real, train_inf_pred_batch) # accuracy from average_predictions for now.
-    #train_accuracy_inference="N/A"
     train_avg_acc_batch=train_accuracy(tar_real, train_avg_pred_batch) # average over logits instead of after softmax (inference case).
-    #train_accuracy_avg="N/A"
     train_avg_acc_old_batch=train_accuracy(tar_real, train_avg_pred_old_batch)
     train_max_acc_batch=train_accuracy(tar_real, train_max_pred_batch)
-    #train_accuracy_max_pred="N/A"
   else:
     train_accuracy_batch=None
 
@@ -141,7 +147,25 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   return loss, average_loss_batch, (train_inf_batch, train_avg_acc_batch, train_avg_acc_old_batch, train_max_acc_batch), train_perplexity
 
+@tf.function
+def train_step_rnn_regression(inp, target, model, optimizer):
+  with tf.GradientTape() as tape:
+    predictions = model(inp)
+    loss = tf.keras.losses.mse(target, predictions)
+  grads = tape.gradient(loss, model.trainable_variables)
+  optimizer.apply_gradients(zip(grads, model.trainable_variables))
+  return loss
 
+@tf.function
+def train_step_rnn_classif(inp, target, model, optimizer, accuracy_metric):
+  with tf.GradientTape() as tape:
+    predictions = model(inp)
+    loss = tf.reduce_mean(
+      tf.keras.losses.sparse_categorical_crossentropy(target, predictions, from_logits=True))
+  grads = tape.gradient(loss, model.trainable_variables)
+  optimizer.apply_gradients(zip(grads, model.trainable_variables))
+  train_acc_batch = accuracy_metric(target, predictions)
+  return loss, train_acc_batch
 
 # #------ old function not working------
 # def categorical_crossentropy(real, logits, sampling_weights):
