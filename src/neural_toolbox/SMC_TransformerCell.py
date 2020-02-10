@@ -100,9 +100,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def compute_w_classification(self, predictions, x):
     '''
-
-    :param predictions:
-    :param x:
+    :param predictions: output of final layer (logits.)
+    :param x: current sequence element (x_t) >
     :return:
     '''
     log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
@@ -119,8 +118,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # logw = -0.5 * mu_t ^ T * mu_t / omega
     # logw = logw - min(logw)
     # w = exp(logw)
-    :param predictions:
-    :param x:
+    :param predictions: output of final layer (logits.) > shape (B,P,1) (regression case)
+    :param x: current sequence element (x_t) > shape (B,P,F); F > 1 for multivariate case.
     :return:
     '''
     # TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
