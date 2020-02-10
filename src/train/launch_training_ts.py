@@ -1,10 +1,8 @@
 #TODO: debug the case when the number of epochs is the same. (training is done...)
-
 #TODO: debug problem of positional encoding for baseline transformer (problem of shape being (seq_len * max_pos_enc) instead of (seq_len).
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
-#TODO: add a loss function for the regression case.
 
-""""# to store:
+"""# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
 the training accuracy (train & val datasets),
 - 2 accuracies for the SMC Transformer), the time taken for each epoch, and the total training time
@@ -19,8 +17,13 @@ d_model: 512
 num_heads: 8
 dff: 1048
 num_layers: 2
-max_positional_encoding=
+max_positional_encoding = target_vocab_size. 
 """
+
+"""
+ALL INPUTS CAN BE OF SHAPE (B,S,F) (F=1 for NLP / univariate time_series case, F > 1 for multivariate case.)
+"""
+
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
@@ -59,7 +62,7 @@ if __name__ == "__main__":
 
   warnings.simplefilter("ignore")
 
-  # -------- parsing arguments ------------------------------------------------------------------------------------------------
+  # -------- parsing arguments ---------------------------------------------------------------------------------------------------------------------------------------
 
   parser = argparse.ArgumentParser()
 
@@ -70,7 +73,7 @@ if __name__ == "__main__":
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
@@ -164,7 +167,7 @@ if __name__ == "__main__":
     print('input example', inp[0])
     print('target example', tar[0])
 
-  num_classes= 25 if data_type=='classification' else 1
+  num_classes= 25 if data_type == 'classification' else 1
   target_vocab_size = num_classes # 25 bins
   seq_len = train_data.shape[1] - 1 # 24 observations
   training_samples = train_data.shape[0]
@@ -181,6 +184,7 @@ if __name__ == "__main__":
   val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='val_accuracy')
 
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
+
   output_path = args.out_folder
   folder_template='{}_{}_heads_{}_depth_{}_dff_{}_pos-enc_{}_pdrop_{}_b_{}'
   out_folder = folder_template.format(data_type,
@@ -210,7 +214,8 @@ if __name__ == "__main__":
     print("creating a new config file...")
     shutil.copyfile(config_path, output_path + '/config_new.json')
 
-  # ------------------ create the logging-----------------------------------------------------------------------------
+  # ------------------ create the logging -----------------------------------------------------------------------------
+
   out_file_log = output_path + '/' + 'training_log.log'
   logger = create_logger(out_file_log=out_file_log)
   #  creating the checkpoint manager:
@@ -218,7 +223,8 @@ if __name__ == "__main__":
   if not os.path.isdir(checkpoint_path):
     os.makedirs(checkpoint_path)
 
-  #-------------------- Building the RNN Baseline & the associated training algo --------------------------------------------------------------------
+  #-------------------- Building the RNN Baseline & the associated training algo -----------------------------------------------------------
+
   if task_type == 'regression':
     model = build_LSTM_for_regression(rnn_units=rnn_units)
   elif task_type == 'classification':
@@ -236,7 +242,7 @@ if __name__ == "__main__":
   checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
                                                            save_weights_only=True)
 
-  #----------------------TRAINING OF A SIMPLE RNN BASELINE--------------------------------------------------------------------------------------
+  #---------------------- TRAINING OF A SIMPLE RNN BASELINE --------------------------------------------------------------------------------------
 
   # model.compile(optimizer=optimizer,
   #               loss='mse')
@@ -303,7 +309,7 @@ if __name__ == "__main__":
     logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
     logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
-  #-----------------TRAINING-----------------------------------------------------------------------------------------------------------------------------------------------------------
+  #----------------- TRAINING -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
   logger.info("model hyperparameters from the config file: {}".format(hparams["model"]))
   logger.info("smc hyperparameters from the config file: {}".format(hparams["smc"]))
@@ -435,7 +441,6 @@ if __name__ == "__main__":
                             logger=logger,
                             start_epoch=start_epoch)
 
-    #TODO: put this as a function.
     saving_model_outputs(output_path=output_path,
                          predictions=predictions_val,
                          attn_weights=attn_weights_val,
@@ -446,7 +451,7 @@ if __name__ == "__main__":
     logger.info('training of a classic Transformer for a time-series dataset done...')
     logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
-#-------------------TRAINING ON THE DATASET - SMC_TRANSFORMER----------------------------------------------------------------------------------------------------------------------
+#------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
   if train_smc_transformer:
 
@@ -553,7 +558,6 @@ if __name__ == "__main__":
                                                  tar=tar,
                                                  accuracy_metric=val_accuracy)
 
-      #TODO: remove the computation of the 'old' average.
       template='train loss {} - train acc, inf: {} - train acc, avg: {} - train_acc, max: {},' \
                ' - val acc, inf: {} - val acc, avg: {} - val acc, max: {}'
       logger.info(template.format(avg_loss_batch.numpy(),

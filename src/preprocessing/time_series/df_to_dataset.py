@@ -77,6 +77,11 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
   # split between validation dataset and test set:
   val_data, test_data=train_test_split(val_data, train_size=0.5)
 
+  # reshaping arrays to have a (future shape) of (B,S,1):
+  train_data = np.reshape(train_data, newshape=(train_data.shape[0], train_data.shape[1], 1))
+  val_data = np.reshape(val_data, newshape=(val_data.shape[0], val_data.shape[1], 1))
+  test_data = np.reshape(test_data, newshape=(test_data.shape[0], test_data.shape[1], 1))
+
   return (train_data, val_data, test_data), uni_data_df
 
 def split_input_target_uni_step(chunk):
@@ -85,8 +90,8 @@ def split_input_target_uni_step(chunk):
   return input_text, target_text
 
 def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE):
-    x_train, y_train=split_fn(train_data)
-    x_val, y_val=split_fn(val_data)
+    x_train, y_train = split_fn(train_data)
+    x_val, y_val = split_fn(val_data)
 
     # turning it into a tf.data.Dataset.
     train_dataset= tf.data.Dataset.from_tensor_slices((x_train, y_train))
@@ -119,9 +124,18 @@ if __name__ == "__main__":
                                                                          history=history,
                                                                          step=step)
 
-  print(train_data[:50])
+  print(train_data[:10])
 
+  BUFFER_SIZE=10000
+  BATCH_SIZE=64
 
+  train_dataset, val_dataset = data_to_dataset_uni_step(train_data=train_data,
+                                                      val_data=val_data,
+                                                      split_fn=split_input_target_uni_step,
+                                                      BUFFER_SIZE=BUFFER_SIZE,
+                                                      BATCH_SIZE=BATCH_SIZE)
+
+  print(train_dataset)
 
   #TODO save datasets in .npy files.
   # #print(data_categorized_df.head())
