@@ -269,7 +269,7 @@ class SMC_Transformer(tf.keras.Model):
     elif self.task_type == 'regression':
       assert self.target_vocab_size == 1
       # TODO replace the tf.cast by an assert.
-      initial_word_id = tf.cast(initial_word_id, dtype=tf.float32)
+      initial_word_id = tf.cast(initial_word_id, dtype=tf.float32) # shape (B,F)
       if len(tf.shape(initial_word_id)) == 1:
         initial_word_id = tf.expand_dims(initial_word_id, axis=-1)
       # tiling word_id to get the right shape:
@@ -279,17 +279,21 @@ class SMC_Transformer(tf.keras.Model):
       initial_weights = self.cell.compute_w_regression(predictions=logits_initial, x=initial_word_id) # shape (B,P)
 
     # call the initialization of the ancestor indices matrix - create an initial 'identity function' indices matrix.
-    ind_matrix_init = initialize_indices_matrix(batch_size, seq_length, self.num_particles)
+    ind_matrix_init = initialize_indices_matrix(batch_size, seq_length, self.num_particles) # (B,P,S)
     # update it with i_o
-    i0, ind_matrix_init = sample_and_keep_indices(prev_sampling_weights=initial_weights,
-                                                     ind_matrix=ind_matrix_init,
-                                                     num_particles=self.num_particles,
-                                                     dec_timestep=0)
+    i0 = tf.random.categorical(initial_weights, self.num_particles)  # (B,P)
+    i0 = tf.expand_dims(i0, axis=-1)
+    i0=tf.cast(i0, dtype=tf.int32)
+    ind_matrix_init = tf.concat([i0, ind_matrix_init[:,:,1:]], axis=-1)
+
+
+    # i0, ind_matrix_init = sample_and_keep_indices(prev_sampling_weights=initial_weights,
+    #                                                  ind_matrix=ind_matrix_init,
+    #                                                  num_particles=self.num_particles,
+    #                                                  dec_timestep=0)
     self.initialize = True
 
-    # reshaping initial_weights from shape (B,P) to shape (B,P,1)
-    initial_weights=tf.expand_dims(initial_weights, axis=-1)
-
+    initial_weights = tf.expand_dims(initial_weights, axis=-1)  # (B,P,1)
 
     # adding a tf.stop_gradient on the weights and the ind_matrix_init to avoid backpropagation on this set of parameters:
     initial_weights = tf.stop_gradient(initial_weights)
@@ -371,24 +375,24 @@ class SMC_Transformer(tf.keras.Model):
     batch_size = tf.shape(inputs)[0]
     seq_len = tf.shape(inputs)[1]
 
-    #if self.data_type=='nlp':
-    # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
-    input_tensor_processed = tf.expand_dims(inputs, axis=-1)
-    input_tensor_processed = self.preprocess_words(input_tensor_processed, 0, training=training)  # dim (B, S, D)
-    input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1])  # dim (B,P,S,D)
-    input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
+    if self.data_type=='nlp':
+      # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
+      input_tensor_processed = tf.expand_dims(inputs, axis=-1)
+      input_tensor_processed = self.preprocess_words(input_tensor_processed, 0, training=training)  # dim (B, S, D)
+      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1])  # dim (B,P,S,D)
+      input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
 
-    # elif self.data_type=='time_series_uni' or "time_series_multi":
-    #   if len(tf.shape(inputs))==2: # shape(B,S)
-    #     input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
-    #   else:
-    #     input_tensor_processed=inputs
-    #   # add the particle dimension
-    #   input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
-    #   input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
-    #
-    # else:
-    #   raise ValueError('wrong data type: should be either "nlp", "time-series_uni", or "time_series_multi"')
+    elif self.data_type=='time_series_uni' or "time_series_multi":
+      if len(tf.shape(inputs))==2: # shape(B,S)
+        input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
+      else:
+        input_tensor_processed=inputs
+      # add the particle dimension
+      input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
+      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
+
+    else:
+      raise ValueError('wrong data type: should be either "nlp", "time-series_uni", or "time_series_multi"')
 
 
     # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
@@ -455,6 +459,7 @@ class SMC_Transformer(tf.keras.Model):
     K = new_states[0]
     V = new_states[1]
     w_T = new_states[2]
+    #TODO: output both w and the matrix of indices matrix. (to save).
     I = new_states[3]
 
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
@@ -492,9 +497,9 @@ if __name__ == "__main__":
   dff = 128
   maximum_position_encoding = seq_len
   sigma = 1
-  data_type = 'nlp'
-  task_type = 'classification'
-  C = 20 # vocabulary size or number of classes.
+  data_type = 'time_series_uni'
+  task_type = 'regression'
+  C = 1 # vocabulary size or number of classes.
   noise_encoder = False
   noise_SMC_layer = False
 
@@ -552,6 +557,8 @@ if __name__ == "__main__":
   print('inference predictions', inference_pred.shape)  # (B,P,V)
   print('good average predictions', good_avg_pred.shape)  # (B,P,V)
   print('max_predictions', max_pred.shape)
+
+  print('w_T', weights[0,:])
 
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)

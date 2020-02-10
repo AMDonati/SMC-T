@@ -1,6 +1,7 @@
 #TODO: debug the case when the number of epochs is the same. (training is done...)
-#TODO: debug problem of positional encoding for baseline transformer (problem of shape being (seq_len * max_pos_enc) instead of (seq_len).
 # basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
+
+#TODO - to improve the transformer performance - label smoothing and change order of layers.dense / layers.norm.
 
 """# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
@@ -70,9 +71,9 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
@@ -261,65 +262,6 @@ if __name__ == "__main__":
     logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
     logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
-  # if args.train_rnn:
-  #   logger.info("training a RNN Baseline on the nlp dataset...")
-  #   logger.info("number of training samples: {}".format(training_samples))
-  #   logger.info("steps per epoch:{}".format(steps_per_epochs))
-  #
-  #   start_training = time.time()
-  #
-  #   for epoch in range(EPOCHS):
-  #     start = time.time()
-  #     train_accuracy.reset_states()
-  #     val_accuracy.reset_states()
-  #     # initializing the hidden state at the start of every epoch
-  #     # initally hidden is None
-  #     hidden = model.reset_states()
-  #
-  #
-  #     for (inp, target) in train_dataset:
-  #         if task_type == 'classification':
-  #         # CAUTION: in a tf.keras.layers.LSTM, the input tensor needs to be of shape 3 (B,S,Features).
-  #           loss, train_acc_batch = train_step_rnn_classif(inp,
-  #                                                        target,
-  #                                                        model=model,
-  #                                                        optimizer=optimizer,
-  #                                                        accuracy_metric=train_accuracy)
-  #         elif task_type == 'regression':
-  #           predictions=model(inp)
-  #           loss = train_step_rnn_regression(inp=inp,
-  #                                        target=target,
-  #                                        model=model,
-  #                                        optimizer=optimizer)
-  #
-  #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
-  #
-  #     # computing train and val acc for the current epoch:
-  #
-  #     for (inp_val, tar_val) in val_dataset:
-  #       # inp_val needs to be of shape (B,S,F) : length=3
-  #       inp_val = tf.expand_dims(inp_val, axis=-1)
-  #       predictions_val = model(inp_val)
-  #       # computing the validation accuracy for each batch...
-  #       if task_type == 'classification':
-  #         val_accuracy_batch = val_accuracy(tar_val, predictions_val)
-  #
-  #     if task_type == 'classification':
-  #       train_acc = train_accuracy.result()
-  #       val_acc=val_accuracy.result()
-  #     elif task_type == 'regression':
-  #       train_acc = 0
-  #       val_acc = 0
-  #
-  #     logger.info('Epoch {} - Loss {} - train acc {} - val acc {}'.format(epoch + 1, loss, train_acc, val_acc))
-  #     logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
-  #
-  #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
-  #
-  #   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
-  #   logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
-  #   logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
-
   #----------------- TRAINING -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
   logger.info("model hyperparameters from the config file: {}".format(hparams["model"]))
@@ -343,7 +285,7 @@ if __name__ == "__main__":
 
   if train_classic_transformer:
 
-    logger.info("training the baseline Transformer on the nlp dataset...")
+    logger.info("training the baseline Transformer on a time-series dataset...")
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
 
@@ -468,7 +410,7 @@ if __name__ == "__main__":
 
     logger.info('starting the training of the smc transformer...')
     logger.info("number of training samples: {}".format(training_samples))
-    logger.info("steps per epoch:{}".format(steps_per_epochs))
+    logger.info("steps per epoch: {}".format(steps_per_epochs))
     if not resampling:
       logger.info("no resampling because only one particle is taken...")
 
@@ -497,6 +439,8 @@ if __name__ == "__main__":
 
     # if a checkpoint exists, restore the latest checkpoint.
     start_epoch=restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+    if start_epoch is None:
+      start_epoch = 0
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
@@ -504,10 +448,6 @@ if __name__ == "__main__":
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
-
-    # preparing recording of loss and metrics information
-    train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history= [], [], [], []
-    val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history = [], [], [], []
 
     if start_epoch > 0:
       if start_epoch > EPOCHS:
@@ -517,6 +457,15 @@ if __name__ == "__main__":
         logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
     start_training = time.time()
+
+    # preparing recording of loss and metrics information
+    if task_type == 'classification':
+      train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history= [], [], [], []
+      val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history = [], [], [], []
+
+    elif task_type == 'regression':
+      train_loss_history, train_loss_mse_history = [], []
+      val_loss_history, val_loss_mse_history = [], []
 
     for epoch in range(start_epoch, EPOCHS):
       start = time.time()
@@ -549,7 +498,11 @@ if __name__ == "__main__":
                                                                          train_accuracy=train_accuracy,
                                                                          classic_loss=True,
                                                                          SMC_loss=True)
-        train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
+
+        if task_type == 'classification':
+          train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
+        elif task_type == 'regression':
+          mse_metric = train_accuracies
 
       # compute the validation accuracy on the validation dataset:
       # TODO: here consider a validation set with a batch_size equal to the number of samples.
@@ -558,20 +511,22 @@ if __name__ == "__main__":
                                                                                                   training=False,
                                                                                                   mask=create_look_ahead_mask(seq_len))
 
+      if task_type=='classification':
+        train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
         # computing the validation accuracy for each batch...
         val_inf_pred_batch, val_avg_pred_batch, val_max_pred_batch = predictions_metric
         val_inf_acc_batch = val_accuracy(tar, val_inf_pred_batch)
         val_avg_acc_batch = val_accuracy(tar, val_avg_pred_batch)
         val_max_acc_batch = val_accuracy(tar, val_max_pred_batch)
 
-      # computing the variance in accuracy for each 'prediction particle':
-      val_acc_variance=compute_accuracy_variance(predictions_val=predictions_val,
+        # computing the variance in accuracy for each 'prediction particle':
+        val_acc_variance=compute_accuracy_variance(predictions_val=predictions_val,
                                                  tar=tar,
                                                  accuracy_metric=val_accuracy)
 
-      template='train loss {} - train acc, inf: {} - train acc, avg: {} - train_acc, max: {},' \
+        template='train loss {} - train acc, inf: {} - train acc, avg: {} - train_acc, max: {},' \
                ' - val acc, inf: {} - val acc, avg: {} - val acc, max: {}'
-      logger.info(template.format(avg_loss_batch.numpy(),
+        logger.info(template.format(avg_loss_batch.numpy(),
                                   train_inf_acc_batch.numpy(),
                                   train_avg_acc_batch.numpy(),
                                   train_max_acc_batch.numpy(),
@@ -579,35 +534,54 @@ if __name__ == "__main__":
                                   val_avg_acc_batch.numpy(),
                                   val_max_acc_batch.numpy()))
 
+        # saving loss and metrics information:
+        train_loss_history.append(avg_loss_batch.numpy())
+        train_inf_acc_history.append(train_inf_acc_batch.numpy())
+        train_avg_acc_history.append(train_avg_acc_batch.numpy())
+        train_max_acc_history.append(train_max_acc_batch.numpy())
+
+        val_inf_acc_history.append(val_inf_acc_batch.numpy())
+        val_avg_acc_history.append(val_avg_acc_batch.numpy())
+        val_max_acc_history.append(val_max_acc_batch.numpy())
+
+        val_acc_variance_history.append(val_acc_variance)
+
+        logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
+
+        # storing history of losses and accuracies in a csv file
+        keys = ['train loss', 'train accuracy, inference', 'train accuracy, from avg', 'train accuracy, from max',
+                'val accuracy - inference', 'val accuracy, from avg', 'val accuracy, from max',
+                'variance of validation accuracy']
+        values = [train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history,
+                  val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history]
+
+        saving_training_history(keys=keys, values=values,
+                                output_path=output_path,
+                                csv_fname='smc_transformer_history.csv',
+                                logger=logger,
+                                start_epoch=start_epoch)
+
+      elif task_type == 'regression':
+        mse_metric = train_accuracies
+        logger.info('train loss {} - mse loss: {}'.format(avg_loss_batch.numpy(),
+                                                          mse_metric.numpy()))
+        # saving loss and metrics information:
+        train_loss_history.append(avg_loss_batch.numpy())
+        train_loss_mse_history.append(mse_metric.numpy())
+
+        keys = ['train loss', 'train mse loss']
+        values = [train_loss_history, train_loss_mse_history]
+
+        saving_training_history(keys=keys, values=values,
+                                output_path=output_path,
+                                csv_fname='smc_transformer_history.csv',
+                                logger=logger,
+                                start_epoch=start_epoch)
+
       ckpt_save_path = ckpt_manager.save()
 
       logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
-      # saving loss and metrics information:
-      train_loss_history.append(avg_loss_batch.numpy())
-      train_inf_acc_history.append(train_inf_acc_batch.numpy())
-      train_avg_acc_history.append(train_avg_acc_batch.numpy())
-      train_max_acc_history.append(train_max_acc_batch.numpy())
-
-      val_inf_acc_history.append(val_inf_acc_batch.numpy())
-      val_avg_acc_history.append(val_avg_acc_batch.numpy())
-      val_max_acc_history.append(val_max_acc_batch.numpy())
-
-      val_acc_variance_history.append(val_acc_variance)
-
-    logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
-
-    # storing history of losses and accuracies in a csv file
-    keys = ['train loss','train accuracy, inference', 'train accuracy, from avg', 'train accuracy, from max',
-            'val accuracy - inference', 'val accuracy, from avg', 'val accuracy, from max', 'variance of validation accuracy']
-    values = [train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history,
-              val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history]
-
-    saving_training_history(keys=keys, values=values,
-                            output_path=output_path,
-                            csv_fname='smc_transformer_history.csv',
-                            logger=logger,
-                            start_epoch=start_epoch)
 
     # making predictions with the trained model and saving them on .npy files
     #mask = create_look_ahead_mask(seq_len)
@@ -634,5 +608,65 @@ if __name__ == "__main__":
     # example_batch_loss = loss(target_example_batch, example_batch_predictions)
     # print("Prediction shape: ", example_batch_predictions.shape, " # (batch_size, sequence_length, vocab_size)")
     # print("scalar_loss:      ", example_batch_loss.numpy().mean())
+
+    # if args.train_rnn:
+    #   logger.info("training a RNN Baseline on the nlp dataset...")
+    #   logger.info("number of training samples: {}".format(training_samples))
+    #   logger.info("steps per epoch:{}".format(steps_per_epochs))
+    #
+    #   start_training = time.time()
+    #
+    #   for epoch in range(EPOCHS):
+    #     start = time.time()
+    #     train_accuracy.reset_states()
+    #     val_accuracy.reset_states()
+    #     # initializing the hidden state at the start of every epoch
+    #     # initally hidden is None
+    #     hidden = model.reset_states()
+    #
+    #
+    #     for (inp, target) in train_dataset:
+    #         if task_type == 'classification':
+    #         # CAUTION: in a tf.keras.layers.LSTM, the input tensor needs to be of shape 3 (B,S,Features).
+    #           loss, train_acc_batch = train_step_rnn_classif(inp,
+    #                                                        target,
+    #                                                        model=model,
+    #                                                        optimizer=optimizer,
+    #                                                        accuracy_metric=train_accuracy)
+    #         elif task_type == 'regression':
+    #           predictions=model(inp)
+    #           loss = train_step_rnn_regression(inp=inp,
+    #                                        target=target,
+    #                                        model=model,
+    #                                        optimizer=optimizer)
+    #
+    #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
+    #
+    #     # computing train and val acc for the current epoch:
+    #
+    #     for (inp_val, tar_val) in val_dataset:
+    #       # inp_val needs to be of shape (B,S,F) : length=3
+    #       inp_val = tf.expand_dims(inp_val, axis=-1)
+    #       predictions_val = model(inp_val)
+    #       # computing the validation accuracy for each batch...
+    #       if task_type == 'classification':
+    #         val_accuracy_batch = val_accuracy(tar_val, predictions_val)
+    #
+    #     if task_type == 'classification':
+    #       train_acc = train_accuracy.result()
+    #       val_acc=val_accuracy.result()
+    #     elif task_type == 'regression':
+    #       train_acc = 0
+    #       val_acc = 0
+    #
+    #     logger.info('Epoch {} - Loss {} - train acc {} - val acc {}'.format(epoch + 1, loss, train_acc, val_acc))
+    #     logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
+    #
+    #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
+    #
+    #   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
+    #   logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
+    #   logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+
 
 

@@ -3,9 +3,6 @@
 
 #TODO: debug the mse_with_particles function for the regression case.
 import tensorflow as tf
-import itertools
-
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
 
@@ -181,17 +178,18 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
     real=tf.tile(real, multiples=[1,num_particles,1])
   if classic_loss:
     # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
-    loss_ce = mse_with_particles(real=real, pred=predictions, sampling_weights=weights)
+    loss_mse = mse_with_particles(real=real, pred=predictions, sampling_weights=weights)
   else:
-    loss_ce = 0
+    loss_mse = 0
   if SMC_loss:
     # take minus the log_likelihood.
     loss_smc = -transformer.compute_SMC_log_likelihood(sampling_weights=weights)  # we take a minus because we want to minimize -maximum_likelihood.
   else:
     loss_smc = 0
-  loss = loss_ce + loss_smc
+  loss = loss_mse + loss_smc
 
-  return loss
+  #TODO: add as return the loss_mse that will be used as a metric for the regression case.
+  return loss, loss_mse
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):

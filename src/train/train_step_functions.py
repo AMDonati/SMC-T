@@ -90,8 +90,8 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     tar_inp = inputs
     tar_real = targets
 
-  assert len(tf.shape(tar_inp)) == 2
-  assert len(tf.shape(tar_real)) == 2
+  #assert len(tf.shape(tar_inp)) == 2
+  #assert len(tf.shape(tar_real)) == 2
 
   seq_len = tf.shape(tar_inp)[1]
   mask_transformer = create_look_ahead_mask(seq_len)
@@ -117,7 +117,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
                                           classic_loss=classic_loss)
 
     elif smc_transformer.task_type == 'regression':
-      loss = loss_function_regression(real=tar_real,
+      loss, metric_mse = loss_function_regression(real=tar_real,
                                       predictions=predictions,
                                       weights=weights,
                                       transformer=smc_transformer,
@@ -141,7 +141,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     train_max_acc_batch = train_accuracy(tar_real, train_max_pred_batch)
     train_accuracies = (train_inf_batch, train_avg_acc_batch, train_max_acc_batch)
   else:
-    train_accuracies = (None, None, None)
+    train_accuracies = metric_mse
 
   if perplexity_metric is not None:
     train_perplexity = perplexity_metric(tar_real, predictions)

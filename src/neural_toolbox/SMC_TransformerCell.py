@@ -127,11 +127,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(predictions)) == 4:
       predictions = tf.squeeze(predictions, axis=-1)  # shape (B,P,1)
     # expanding and tiling x over the particle dimensions to have the right shape
-    x = tf.expand_dims(x, axis=1)
-    if len(tf.shape(x)) == 3:  # nlp /classif case
-      x = tf.tile(x, multiples=[1, self.num_particles, 1])  # shape (B,P,1)
-    elif len(tf.shape(x)) == 4:
-      x = tf.tile(x, multiples=[1, self.num_particles, 1, 1])  # shape (B,P,1,F) time_series case.
+    # x = tf.expand_dims(x, axis=1)
+    # if len(tf.shape(x)) == 3:  # nlp /classif case
+    #   x = tf.tile(x, multiples=[1, self.num_particles, 1])  # shape (B,P,1)
+    # elif len(tf.shape(x)) == 4:
+    #   x = tf.tile(x, multiples=[1, self.num_particles, 1, 1])  # shape (B,P,1,F) time_series case.
 
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(x)[-1]
