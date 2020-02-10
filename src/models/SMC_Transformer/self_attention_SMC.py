@@ -40,8 +40,8 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
   else:
     V = v
 
-  #TODO: add a mask for the time-window considered.
-  matmul_qk = tf.matmul(q, K, transpose_b=True)  # (..., num_particles,H, 1, seq_len_k)
+  #TODO (later on): add a mask for the time-window considered.
+  matmul_qk = tf.matmul(q, K, transpose_b=True)  # (B, P, H, 1, S)
 
   # scale matmul_qk
   dk = tf.cast(tf.shape(K)[-1], tf.float32)

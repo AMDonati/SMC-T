@@ -128,10 +128,10 @@ def sample_and_keep_indices(prev_sampling_weights, ind_matrix, num_particles, de
   batch_size=tf.shape(ind_matrix)[0]
 
   # Sample current set of indices with proba proportional to prev_sampling_weights
-  if indices is None:
+  if indices is None: # trick for testing the function.
     if len(tf.shape(prev_sampling_weights)) == 3:
-      prev_sampling_weights = tf.squeeze(prev_sampling_weights, axis=-1)
-    indices = tf.random.categorical(prev_sampling_weights, num_particles)  # shape (..., num_particles)
+      prev_sampling_weights = tf.squeeze(prev_sampling_weights, axis=-1) # shape (B,P,F) instead of (B,P,1).
+    indices = tf.random.categorical(prev_sampling_weights, num_particles)  # (B,P,1)
     indices=tf.expand_dims(indices, axis=-1)
     indices=tf.cast(indices, dtype=tf.int32)
 
