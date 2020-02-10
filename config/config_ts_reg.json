@@ -40,7 +40,7 @@
   },
 
    "task": {
-      "data_type": "time_series",
+      "data_type": "time_series_uni",
       "task_type": "regression",
       "task": "unistep-forcst"
   }
