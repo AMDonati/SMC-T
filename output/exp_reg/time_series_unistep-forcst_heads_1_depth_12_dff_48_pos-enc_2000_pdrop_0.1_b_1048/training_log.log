@@ -1,0 +1,101 @@
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 2000, 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:training a baseline transformer with positional encoding...
+INFO:training log:Epoch 1/30
+WARNING:tensorflow:Layer transformer is casting an input tensor from dtype float64 to the layer's dtype of float32, which is new behavior in TensorFlow 2.  The layer has dtype float32 because it's dtype defaults to floatx.
+
+If you intended to run this layer in float32, you can safely ignore this warning. If in doubt, this warning is likely only an issue if you are porting a TensorFlow 1.X model to TensorFlow 2.
+
+To change all layers to have dtype float64 by default, call `tf.keras.backend.set_floatx('float64')`. To change just this layer, pass dtype='float64' to the layer constructor. If you are the author of this layer, you can disable autocasting by passing autocast=False to the base Layer constructor.
+
+INFO:training log:train loss 63.264217376708984
+INFO:training log:Time taken for 1 epoch: 69.70993280410767 secs
+
+INFO:training log:Epoch 2/30
+INFO:training log:train loss 41.75437927246094
+INFO:training log:Time taken for 1 epoch: 72.42246413230896 secs
+
+INFO:training log:Epoch 3/30
+INFO:training log:train loss 38.351951599121094
+INFO:training log:Time taken for 1 epoch: 76.67724800109863 secs
+
+INFO:training log:Epoch 4/30
+INFO:training log:train loss 36.21631622314453
+INFO:training log:Time taken for 1 epoch: 76.4677197933197 secs
+
+INFO:training log:Epoch 5/30
+INFO:training log:train loss 33.91696548461914
+INFO:training log:Time taken for 1 epoch: 68.0221757888794 secs
+
+INFO:training log:Epoch 6/30
+INFO:training log:train loss 31.811302185058594
+INFO:training log:Time taken for 1 epoch: 72.5257887840271 secs
+
+INFO:training log:Epoch 7/30
+INFO:training log:train loss 29.90955924987793
+INFO:training log:Time taken for 1 epoch: 76.3984580039978 secs
+
+INFO:training log:Epoch 8/30
+INFO:training log:train loss 27.77773666381836
+INFO:training log:Time taken for 1 epoch: 85.05496191978455 secs
+
+INFO:training log:Epoch 9/30
+INFO:training log:train loss 23.814584732055664
+INFO:training log:Time taken for 1 epoch: 90.49641609191895 secs
+
+INFO:training log:Epoch 10/30
+INFO:training log:train loss 20.317411422729492
+INFO:training log:Time taken for 1 epoch: 69.33431577682495 secs
+
+INFO:training log:Epoch 11/30
+INFO:training log:train loss 14.352560043334961
+INFO:training log:Time taken for 1 epoch: 66.23307514190674 secs
+
+INFO:training log:Epoch 12/30
+INFO:training log:train loss 11.05723762512207
+INFO:training log:Time taken for 1 epoch: 62.161471366882324 secs
+
+INFO:training log:Epoch 13/30
+INFO:training log:train loss 9.350008010864258
+INFO:training log:Time taken for 1 epoch: 64.6777229309082 secs
+
+INFO:training log:Epoch 14/30
+INFO:training log:train loss 8.235434532165527
+INFO:training log:Time taken for 1 epoch: 64.87234902381897 secs
+
+INFO:training log:Epoch 15/30
+INFO:training log:train loss 7.569748878479004
+INFO:training log:Time taken for 1 epoch: 62.86737895011902 secs
+
+INFO:training log:Epoch 16/30
+INFO:training log:train loss 7.083280563354492
+INFO:training log:Time taken for 1 epoch: 62.84575605392456 secs
+
+INFO:training log:Epoch 17/30
+INFO:training log:train loss 6.767726898193359
+INFO:training log:Time taken for 1 epoch: 62.53527283668518 secs
+
+INFO:training log:Epoch 18/30
+INFO:training log:train loss 6.4925408363342285
+INFO:training log:Time taken for 1 epoch: 62.107056856155396 secs
+
+INFO:training log:Epoch 19/30
+INFO:training log:train loss 6.3602094650268555
+INFO:training log:Time taken for 1 epoch: 66.94715285301208 secs
+
+INFO:training log:Epoch 20/30
+INFO:training log:train loss 6.103348255157471
+INFO:training log:Time taken for 1 epoch: 66.99954199790955 secs
+
+INFO:training log:Epoch 21/30
+INFO:training log:train loss 6.011470317840576
+INFO:training log:Time taken for 1 epoch: 78.08749508857727 secs
+
+INFO:training log:Epoch 22/30
+INFO:training log:train loss 5.916048049926758
+INFO:training log:Time taken for 1 epoch: 68.47494888305664 secs
+
+INFO:training log:Epoch 23/30

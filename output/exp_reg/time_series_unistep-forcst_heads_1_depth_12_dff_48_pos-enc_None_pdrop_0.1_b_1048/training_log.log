@@ -1,0 +1,151 @@
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 'None', 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 'None', 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:Epoch 1/30
+WARNING:tensorflow:Layer transformer is casting an input tensor from dtype float64 to the layer's dtype of float32, which is new behavior in TensorFlow 2.  The layer has dtype float32 because it's dtype defaults to floatx.
+
+If you intended to run this layer in float32, you can safely ignore this warning. If in doubt, this warning is likely only an issue if you are porting a TensorFlow 1.X model to TensorFlow 2.
+
+To change all layers to have dtype float64 by default, call `tf.keras.backend.set_floatx('float64')`. To change just this layer, pass dtype='float64' to the layer constructor. If you are the author of this layer, you can disable autocasting by passing autocast=False to the base Layer constructor.
+
+INFO:training log:train loss 57.42924118041992
+INFO:training log:Time taken for 1 epoch: 57.21299481391907 secs
+
+INFO:training log:Epoch 2/30
+INFO:training log:train loss 34.22012710571289
+INFO:training log:Time taken for 1 epoch: 55.009397983551025 secs
+
+INFO:training log:Epoch 3/30
+INFO:training log:train loss 13.75609302520752
+INFO:training log:Time taken for 1 epoch: 57.43812608718872 secs
+
+INFO:training log:Epoch 4/30
+INFO:training log:train loss 10.971898078918457
+INFO:training log:Time taken for 1 epoch: 61.45513391494751 secs
+
+INFO:training log:Epoch 5/30
+INFO:training log:train loss 10.522653579711914
+INFO:training log:Time taken for 1 epoch: 80.36691784858704 secs
+
+INFO:training log:Epoch 6/30
+INFO:training log:train loss 10.37078857421875
+INFO:training log:Time taken for 1 epoch: 66.95259404182434 secs
+
+INFO:training log:Epoch 7/30
+INFO:training log:train loss 10.307981491088867
+INFO:training log:Time taken for 1 epoch: 58.663294076919556 secs
+
+INFO:training log:Epoch 8/30
+INFO:training log:train loss 10.216835021972656
+INFO:training log:Time taken for 1 epoch: 77.16262078285217 secs
+
+INFO:training log:Epoch 9/30
+INFO:training log:train loss 10.18924331665039
+INFO:training log:Time taken for 1 epoch: 68.80103874206543 secs
+
+INFO:training log:Epoch 10/30
+INFO:training log:train loss 10.148244857788086
+INFO:training log:Time taken for 1 epoch: 61.904223918914795 secs
+
+INFO:training log:Epoch 11/30
+INFO:training log:train loss 10.10771369934082
+INFO:training log:Time taken for 1 epoch: 60.26112723350525 secs
+
+INFO:training log:Epoch 12/30
+INFO:training log:train loss 10.084881782531738
+INFO:training log:Time taken for 1 epoch: 60.36592507362366 secs
+
+INFO:training log:Epoch 13/30
+INFO:training log:train loss 10.037474632263184
+INFO:training log:Time taken for 1 epoch: 59.59226584434509 secs
+
+INFO:training log:Epoch 14/30
+INFO:training log:train loss 10.040287971496582
+INFO:training log:Time taken for 1 epoch: 63.37050986289978 secs
+
+INFO:training log:Epoch 15/30
+INFO:training log:train loss 10.0513916015625
+INFO:training log:Time taken for 1 epoch: 77.42919301986694 secs
+
+INFO:training log:Epoch 16/30
+INFO:training log:train loss 10.029135704040527
+INFO:training log:Time taken for 1 epoch: 65.57620215415955 secs
+
+INFO:training log:Epoch 17/30
+INFO:training log:train loss 10.014749526977539
+INFO:training log:Time taken for 1 epoch: 65.02221608161926 secs
+
+INFO:training log:Epoch 18/30
+INFO:training log:train loss 9.985377311706543
+INFO:training log:Time taken for 1 epoch: 63.53610706329346 secs
+
+INFO:training log:Epoch 19/30
+INFO:training log:train loss 10.008997917175293
+INFO:training log:Time taken for 1 epoch: 91.58322310447693 secs
+
+INFO:training log:Epoch 20/30
+INFO:training log:train loss 9.991537094116211
+INFO:training log:Time taken for 1 epoch: 60.986071825027466 secs
+
+INFO:training log:Epoch 21/30
+INFO:training log:train loss 9.99755573272705
+INFO:training log:Time taken for 1 epoch: 82.21363997459412 secs
+
+INFO:training log:Epoch 22/30
+INFO:training log:train loss 9.971322059631348
+INFO:training log:Time taken for 1 epoch: 67.49915814399719 secs
+
+INFO:training log:Epoch 23/30
+INFO:training log:train loss 9.977714538574219
+INFO:training log:Time taken for 1 epoch: 77.8300940990448 secs
+
+INFO:training log:Epoch 24/30
+INFO:training log:train loss 9.97955322265625
+INFO:training log:Time taken for 1 epoch: 70.06602597236633 secs
+
+INFO:training log:Epoch 25/30
+INFO:training log:train loss 9.963680267333984
+INFO:training log:Time taken for 1 epoch: 61.077290058135986 secs
+
+INFO:training log:Epoch 26/30
+INFO:training log:train loss 9.96168327331543
+INFO:training log:Time taken for 1 epoch: 63.205289125442505 secs
+
+INFO:training log:Epoch 27/30
+INFO:training log:train loss 9.968362808227539
+INFO:training log:Time taken for 1 epoch: 64.42520999908447 secs
+
+INFO:training log:Epoch 28/30
+INFO:training log:train loss 9.973459243774414
+INFO:training log:Time taken for 1 epoch: 64.60050988197327 secs
+
+INFO:training log:Epoch 29/30
+INFO:training log:train loss 9.94149112701416
+INFO:training log:Time taken for 1 epoch: 64.37043976783752 secs
+
+INFO:training log:Epoch 30/30
+INFO:training log:train loss 9.954654693603516
+INFO:training log:Time taken for 1 epoch: 72.39422726631165 secs
+
+INFO:training log:total training time for 30 epochs:2000.3806357383728
+INFO:training log:saving loss and metrics information...
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 'None', 'maximum_position_encoding_smc': 10}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:training the baseline Transformer on the nlp dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:Latest checkpoint restored!!
+INFO:training log:Epoch 1/30
+WARNING:tensorflow:Layer transformer is casting an input tensor from dtype float64 to the layer's dtype of float32, which is new behavior in TensorFlow 2.  The layer has dtype float32 because it's dtype defaults to floatx.
+
+If you intended to run this layer in float32, you can safely ignore this warning. If in doubt, this warning is likely only an issue if you are porting a TensorFlow 1.X model to TensorFlow 2.
+
+To change all layers to have dtype float64 by default, call `tf.keras.backend.set_floatx('float64')`. To change just this layer, pass dtype='float64' to the layer constructor. If you are the author of this layer, you can disable autocasting by passing autocast=False to the base Layer constructor.
+
