@@ -153,7 +153,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
 @tf.function
 def train_step_rnn_regression(inp, target, model, optimizer):
-  inp = tf.expand_dims(inp, axis=-1)
+  #inp = tf.expand_dims(inp, axis=-1)
   assert len(tf.shape(inp)) == 3
   with tf.GradientTape() as tape:
     predictions = model(inp)

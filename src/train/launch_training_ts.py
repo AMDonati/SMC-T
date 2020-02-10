@@ -71,9 +71,9 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
+  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
 
@@ -134,7 +134,8 @@ if __name__ == "__main__":
 
   test_loss=False
 
-  #------------------UPLOAD the training dataset------------------------------------------------------------------------------------------------
+  #------------------UPLOAD the training dataset----------------------------------------------------------------------------------------------------------------------
+
   if task_type == 'classification':
 
     data_folder = args.data_folder
@@ -243,71 +244,76 @@ if __name__ == "__main__":
                                                            save_weights_only=True)
 
   #---------------------- TRAINING OF A SIMPLE RNN BASELINE --------------------------------------------------------------------------------------
-
-  # model.compile(optimizer=optimizer,
-  #               loss='mse')
-  # model.fit(train_dataset,
-  #           epochs=EPOCHS,
-  #           validation_data=val_dataset,
-  #           verbose=2)
-
   if args.train_rnn:
-    logger.info("training a RNN Baseline on the nlp dataset...")
-    logger.info("number of training samples: {}".format(training_samples))
-    logger.info("steps per epoch:{}".format(steps_per_epochs))
-
+    model.compile(optimizer=optimizer,
+                  loss='mse')
     start_training = time.time()
-
-    for epoch in range(EPOCHS):
-      start = time.time()
-      train_accuracy.reset_states()
-      val_accuracy.reset_states()
-      # initializing the hidden state at the start of every epoch
-      # initally hidden is None
-      hidden = model.reset_states()
-
-
-      for (inp, target) in train_dataset:
-          if task_type == 'classification':
-          # CAUTION: in a tf.keras.layers.LSTM, the input tensor needs to be of shape 3 (B,S,Features).
-            loss, train_acc_batch = train_step_rnn_classif(inp,
-                                                         target,
-                                                         model=model,
-                                                         optimizer=optimizer,
-                                                         accuracy_metric=train_accuracy)
-          elif task_type == 'regression':
-            loss=train_step_rnn_regression(inp=inp,
-                                         target=target,
-                                         model=model,
-                                         optimizer=optimizer)
-
-      model.save_weights(checkpoint_prefix.format(epoch=epoch))
-
-      # computing train and val acc for the current epoch:
-
-      for (inp_val, tar_val) in val_dataset:
-        # inp_val needs to be of shape (B,S,F) : length=3
-        inp_val = tf.expand_dims(inp_val, axis=-1)
-        predictions_val = model(inp_val)
-        # computing the validation accuracy for each batch...
-        if task_type == 'classification':
-          val_accuracy_batch = val_accuracy(tar_val, predictions_val)
-
-      if task_type == 'classification':
-        train_acc = train_accuracy.result()
-        val_acc=val_accuracy.result()
-      elif task_type == 'regression':
-        train_acc = 0
-        val_acc = 0
-
-      logger.info('Epoch {} - Loss {} - train acc {} - val acc {}'.format(epoch + 1, loss, train_acc, val_acc))
-      logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
-
-      model.save_weights(checkpoint_prefix.format(epoch=epoch))
-
+    model.fit(train_dataset,
+              epochs=EPOCHS,
+              validation_data=val_dataset,
+              verbose=2)
     logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
     logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
     logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+
+  # if args.train_rnn:
+  #   logger.info("training a RNN Baseline on the nlp dataset...")
+  #   logger.info("number of training samples: {}".format(training_samples))
+  #   logger.info("steps per epoch:{}".format(steps_per_epochs))
+  #
+  #   start_training = time.time()
+  #
+  #   for epoch in range(EPOCHS):
+  #     start = time.time()
+  #     train_accuracy.reset_states()
+  #     val_accuracy.reset_states()
+  #     # initializing the hidden state at the start of every epoch
+  #     # initally hidden is None
+  #     hidden = model.reset_states()
+  #
+  #
+  #     for (inp, target) in train_dataset:
+  #         if task_type == 'classification':
+  #         # CAUTION: in a tf.keras.layers.LSTM, the input tensor needs to be of shape 3 (B,S,Features).
+  #           loss, train_acc_batch = train_step_rnn_classif(inp,
+  #                                                        target,
+  #                                                        model=model,
+  #                                                        optimizer=optimizer,
+  #                                                        accuracy_metric=train_accuracy)
+  #         elif task_type == 'regression':
+  #           predictions=model(inp)
+  #           loss = train_step_rnn_regression(inp=inp,
+  #                                        target=target,
+  #                                        model=model,
+  #                                        optimizer=optimizer)
+  #
+  #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
+  #
+  #     # computing train and val acc for the current epoch:
+  #
+  #     for (inp_val, tar_val) in val_dataset:
+  #       # inp_val needs to be of shape (B,S,F) : length=3
+  #       inp_val = tf.expand_dims(inp_val, axis=-1)
+  #       predictions_val = model(inp_val)
+  #       # computing the validation accuracy for each batch...
+  #       if task_type == 'classification':
+  #         val_accuracy_batch = val_accuracy(tar_val, predictions_val)
+  #
+  #     if task_type == 'classification':
+  #       train_acc = train_accuracy.result()
+  #       val_acc=val_accuracy.result()
+  #     elif task_type == 'regression':
+  #       train_acc = 0
+  #       val_acc = 0
+  #
+  #     logger.info('Epoch {} - Loss {} - train acc {} - val acc {}'.format(epoch + 1, loss, train_acc, val_acc))
+  #     logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
+  #
+  #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
+  #
+  #   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
+  #   logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
+  #   logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
   #----------------- TRAINING -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -336,8 +342,6 @@ if __name__ == "__main__":
     logger.info("number of training samples: {}".format(training_samples))
     logger.info("steps per epoch:{}".format(steps_per_epochs))
 
-    #putting as default start_epoch=0
-    start_epoch = 0
 
     # storing the losses & accuracy in a list for each epoch
     average_losses_baseline = []
@@ -364,6 +368,8 @@ if __name__ == "__main__":
 
     # if a checkpoint exists, restore the latest checkpoint.
     start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args=args, ckpt=ckpt, logger=logger)
+    if start_epoch is None:
+      start_epoch = 0
 
     start_training = time.time()
 

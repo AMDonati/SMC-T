@@ -59,7 +59,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.target_vocab_size = target_vocab_size
     self.maximum_position_encoding = maximum_position_encoding
     self.seq_len = seq_len
-    self.target_feature=target_feature # for multi-variate time-series case.
+    self.target_feature = target_feature # for multi-variate time-series case.
 
     self.rate = rate
 

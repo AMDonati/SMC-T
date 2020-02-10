@@ -141,28 +141,27 @@ class Decoder(tf.keras.layers.Layer):
     self.d_model = d_model
     self.num_layers = num_layers
     self.maximum_position_encoding=maximum_position_encoding
-
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     if maximum_position_encoding is not None:
-      self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
-    self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
+      self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
+    self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate)
                        for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(rate)
 
     self.data_type=data_type
 
   def call(self, inputs, training, look_ahead_mask):
-
     seq_len = tf.shape(inputs)[1]
     attention_weights = {}
-    if self.data_type=='nlp':
 
-      # adding an embedding only if x is a nlp dataset.
-      inputs = self.embedding(inputs)  # (batch_size, target_seq_len, d_model) # CAUTION: target_vocab_size needs to be bigger than d_model...
-      #TODO: see if this needs to be added for time_series as well. Yes, I think!
-      inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
+    # adding an embedding only if x is a nlp dataset.
+    inputs = self.embedding(
+      inputs)  # (batch_size, target_seq_len, d_model) # CAUTION: target_vocab_size needs to be bigger than d_model...
+    # TODO: see if this needs to be added for time_series as well. Yes, I think!
+    inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
+      assert self.maximum_position_encoding >= seq_len
       inputs += self.pos_encoding[:, :seq_len, :]
 
     inputs = self.dropout(inputs, training=training)
@@ -215,10 +214,10 @@ if __name__ == "__main__":
   d_model = 64
   num_heads = 2
   dff = 128
-  maximum_position_encoding = None
+  maximum_position_encoding = 30
   data_type = 'nlp'
   C = 300 #
-  S=10
+  S = 20
 
   sample_transformer = Transformer(
     num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,

@@ -203,6 +203,15 @@ if __name__ == "__main__":
   test_resample=True
   test_sample_and_keep_indices=False
 
+  # --- test of positional encoding ----------------------------------------------------------------------------------
+  b=8
+  S=20
+  pe_target=10
+  d_model=64
+  inputs=tf.random.uniform(shape=(b, S, d_model))
+  pos_enc=positional_encoding(position=pe_target, d_model=d_model)
+  #inputs+=pos_enc[:,:,:]
+  print('inputs', input.shape)
   #---- resampling z test-------------------------------------------------------------------------------------------------
 
   if test_resample_z:

@@ -1,13 +1,8 @@
 import tensorflow as tf
 import os
 import pandas as pd
-from collections import OrderedDict
-from preprocessing.ts_classif_utils import create_bins
-from preprocessing.ts_classif_utils import map_uni_data_classes
 from sklearn.model_selection import train_test_split
 import numpy as np
-
-#TODO: Makes sure that all the classes are represented in the training dataset for the function df_to_dataset.
 
 def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
   data = []

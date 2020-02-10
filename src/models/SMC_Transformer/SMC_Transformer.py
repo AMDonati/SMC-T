@@ -1,4 +1,3 @@
-
 # imports
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
@@ -372,24 +371,24 @@ class SMC_Transformer(tf.keras.Model):
     batch_size = tf.shape(inputs)[0]
     seq_len = tf.shape(inputs)[1]
 
-    if self.data_type=='nlp':
-      # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
-      input_tensor_processed = tf.expand_dims(inputs, axis=-1)
-      input_tensor_processed = self.preprocess_words(input_tensor_processed, 0, training=training)  # dim (B, S, D)
-      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # dim (B,P,S,D)
-      input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
+    #if self.data_type=='nlp':
+    # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
+    input_tensor_processed = tf.expand_dims(inputs, axis=-1)
+    input_tensor_processed = self.preprocess_words(input_tensor_processed, 0, training=training)  # dim (B, S, D)
+    input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1])  # dim (B,P,S,D)
+    input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
 
-    elif self.data_type=='time_series_uni' or "time_series_multi":
-      if len(tf.shape(inputs))==2: # shape(B,S)
-        input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
-      else:
-        input_tensor_processed=inputs
-      # add the particle dimension
-      input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
-      input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
-
-    else:
-      raise ValueError('wrong data type: should be either "nlp", "time-series_uni", or "time_series_multi"')
+    # elif self.data_type=='time_series_uni' or "time_series_multi":
+    #   if len(tf.shape(inputs))==2: # shape(B,S)
+    #     input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
+    #   else:
+    #     input_tensor_processed=inputs
+    #   # add the particle dimension
+    #   input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
+    #   input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
+    #
+    # else:
+    #   raise ValueError('wrong data type: should be either "nlp", "time-series_uni", or "time_series_multi"')
 
 
     # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
@@ -521,6 +520,7 @@ if __name__ == "__main__":
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
   target_feature = 0 if task_type == 'time_series_multi' else None
+  maximum_position_encoding = 2000
 
   sample_transformer = SMC_Transformer(
     num_layers = num_layers,
@@ -528,7 +528,7 @@ if __name__ == "__main__":
     num_heads = num_heads,
     dff = dff,
     target_vocab_size = C,
-    maximum_position_encoding = None,
+    maximum_position_encoding = maximum_position_encoding,
     num_particles = num_particles,
   seq_len = seq_len,
   sigma = sigma,
@@ -536,7 +536,7 @@ if __name__ == "__main__":
   noise_SMC_layer = noise_SMC_layer,
   data_type = data_type,
   task_type = task_type,
-  target_feature=target_feature)
+  target_feature = target_feature)
 
   inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   mask = create_look_ahead_mask(seq_len)
