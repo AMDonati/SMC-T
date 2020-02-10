@@ -16,7 +16,7 @@
       "dff": 48,
       "rate": 0.1,
       "maximum_position_encoding_baseline": 2000,
-      "maximum_position_encoding_smc": "None"
+      "maximum_position_encoding_smc": 2000
   },
 
   "smc": {
