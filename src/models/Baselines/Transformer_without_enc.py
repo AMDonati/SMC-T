@@ -147,7 +147,6 @@ class Decoder(tf.keras.layers.Layer):
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate)
                        for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(rate)
-
     self.data_type=data_type
 
   def call(self, inputs, training, look_ahead_mask):
@@ -155,8 +154,8 @@ class Decoder(tf.keras.layers.Layer):
     attention_weights = {}
 
     # adding an embedding only if x is a nlp dataset.
-    inputs = self.embedding(
-      inputs)  # (batch_size, target_seq_len, d_model) # CAUTION: target_vocab_size needs to be bigger than d_model...
+    if self.data_type=='nlp':
+      inputs = self.embedding(inputs)  # (B,S,D) # CAUTION: target_vocab_size needs to be bigger than d_model...
     # TODO: see if this needs to be added for time_series as well. Yes, I think!
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 

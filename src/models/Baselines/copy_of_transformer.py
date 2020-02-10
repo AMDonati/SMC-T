@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 
 """## Setup input pipeline
 
-Use [TFDS](https://www.tensorflow.org/datasets) to load the [Portugese-English translation dataset](https://github.com/neulab/word-embeddings-for-nmt) from the [TED Talks Open Translation Project](https://www.ted.com/participate/translate).
+Use [TFDS](https://www.tensorflow.org/datasets) to load the [Portugese-English translation dataset]
+(https://github.com/neulab/word-embeddings-for-nmt) from the 
+[TED Talks Open Translation Project](https://www.ted.com/participate/translate).
 
 This dataset contains approximately 50000 training examples, 1100 validation examples, and 2000 test examples.
 """

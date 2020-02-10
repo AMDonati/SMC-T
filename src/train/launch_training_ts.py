@@ -30,10 +30,9 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
-from train.train_step_functions import train_step_rnn_regression
-from train.train_step_functions import train_step_rnn_classif
 
 from train.loss_functions import compute_accuracy_variance
+from train.loss_functions import CustomSchedule
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.LSTMs import build_GRU_for_classification
@@ -110,6 +109,7 @@ if __name__ == "__main__":
   BATCH_SIZE = hparams["optim"]["BATCH_SIZE"]
   learning_rate = hparams["optim"]["learning_rate"]
   EPOCHS = hparams["optim"]["EPOCHS"]
+  custom_schedule = hparams["optim"]["custom_schedule"]
 
   # task params
   data_type = hparams["task"]["data_type"]
@@ -176,6 +176,10 @@ if __name__ == "__main__":
 
   # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 
+  if custom_schedule == "True":
+    print("learning rate with custom schedule...")
+    learning_rate=CustomSchedule(d_model)
+
   optimizer = tf.keras.optimizers.Adam(learning_rate,
                                        beta_1=0.9,
                                        beta_2=0.98,
@@ -187,7 +191,7 @@ if __name__ == "__main__":
   # ------------- preparing the OUTPUT FOLDER------------------------------------------------------------------------
 
   output_path = args.out_folder
-  folder_template='{}_{}_heads_{}_depth_{}_dff_{}_pos-enc_{}_pdrop_{}_b_{}'
+  folder_template='{}_{}_heads_{}_depth_{}_dff_{}_pos-enc_{}_pdrop_{}_b_{}_cs_{}'
   out_folder = folder_template.format(data_type,
                                       task,
                                       num_heads,
@@ -195,7 +199,8 @@ if __name__ == "__main__":
                                       dff,
                                       maximum_position_encoding_baseline,
                                       rate,
-                                      BATCH_SIZE)
+                                      BATCH_SIZE,
+                                      custom_schedule)
 
   if args.train_smc_T:
     out_folder = out_folder+'__particles_{}_noise_{}_sigma_{}_smc-pos-enc_{}'.format(num_particles,
@@ -511,7 +516,7 @@ if __name__ == "__main__":
       else:
         logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
-    start_training=time.time()
+    start_training = time.time()
 
     for epoch in range(start_epoch, EPOCHS):
       start = time.time()

@@ -9,11 +9,6 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 ### ----------------------- LOSS FUNCTIONS------------------------------------------------------------------------------
 
-def loss_function_classic_T_regression(real, pred):
-    loss
-
-
-
 def loss_function_classic_T_classif(real, pred, data_type):
   # squeezing 'real' to have a shape of (B,S):
   real=tf.squeeze(real, axis=-1)
@@ -198,6 +193,21 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
 
   return loss
 
+# -------- custom schedule for learning rate... -----------------------------------------------------------------
+class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+  def __init__(self, d_model, warmup_steps=4000):
+    super(CustomSchedule, self).__init__()
+
+    self.d_model = d_model
+    self.d_model = tf.cast(self.d_model, tf.float32)
+
+    self.warmup_steps = warmup_steps
+
+  def __call__(self, step):
+    arg1 = tf.math.rsqrt(step)
+    arg2 = step * (self.warmup_steps ** -1.5)
+
+    return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
 # #------ old function not working------
 # def categorical_crossentropy(real, logits, sampling_weights):
