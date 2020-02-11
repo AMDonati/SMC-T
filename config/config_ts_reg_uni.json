@@ -2,11 +2,12 @@
    "data": {
     "file_path": "https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip",
      "fname": "jena_climate_2009_2016.csv.zip",
-     "col_name": "T (degC)",
+     "col_name": ["T (degC)"],
     "index_name": "Date Time",
     "TRAIN_SPLIT": 0.8,
      "history": 150,
-     "step": 6
+     "step": 6,
+     "target_feature": "None"
    },
 
   "model": {
@@ -22,14 +23,14 @@
   "smc": {
     "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05
   },
 
   "optim": {
       "BATCH_SIZE": 1048,
       "learning_rate": 0.001,
-      "EPOCHS": 70,
+      "EPOCHS": 10,
       "custom_schedule": "True"
   },
 
