@@ -50,7 +50,7 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
   return (train_data, val_data, test_data), uni_data_merged, uni_data_df
 
 def df_to_data_regression(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT):
-
+  #TODO: col_name is now a list of selected features.
   zip_path = tf.keras.utils.get_file(
       origin=file_path,
       fname=fname,
@@ -66,6 +66,12 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
 
   uni_data=uni_data_df.values
 
+  # normalization
+  data_mean = uni_data[:TRAIN_SPLIT].mean(axis=0)
+  data_std = uni_data[:TRAIN_SPLIT].std(axis=0)
+
+  uni_data = (uni_data - data_mean) / data_std
+
   train_data = split_dataset_into_seq(uni_data, 0, TRAIN_SPLIT, history, step)
   val_data = split_dataset_into_seq(uni_data, TRAIN_SPLIT, None, history,step)
 
@@ -73,20 +79,34 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
   val_data, test_data=train_test_split(val_data, train_size=0.5)
 
   # reshaping arrays to have a (future shape) of (B,S,1):
-  train_data = np.reshape(train_data, newshape=(train_data.shape[0], train_data.shape[1], 1))
-  val_data = np.reshape(val_data, newshape=(val_data.shape[0], val_data.shape[1], 1))
-  test_data = np.reshape(test_data, newshape=(test_data.shape[0], test_data.shape[1], 1))
+  if len(col_name) == 1:
+    train_data = np.reshape(train_data, newshape=(train_data.shape[0], train_data.shape[1], 1))
+    val_data = np.reshape(val_data, newshape=(val_data.shape[0], val_data.shape[1], 1))
+    test_data = np.reshape(test_data, newshape=(test_data.shape[0], test_data.shape[1], 1))
 
   return (train_data, val_data, test_data), uni_data_df
 
 def split_input_target_uni_step(chunk):
-  input_text = chunk[:,:-1]
-  target_text = chunk[:,1:]
+  if len(chunk.shape) == 3:
+    input_text = chunk[:,:-1,:]
+    target_text = chunk[:,1:,:]
+  elif len(chunk.shape) == 2:
+    input_text = chunk[:,:-1]
+    target_text = chunk[:,1:]
   return input_text, target_text
 
-def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE):
+def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
     x_train, y_train = split_fn(train_data)
     x_val, y_val = split_fn(val_data)
+
+    if target_feature is not None:
+      y_train = y_train[:, :, target_feature]
+      y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
+      y_val = y_val [:, :, target_feature]
+      y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
+      print('univariate timeseries forecasting...')
+    else:
+      print('multivariate timeseries forecasting with {} features'.format(y_train.shape[-1]))
 
     # turning it into a tf.data.Dataset.
     train_dataset= tf.data.Dataset.from_tensor_slices((x_train, y_train))
@@ -102,7 +122,8 @@ if __name__ == "__main__":
   #------------ REGRESSION CASE -------------------------------------------------------------------------------------
   file_path = 'https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip'
   fname = 'jena_climate_2009_2016.csv.zip'
-  col_name='T (degC)'
+  #col_name='T (degC)'
+  col_name = ['p (mbar)', 'T (degC)', 'rho (g/m**3)']
   index_name='Date Time'
   #q_cut=10
   TRAIN_SPLIT = 0.8
@@ -121,16 +142,21 @@ if __name__ == "__main__":
 
   print(train_data[:10])
 
-  BUFFER_SIZE=10000
-  BATCH_SIZE=64
+  BUFFER_SIZE = 10000
+  BATCH_SIZE = 64
 
   train_dataset, val_dataset = data_to_dataset_uni_step(train_data=train_data,
                                                       val_data=val_data,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=BUFFER_SIZE,
-                                                      BATCH_SIZE=BATCH_SIZE)
+                                                      BATCH_SIZE=BATCH_SIZE,
+                                                      target_feature=0)
 
   print(train_dataset)
+
+  for (inp, tar) in train_dataset.take(1):
+    print('input data', inp)
+    print('target data', tar)
 
   #TODO save datasets in .npy files.
   # #print(data_categorized_df.head())

@@ -161,7 +161,6 @@ def initialize_indices_matrix(batch_size, seq_length, num_particles):
   return ind_matrix  # tf.stop_gradient(ind_matrix)?
 
 
-
 def compute_direct_update_cov_matrix(self):
     '''THIS FUNCTION WONT BE USED....'''
     '''

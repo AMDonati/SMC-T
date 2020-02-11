@@ -13,7 +13,6 @@ train_step_signature = [
   tf.TensorSpec(shape=(None, None), dtype=tf.int32),
 ]
 
-
 @tf.function(input_signature=train_step_signature)
 def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, task_type, targets=None,
                          perplexity_metric=None):
