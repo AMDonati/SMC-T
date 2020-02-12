@@ -340,18 +340,18 @@ class SMC_Transformer(tf.keras.Model):
 
       SMC_loss_tensor=compute_SMC_ll_one_layer(epsilon=epsilon, sigma=sigma)
       # multiply by -1/2 to get the right formula.
-      SMC_loss_tensor=tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
+      SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
 
-      # mean over seq dim.
-      SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
-
-      # weighted sum over particles dim using sampling_weights:
-      if len(tf.shape(sampling_weights)) == 3:
-        sampling_weights = tf.squeeze(sampling_weights, axis=-1)
-      SMC_loss = tf.reduce_sum(sampling_weights * SMC_loss, axis=-1)  # dim (B,)
-
-      # mean over batch dim.
-      SMC_loss=tf.reduce_mean(SMC_loss, axis=-1)
+      # # mean over seq dim.
+      # SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
+      #
+      # # weighted sum over particles dim using sampling_weights:
+      # if len(tf.shape(sampling_weights)) == 3:
+      #   sampling_weights = tf.squeeze(sampling_weights, axis=-1)
+      # SMC_loss = tf.reduce_sum(sampling_weights * SMC_loss, axis=-1)  # dim (B,)
+      #
+      # # mean over batch dim.
+      # SMC_loss=tf.reduce_mean(SMC_loss, axis=-1)
 
     return SMC_loss
 
@@ -460,8 +460,6 @@ class SMC_Transformer(tf.keras.Model):
     #TODO: output both w and the matrix of indices matrix. (to save).
     I = new_states[3]
 
-    smc_params = (w_T, I)
-
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
     Y0_T = tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
 
@@ -501,7 +499,7 @@ if __name__ == "__main__":
   task_type = 'regression'
   C = 1 # vocabulary size or number of classes.
   noise_encoder = False
-  noise_SMC_layer = False
+  noise_SMC_layer = True
 
   ###----------Test of Encoder class-----------------------------------------------------------------------------------
 

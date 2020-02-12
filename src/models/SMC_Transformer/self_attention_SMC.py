@@ -160,16 +160,18 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     #compute the $\epsilon$ of the reparametrized noise.
     if self.noise:
-      self.stddev = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev') # shape (B,P,1,D)
+      gaussian_noise = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev') # shape (B,P,1,D)
     else:
-      self.stddev=tf.zeros(shape=tf.shape(z), dtype=tf.float32)
+      gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
 
     # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
-    stddev = tf.tensordot(self.sigma, self.stddev, axes=[0, 3]) # shape (D,B,1,D)
+    stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3]) # shape (D,B,1,D)
     # permuting dimensions to have a tensor of shape (B, P, 1, D)
     stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
 
-    z = self.dense(z) + stddev
+    mu = self.dense(z)
+    z = mu + stddev
+    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (z - mu))
 
     return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 

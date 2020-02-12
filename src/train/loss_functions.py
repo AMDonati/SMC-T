@@ -107,17 +107,19 @@ def mse_with_particles(real, pred, sampling_weights):
   num_particles=tf.shape(pred)[1]
   real = tf.expand_dims(real, axis=1)
   real= tf.tile(real, multiples=[1, num_particles, 1, 1])
-  mse = tf.keras.losses.mse
+  mse = tf.keras.losses.MSE
   loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
-  # mean over the sequence dimension.
-  loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P,S)
-  # squeezing sampling_weights to have a shape (B,P)
-  if len(tf.shape(sampling_weights))==3:
-    sampling_weights=tf.squeeze(sampling_weights, axis=-1)
-  # weighted average over the particle dimension.
-  loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
-  # mean over the batch elements.
-  loss = tf.reduce_mean(loss)
+  #loss=tf.keras.metrics.Mean(loss)
+
+  # # mean over the sequence dimension.
+  # loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P,S)
+  # # squeezing sampling_weights to have a shape (B,P)
+  # if len(tf.shape(sampling_weights))==3:
+  #   sampling_weights=tf.squeeze(sampling_weights, axis=-1)
+  # # weighted average over the particle dimension.
+  # loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
+  # # mean over the batch elements.
+  # loss = tf.reduce_mean(loss)
   return loss
 
 

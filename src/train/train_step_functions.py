@@ -130,7 +130,9 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  average_loss_batch = train_loss(loss)
+  scalar_loss = train_loss(loss)
+  scalar_mse = train_loss(metric_mse)
+
 
   # TODO: compute the metric for the regression case.
   if smc_transformer.task_type == 'classification':
@@ -140,14 +142,14 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     train_max_acc_batch = train_accuracy(tar_real, train_max_pred_batch)
     train_accuracies = (train_inf_batch, train_avg_acc_batch, train_max_acc_batch)
   else:
-    train_accuracies = metric_mse
+    train_accuracies = scalar_mse
 
   if perplexity_metric is not None:
     train_perplexity = perplexity_metric(tar_real, predictions)
   else:
     train_perplexity = None
 
-  return loss, average_loss_batch, train_accuracies, train_perplexity
+  return loss, scalar_loss, train_accuracies, train_perplexity
 
 
 @tf.function

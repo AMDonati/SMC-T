@@ -110,7 +110,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
     return w_squeezed  # shape (B,P)
 
-  def compute_w_regression(self, predictions, x):
+  def compute_w_regression(self, predictions, x, omega=1):
     '''
     # FORMULA
     # -0.5 * mu_t ^ T * mu_t / omega
@@ -143,6 +143,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     mu_t = x - predictions
     # mu_t=tf.squeeze(mu_t, axis=-1)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
+    #TODO: add an omega here to have a variance different of 1.
     log_w = tf.scalar_mul(-1 / 2, log_w)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
@@ -278,7 +279,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       #TODO: remove this function & consider only the current indice i_t.
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
-    print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
+    #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I=tf.stop_gradient(I)

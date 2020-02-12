@@ -39,16 +39,16 @@ def compute_SMC_log_likelihood(list_epsilon, list_sigma, sampling_weights):
   # multiply by -1/2 and suming over layer dimension:
   total_ll=tf.reduce_sum(tf.scalar_mul(-1/2, total_ll), axis=1) # shape (B,P,S)
 
-  # mean over the seq_len dim
-  total_ll=tf.reduce_mean(total_ll, axis=-1) # shape (B,P)
-
-  # weighted sum over particles dim using sampling_weights:
-  if len(tf.shape(sampling_weights)) == 3:
-    sampling_weights = tf.squeeze(sampling_weights, axis=-1)
-  SMC_loss = tf.reduce_sum(sampling_weights * total_ll, axis=-1)  # dim (B,)
-
-  # mean over batch dim:
-  SMC_loss=tf.reduce_mean(SMC_loss, axis=0)
+  # # mean over the seq_len dim
+  # total_ll=tf.reduce_mean(total_ll, axis=-1) # shape (B,P)
+  #
+  # # weighted sum over particles dim using sampling_weights:
+  # if len(tf.shape(sampling_weights)) == 3:
+  #   sampling_weights = tf.squeeze(sampling_weights, axis=-1)
+  # SMC_loss = tf.reduce_sum(sampling_weights * total_ll, axis=-1)  # dim (B,)
+  #
+  # # mean over batch dim:
+  # SMC_loss=tf.reduce_mean(SMC_loss, axis=0)
 
   return SMC_loss
 
