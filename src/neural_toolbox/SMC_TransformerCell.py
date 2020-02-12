@@ -144,7 +144,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # mu_t=tf.squeeze(mu_t, axis=-1)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
     #TODO: add an omega here to have a variance different of 1.
-    log_w = tf.scalar_mul(-1 / 2, log_w)
+    log_w = tf.scalar_mul(-1 / 2 * omega, log_w)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
