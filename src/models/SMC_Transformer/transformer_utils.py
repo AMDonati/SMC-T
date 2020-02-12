@@ -199,8 +199,8 @@ def compute_direct_update_cov_matrix(self):
 
 if __name__ == "__main__":
   test_resample_z=False
-  test_resample=True
-  test_sample_and_keep_indices=False
+  test_resample=False
+  test_sample_and_keep_indices=True
 
   # --- test of positional encoding ----------------------------------------------------------------------------------
   b=8
@@ -210,7 +210,7 @@ if __name__ == "__main__":
   inputs=tf.random.uniform(shape=(b, S, d_model))
   pos_enc=positional_encoding(position=pe_target, d_model=d_model)
   #inputs+=pos_enc[:,:,:]
-  print('inputs', input.shape)
+  #print('inputs', input.shape)
   #---- resampling z test-------------------------------------------------------------------------------------------------
 
   if test_resample_z:
@@ -280,19 +280,19 @@ if __name__ == "__main__":
                                                               dec_timestep=1,
                                                               indices=indices_t1)
 
-    curr_indices, matrix_updated_t2=sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
+    curr_indices, matrix_updated_t2 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
                                                     ind_matrix=matrix_updated_t1,
                                                     num_particles=P,
                                                     dec_timestep=2,
                                                     indices=indices_t2)
 
     #TODO: solve the bug happening at the last_timestep.
-    # # does not work for the last time_step
-    # curr_indices, matrix_updated_t3 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
-    #                                                           ind_matrix=matrix_updated_t2,
-    #                                                           num_particles=P,
-    #                                                           dec_timestep=3,
-    #                                                           indices=indices_t3)
+    # does not work for the last time_step
+    curr_indices, matrix_updated_t3 = sample_and_keep_indices(prev_sampling_weights=prev_sampling_weights,
+                                                           ind_matrix=matrix_updated_t2,
+                                                          num_particles=P,
+                                                          dec_timestep=3,
+                                                          indices=indices_t3)
 
 
     print('indices matrix at time t1', matrix_updated_t1[0,:,:])

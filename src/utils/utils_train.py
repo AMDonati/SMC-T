@@ -53,9 +53,7 @@ def restoring_checkpoint(ckpt_manager, ckpt, args, logger):
     ckpt.restore(ckpt_manager.latest_checkpoint)
     print(" checkpoint restored from {}".format(ckpt_manager.latest_checkpoint))
     logger.info('Latest checkpoint restored!!')
-
     return start_epoch
-
 
 def saving_training_history(keys, values, output_path, csv_fname, logger, start_epoch):
   history = dict(zip(keys, values))
@@ -75,7 +73,6 @@ def saving_model_outputs(output_path, predictions, attn_weights, pred_fname, att
   np.save(predictions_fn, predictions)  # DO IT FOR A TEST DATASET INSTEAD?
   np.save(attn_weights_fn, attn_weights)  # DO IT FOR A TEST DATASET INSTEAD?
   logger.info("saving model output in .npy files...")
-
   return model_output_path
 
 

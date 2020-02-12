@@ -96,7 +96,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    (predictions, trajectories, weights), predictions_metric, attn_weights = smc_transformer(inputs=tar_inp,
+    (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = smc_transformer(inputs=tar_inp,
                                                                                              training=True,
                                                                                              mask=mask_transformer)
 

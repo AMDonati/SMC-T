@@ -93,23 +93,30 @@ def binary_ce_with_particules(real, pred, sampling_weights, from_logits=True):
 
 def mse_with_particles(real, pred, sampling_weights):
   '''
-  :param real: shape (B,P,S,F)
+  :param real: shape (B,S,F)
   :param pred: shape (B,P,S,F)
   :param sampling_weights: shape (B,P)
   :return:
   the average mse scalar loss (with a weighted average over the dim number of particles)
   '''
   # reshaping real from (B,P,S) to (B,P,S,1)
-  if len(tf.shape(real))==3:
-    real=tf.expand_dims(real, axis=-1)
+  #if len(tf.shape(real))==3:
+    #real=tf.expand_dims(real, axis=-1)
+  # tiling real over the particles dimension to have a tensor of shape (B,P,S,1)
+
+  num_particles=tf.shape(pred)[1]
+  real = tf.expand_dims(real, axis=1)
+  real= tf.tile(real, multiples=[1, num_particles, 1, 1])
   mse = tf.keras.losses.mse
   loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
-  #TODO: do a sum over sequence elements instead of a mean?
-  loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P)
+  # mean over the sequence dimension.
+  loss = tf.reduce_mean(loss, axis=-1)  # shape (B,P,S)
   # squeezing sampling_weights to have a shape (B,P)
   if len(tf.shape(sampling_weights))==3:
     sampling_weights=tf.squeeze(sampling_weights, axis=-1)
+  # weighted average over the particle dimension.
   loss = tf.reduce_sum(sampling_weights * loss)  # shape (B,)
+  # mean over the batch elements.
   loss = tf.reduce_mean(loss)
   return loss
 

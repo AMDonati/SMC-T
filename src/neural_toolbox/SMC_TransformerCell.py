@@ -59,7 +59,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.target_vocab_size = target_vocab_size
     self.maximum_position_encoding = maximum_position_encoding
     self.seq_len = seq_len
-    self.target_feature = target_feature # for multi-variate time-series case.
+    self.target_feature = target_feature # for multi-variate time-series case: select the target feature in the re-sampling weights computation.
 
     self.rate = rate
 
@@ -119,31 +119,35 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # logw = logw - min(logw)
     # w = exp(logw)
     :param predictions: output of final layer (logits.) > shape (B,P,1) (regression case)
-    :param x: current sequence element (x_t) > shape (B,P,F); F > 1 for multivariate case.
+    :param x: current sequence element (x_t) > shape (B,F,1); F > 1 for multivariate case.
     :return:
     '''
     # TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
     x = tf.cast(x, dtype=tf.float32)  # x of shape (B,P) for classif case / shape (B,P,F) for time_series case.
+    x = tf.squeeze(x, axis=-1)
     if len(tf.shape(predictions)) == 4:
       predictions = tf.squeeze(predictions, axis=-1)  # shape (B,P,1)
     # expanding and tiling x over the particle dimensions to have the right shape
-    # x = tf.expand_dims(x, axis=1)
+    x = tf.expand_dims(x, axis=1) # (B,1,F,1)
+    x = tf.tile(x, multiples=[1, self.num_particles, 1])
     # if len(tf.shape(x)) == 3:  # nlp /classif case
     #   x = tf.tile(x, multiples=[1, self.num_particles, 1])  # shape (B,P,1)
     # elif len(tf.shape(x)) == 4:
     #   x = tf.tile(x, multiples=[1, self.num_particles, 1, 1])  # shape (B,P,1,F) time_series case.
 
+    # multivariate case: selecting the target feature as the ground truth (labels)
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(x)[-1]
-      x = x[:, :, :, self.target_feature]
+      x = x[:, :, self.target_feature] # (B, P)
+      x = tf.expand_dims(x, axis=-1) # (B, P, 1)
     mu_t = x - predictions
     # mu_t=tf.squeeze(mu_t, axis=-1)
-    w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
-    w = tf.scalar_mul(-1 / 2, w)
-    w = tf.linalg.diag_part(w)  # take the diagonal.
-    w_min = tf.reduce_min(w, axis=-1, keepdims=True)
-    w = w - w_min
-    w = tf.math.exp(w)
+    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
+    log_w = tf.scalar_mul(-1 / 2, log_w)
+    log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
+    log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
+    log_w = log_w - log_w_min
+    w = tf.math.exp(log_w)
     # normalization
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
     return w
@@ -234,7 +238,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
-      x = tf.expand_dims(x, axis=-1)  # shape (B,1)
+      x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
@@ -256,7 +260,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_for_pred = tf.expand_dims(w_squeezed, axis=-1)
     else:
       w_for_pred = w_squeezed
-    #avg_prediction = tf.expand_dims(tf.reduce_sum(predictions * w_for_pred, axis=1), axis=1)  # (B,1,V) # logits before softmax.
     good_avg_pred = tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1)  # weights=1/M because of the resampling happening at the beginning of the cell.
 
     # predictions after softmax: inference formula for N=1
@@ -274,6 +277,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       # update it only until T-1
       #TODO: remove this function & consider only the current indice i_t.
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
+
+    print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I=tf.stop_gradient(I)
@@ -362,7 +367,7 @@ if __name__ == "__main__":
     shape=(batch_size, seq_len, num_particles, d_model))  # the dim 1 needs to be added. trick with nested inputs.
 
   F=14
-  x = tf.ones(shape=(batch_size, seq_len, F)) # x needs to have at least of length of shape equal to 3.
+  x = tf.ones(shape=(batch_size, num_particles, seq_len, F)) # x needs to have at least of length of shape equal to 3.
 
   inputs = NestedInput(r=r, x=x)
 
@@ -401,8 +406,8 @@ if __name__ == "__main__":
   print('K', K.shape)  # shape (B,P,S,D)
   print('I', I.shape)  # shape (B,P,S)
 
-  #-------checking the aspect of the resampling weights------------------------------------------------------
-  for m in range(num_particles):
-    print('w_{}'.format(m), w[0, m, :])
+  #------- checking the aspect of the resampling weights ------------------------------------------------------
+  for b in range(batch_size):
+    print('w_{}'.format(b), w[b, :, :])
 
 

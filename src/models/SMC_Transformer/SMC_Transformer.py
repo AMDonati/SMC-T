@@ -383,42 +383,40 @@ class SMC_Transformer(tf.keras.Model):
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
 
     elif self.data_type=='time_series_uni' or "time_series_multi":
-      if len(tf.shape(inputs))==2: # shape(B,S)
+      if len(tf.shape(inputs)) == 2: # shape(B,S)
         input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
       else:
-        input_tensor_processed=inputs
+        input_tensor_processed = inputs
       # add the particle dimension
-      input_tensor_processed=tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
+      input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
       input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
 
     else:
       raise ValueError('wrong data type: should be either "nlp", "time-series_uni", or "time_series_multi"')
 
-
     # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
     if self.num_layers > 1:
       r, attn_weights_enc = self.encoder(inputs=input_tensor_processed,
-                       training=training,
-                       mask=mask)  # shape (B,P,S,D)
+                                         training=training,
+                                         mask=mask)  # shape (B,P,S,D)
       r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
-    elif self.num_layers==1:
+    elif self.num_layers == 1:
       # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
-      input_tensor_processed=tf.cast(input_tensor_processed, dtype=tf.float32)
+      input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
       # one dense layer to have a tensor of shape (B,P,S,D)
-      r=self.input_embedding(input_tensor_processed)
-      r = tf.transpose(r, perm=[0, 2, 1, 3]) # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+      r = self.input_embedding(input_tensor_processed)
+      r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
     #TODO:  take only as initial_word_id the feature corresponding to the target (case of multivariate timeseries).
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(inputs)[-1]
-      initial_word_id=inputs[:,0,self.target_feature]
+      initial_word_id = inputs[:, 0, self.target_feature]
     else:
-      initial_word_id=inputs[:,0,:]
+      initial_word_id = inputs[:, 0, :]
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
                                                            seq_length=seq_len,
                                                            initial_word_id=initial_word_id)
-
     initial_state = NestedState(K=K0,
                                 V=V0,
                                 w=w0,
@@ -462,6 +460,8 @@ class SMC_Transformer(tf.keras.Model):
     #TODO: output both w and the matrix of indices matrix. (to save).
     I = new_states[3]
 
+    smc_params = (w_T, I)
+
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
     Y0_T = tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
 
@@ -483,7 +483,7 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T), (inference_pred, good_avg_predictions, max_predictions), attn_weights
+    return (Y0_T, Z0_T, w_T, I), (inference_pred, good_avg_predictions, max_predictions), attn_weights
 
 if __name__ == "__main__":
 
@@ -492,7 +492,7 @@ if __name__ == "__main__":
   b = 8
   F = 1 # multivariate case.
   num_layers = 1
-  d_model = 64
+  d_model = 14
   num_heads = 2
   dff = 128
   maximum_position_encoding = seq_len
@@ -524,7 +524,7 @@ if __name__ == "__main__":
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
-  target_feature = 0 if task_type == 'time_series_multi' else None
+  target_feature = 0 if data_type == 'time_series_multi' else None
   maximum_position_encoding = 2000
 
   sample_transformer = SMC_Transformer(
@@ -546,19 +546,22 @@ if __name__ == "__main__":
   inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   mask = create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
+  (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
+  #weights, ind_matrix = smc_params
 
   inference_pred, good_avg_pred, max_pred = predictions_metric
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
+  print('indices matrix', ind_matrix.shape)
   print('inference predictions', inference_pred.shape)  # (B,P,V)
   print('good average predictions', good_avg_pred.shape)  # (B,P,V)
   print('max_predictions', max_pred.shape)
 
-  print('w_T', weights[0,:])
+  print('w_T for element 0 of the batch', weights[0,:])
+  print('indices matrix for element 0 of the batch', ind_matrix[0,:])
 
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)

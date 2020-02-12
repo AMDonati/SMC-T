@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_uni.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_multi.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output/exp_reg', help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
@@ -448,7 +448,8 @@ if __name__ == "__main__":
                           seq_len=seq_len,
                           data_type=data_type,
                           task_type=task_type,
-                          resampling=resampling)
+                          resampling=resampling,
+                          target_feature=target_feature)
 
     # creating checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=smc_transformer,
@@ -463,7 +464,7 @@ if __name__ == "__main__":
 
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
-      (example_batch_predictions, traj, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
+      (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
                                               training=False,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
@@ -524,10 +525,13 @@ if __name__ == "__main__":
 
       # compute the validation accuracy on the validation dataset:
       # TODO: here consider a validation set with a batch_size equal to the number of samples.
-      for (inp, tar) in val_dataset:
-        (predictions_val, _, weights_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
+      for batch, (inp, tar) in enumerate(val_dataset):
+        (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                                                                   training=False,
                                                                                                   mask=create_look_ahead_mask(seq_len))
+        if batch % 10 == 0:
+          logger.info('final weights of first element of batch: {}'.format(weights_val[0,:]))
+          logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
 
       #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 

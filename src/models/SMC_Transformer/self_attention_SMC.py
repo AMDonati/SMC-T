@@ -174,14 +174,14 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
 if __name__ == "__main__":
-  B=64
-  num_particles=10
-  num_heads=8
-  S=20
-  d_model=512
-  dec_timestep=20
-  sigma='learned'
-  noise=False
+  B = 64
+  num_particles = 10
+  num_heads = 8
+  S = 20
+  d_model = 512
+  dec_timestep = 20
+  sigma = 'learned'
+  noise = False
 
   x = tf.ones(shape=(B, num_particles, num_heads, 1, int(d_model/num_heads)))
   K = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
@@ -207,7 +207,7 @@ if __name__ == "__main__":
   inputs_mha = [X_mha for _ in range(3)]
   K = tf.random.uniform(shape=(B, num_particles, S, d_model))
   V = tf.random.uniform(shape=(B, num_particles, S, d_model))
-  (z,K,V), attn_weights=temp_mha(inputs=inputs_mha, timestep=dec_timestep, K=K, V=V)
+  (z,K,V), attn_weights = temp_mha(inputs=inputs_mha, timestep=dec_timestep, K=K, V=V)
 
   print('z', z.shape)
   print('K', K.shape)
