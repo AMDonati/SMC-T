@@ -28,9 +28,9 @@
   },
 
   "optim": {
-      "BATCH_SIZE": 10000,
+      "BATCH_SIZE": 1048,
       "learning_rate": 0.001,
-      "EPOCHS": 10,
+      "EPOCHS": 30,
       "custom_schedule": "True"
   },
 
