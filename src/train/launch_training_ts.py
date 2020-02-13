@@ -72,9 +72,9 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
+  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args=parser.parse_args()
@@ -133,10 +133,10 @@ if __name__ == "__main__":
     history = hparams["data"]["history"]
     step = hparams["data"]["step"]
     target_feature = hparams["data"]["target_feature"]
-    if target_feature=="None":
-      target_feature=None
+    if target_feature == "None":
+      target_feature = None
 
-  test_loss=False
+  test_loss = False
 
   #------------------UPLOAD the training dataset----------------------------------------------------------------------------------------------------------------------
 
@@ -530,11 +530,15 @@ if __name__ == "__main__":
         (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                                                                   training=False,
                                                                                                   mask=create_look_ahead_mask(seq_len))
-        if batch % 10 == 0:
-          logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
-          logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
-          logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
-          logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
+        # if batch % 10 == 0:
+        #   logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
+        #   logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
+        #   logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
+        #   logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
+      logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
+      logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
+      logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
+      logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
 
       #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 

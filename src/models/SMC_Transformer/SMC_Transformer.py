@@ -342,6 +342,9 @@ class SMC_Transformer(tf.keras.Model):
       # multiply by -1/2 to get the right formula.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
 
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
       # # mean over seq dim.
       # SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
       #
@@ -486,7 +489,7 @@ class SMC_Transformer(tf.keras.Model):
 if __name__ == "__main__":
 
   num_particles = 5
-  seq_len = 10
+  seq_len = 6
   b = 8
   F = 1 # multivariate case.
   num_layers = 1
@@ -553,7 +556,7 @@ if __name__ == "__main__":
   print('Transformer output', predictions.shape)  # (B,P,S,C)
   print('final z', trajectories.shape) # (B,P,S,D)
   print('weights', weights.shape) # (B,P,1)
-  print('indices matrix', ind_matrix.shape)
+  print('indices matrix for element 0', ind_matrix[0,:,:])
   print('inference predictions', inference_pred.shape)  # (B,P,V)
   print('good average predictions', good_avg_pred.shape)  # (B,P,V)
   print('max_predictions', max_pred.shape)

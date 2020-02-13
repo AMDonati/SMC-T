@@ -13,10 +13,10 @@ def compute_SMC_ll_one_layer(epsilon, sigma):
   a tensor of shape (B,P,S) with the log-likelihood corresponding to one layer.
   '''
   epsilon = tf.transpose(epsilon, perm=[0, 3, 1, 2]) # shape (B,D,P,S)
-  # to debug:
   epsilon_part= tf.reduce_sum(tf.multiply(epsilon, epsilon), axis=1)
-  det_part=tf.linalg.logdet(sigma) # 2*math.pi removed for easier debugging.
-  ll_one_layer = det_part + epsilon_part
+  #det_part=tf.linalg.logdet(sigma) # 2*math.pi removed for easier debugging.
+  #ll_one_layer = det_part + epsilon_part
+  ll_one_layer = epsilon_part
   return ll_one_layer # (B,P,S)
 
 def compute_SMC_log_likelihood(list_epsilon, list_sigma, sampling_weights):

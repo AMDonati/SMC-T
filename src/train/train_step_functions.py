@@ -130,8 +130,11 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  scalar_loss = train_loss(loss)
-  scalar_mse = train_loss(metric_mse)
+  #scalar_loss = train_loss(loss)
+  #scalar_mse = train_loss(metric_mse)
+
+  scalar_loss = loss
+  scalar_mse = metric_mse
 
 
   # TODO: compute the metric for the regression case.

@@ -99,9 +99,6 @@ def mse_with_particles(real, pred, sampling_weights):
   :return:
   the average mse scalar loss (with a weighted average over the dim number of particles)
   '''
-  # reshaping real from (B,P,S) to (B,P,S,1)
-  #if len(tf.shape(real))==3:
-    #real=tf.expand_dims(real, axis=-1)
   # tiling real over the particles dimension to have a tensor of shape (B,P,S,1)
 
   num_particles=tf.shape(pred)[1]
@@ -109,6 +106,10 @@ def mse_with_particles(real, pred, sampling_weights):
   real= tf.tile(real, multiples=[1, num_particles, 1, 1])
   mse = tf.keras.losses.MSE
   loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
+
+  loss = tf.reduce_mean(loss, axis=-1) # mean over seq dim > (B,P)
+  loss = tf.reduce_mean(loss, axis=-1) # mean over particles dim (weights of 1/M because is resampling is done after propagation.) > (B,)
+  loss = tf.reduce_mean(loss, axis=-1) # mean over batch dims.
   #loss=tf.keras.metrics.Mean(loss)
 
   # # mean over the sequence dimension.
