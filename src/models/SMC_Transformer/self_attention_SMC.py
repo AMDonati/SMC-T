@@ -157,7 +157,6 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
       self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
 
-
     #compute the $\epsilon$ of the reparametrized noise.
     if self.noise:
       gaussian_noise = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev') # shape (B,P,1,D)

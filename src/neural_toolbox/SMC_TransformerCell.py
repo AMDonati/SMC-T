@@ -175,8 +175,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    #print('cell timestep', self.dec_timestep)
-
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
     x = tf.cast(x, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
@@ -185,7 +183,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
 
-    # resampling of (K,V) to compute the new set of (z,K,V)
+    # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
       #V = resample_old(V, I)
@@ -200,31 +198,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       # otherwise K,V is not updated.
       (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
-
-      #TODO: put this as an (external) function of call if possible... or at least an internal one.
-      #TODO: needs as input: (Kt-1), V(t-1), r^(t-1)(l-1) (X(t-1))
-    #def inference_pred(N):
-      #TODO: add N as a parameter for the SMC Cell. requires (r_(t-1)^(l-1), K(t-1), V(t-1), w(t-1)
-      #sampled_z = []
-      # for n in range(N):
-      # (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
-      # sampled_z.append(z)
-      # sampled_z=tf.stack(z, axis=1) > (B,N,P,1,D)
-      # PASS FORWARD UNTIL OUTPUT LAYER:
-      #z = self.dropout1(sampled_z, training=self.training)
-      #r = tf.expand_dims(r, axis=2)
-      #out1 = self.layernorm1(z + r)
-      #ffn_output = self.ffn(out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
-      #ffn_output = self.dropout3(ffn_output, training=self.training)
-      #sampled_out3 = self.layernorm3(ffn_output + out1)  # (batch_size, N, P, 1, D)
-      #sampled_pred=self.output_layer(sampled_out3) # (B,N,P,1,V) CAUTION logits before softmax!
-      #inf_prediction=tf.scalar_mul(1/N, tf.reduce_sum(sampled_pred, axis=1)) # (B,P,1,V)
-      #inf_prediction=tf.reduce_sum(w * inf_prediction, axis=1) # see if this needs reshaping. # (B,1,V)
-
-    #return inf_prediction
-
-    # if not self.training:
-    #inf_pred=inference_pred(N)
 
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     #TODO: put this as an internal function of the cell to be used for inference as well.
@@ -252,7 +225,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = self.compute_w_regression(predictions=predictions, x=x)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
-    w_squeezed=tf.stop_gradient(w_squeezed)
+    #w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
     predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
@@ -282,12 +255,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    I=tf.stop_gradient(I)
+    #I=tf.stop_gradient(I)
 
     # resample K, V, and z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+        K_resampl = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
@@ -317,14 +290,14 @@ if __name__ == "__main__":
   from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 
   batch_size = 8
-  d_model = 64
-  num_heads = 8
+  d_model = 12
+  num_heads = 1
   dff = 32
   target_vocab_size = 1
   maximum_position_encoding = None
   num_particles = 5
   seq_len = 4
-  layer_num = 2
+  layer_num = 1
   sigma = 1
   noise = False
   data_type = 'time_series_multi'
@@ -367,7 +340,7 @@ if __name__ == "__main__":
   r = tf.random.uniform(
     shape=(batch_size, seq_len, num_particles, d_model))  # the dim 1 needs to be added. trick with nested inputs.
 
-  F=14
+  F = 14
   x = tf.ones(shape=(batch_size, num_particles, seq_len, F)) # x needs to have at least of length of shape equal to 3.
 
   inputs = NestedInput(r=r, x=x)
@@ -410,5 +383,32 @@ if __name__ == "__main__":
   #------- checking the aspect of the resampling weights ------------------------------------------------------
   for b in range(batch_size):
     print('w_{}'.format(b), w[b, :, :])
+
+  # ------ draft of the code for inference function --------------------------------------------------
+
+  #TODO: put this as an (external) function of call if possible... or at least an internal one.
+  #TODO: needs as input: (Kt-1), V(t-1), r^(t-1)(l-1) (X(t-1))
+  # def inference_pred(N):
+  # TODO: add N as a parameter for the SMC Cell. requires (r_(t-1)^(l-1), K(t-1), V(t-1), w(t-1)
+  # sampled_z = []
+  # for n in range(N):
+  # (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+  # sampled_z.append(z)
+  # sampled_z=tf.stack(z, axis=1) > (B,N,P,1,D)
+  # PASS FORWARD UNTIL OUTPUT LAYER:
+  # z = self.dropout1(sampled_z, training=self.training)
+  # r = tf.expand_dims(r, axis=2)
+  # out1 = self.layernorm1(z + r)
+  # ffn_output = self.ffn(out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
+  # ffn_output = self.dropout3(ffn_output, training=self.training)
+  # sampled_out3 = self.layernorm3(ffn_output + out1)  # (batch_size, N, P, 1, D)
+  # sampled_pred=self.output_layer(sampled_out3) # (B,N,P,1,V) CAUTION logits before softmax!
+  # inf_prediction=tf.scalar_mul(1/N, tf.reduce_sum(sampled_pred, axis=1)) # (B,P,1,V)
+  # inf_prediction=tf.reduce_sum(w * inf_prediction, axis=1) # see if this needs reshaping. # (B,1,V)
+
+  # return inf_prediction
+
+  # if not self.training:
+  # inf_pred=inference_pred(N)
 
 

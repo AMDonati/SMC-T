@@ -3,6 +3,8 @@
 
 #TODO - to improve the transformer performance - label smoothing and change order of layers.dense / layers.norm.
 
+#TODO: add on the config file for the reegression case, an additional hparams for omega (covariance of the gaussian noise.).
+
 """# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
 the training accuracy (train & val datasets),
@@ -138,7 +140,7 @@ if __name__ == "__main__":
 
   test_loss = False
 
-  #------------------UPLOAD the training dataset----------------------------------------------------------------------------------------------------------------------
+  #------------------ UPLOAD the training dataset ----------------------------------------------------------------------------------------------------------------------
 
   if task_type == 'classification':
 

@@ -16,7 +16,7 @@ train_step_signature = [
 @tf.function(input_signature=train_step_signature)
 def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, task_type, targets=None,
                          perplexity_metric=None):
-  '''training step for the classic Transformer model (dummy dataset)'''
+  '''training step for the classic Transformer model'''
   if targets is None:
     tar_inp = inputs[:, :-1]
     tar_real = inputs[:, 1:]
@@ -81,7 +81,8 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
   The updated loss, the training accuracy (from average predictions and from max predictions).
   '''
 
-  # TODO: add the computation of the variance between each prediction from a particule.
+  #TODO: add the computation of the mse on the average pred of the SMC Transformer for a 'fair' comparison with the Baseline Transformer.
+
   if targets is None:
     tar_inp = inputs[:, :-1]
     tar_real = inputs[:, 1:]
@@ -127,17 +128,16 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
                        'Please choose between "classification" or "regression"')
 
     gradients = tape.gradient(loss, smc_transformer.trainable_variables)
+    print(gradients)
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
+  #TODO: CAUTION: train_loss does an average 'au fil de l'eau' of the loss over the number of batch processed.
   #scalar_loss = train_loss(loss)
   #scalar_mse = train_loss(metric_mse)
-
   scalar_loss = loss
   scalar_mse = metric_mse
 
-
-  # TODO: compute the metric for the regression case.
   if smc_transformer.task_type == 'classification':
     train_inf_batch = train_accuracy(tar_real, train_inf_pred_batch)  # accuracy from average_predictions for now.
     train_avg_acc_batch = train_accuracy(tar_real,

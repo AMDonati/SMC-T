@@ -286,11 +286,6 @@ class SMC_Transformer(tf.keras.Model):
     i0=tf.cast(i0, dtype=tf.int32)
     ind_matrix_init = tf.concat([i0, ind_matrix_init[:,:,1:]], axis=-1)
 
-
-    # i0, ind_matrix_init = sample_and_keep_indices(prev_sampling_weights=initial_weights,
-    #                                                  ind_matrix=ind_matrix_init,
-    #                                                  num_particles=self.num_particles,
-    #                                                  dec_timestep=0)
     self.initialize = True
 
     initial_weights = tf.expand_dims(initial_weights, axis=-1)  # (B,P,1)
@@ -333,7 +328,7 @@ class SMC_Transformer(tf.keras.Model):
                                           sampling_weights=sampling_weights)
 
     # one-layer case.
-    elif self.num_layers==1:
+    elif self.num_layers == 1:
 
       sigma=self.cell.mha_smc.sigma
       epsilon=self.epsilon_seq_last_layer
@@ -342,19 +337,9 @@ class SMC_Transformer(tf.keras.Model):
       # multiply by -1/2 to get the right formula.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
 
-      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
-      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
-      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1)
-      # # mean over seq dim.
-      # SMC_loss=tf.reduce_mean(SMC_loss_tensor, axis=-1) # dim (B,P)
-      #
-      # # weighted sum over particles dim using sampling_weights:
-      # if len(tf.shape(sampling_weights)) == 3:
-      #   sampling_weights = tf.squeeze(sampling_weights, axis=-1)
-      # SMC_loss = tf.reduce_sum(sampling_weights * SMC_loss, axis=-1)  # dim (B,)
-      #
-      # # mean over batch dim.
-      # SMC_loss=tf.reduce_mean(SMC_loss, axis=-1)
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over seq dim.
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # 'uniform' mean over particle dim. (w_final= 1/M)
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean ober batch dim.
 
     return SMC_loss
 
@@ -489,12 +474,12 @@ class SMC_Transformer(tf.keras.Model):
 if __name__ == "__main__":
 
   num_particles = 5
-  seq_len = 6
+  seq_len = 4
   b = 8
   F = 1 # multivariate case.
   num_layers = 1
-  d_model = 14
-  num_heads = 2
+  d_model = 1
+  num_heads = 1
   dff = 128
   maximum_position_encoding = seq_len
   sigma = 1
@@ -550,7 +535,6 @@ if __name__ == "__main__":
   (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
-  #weights, ind_matrix = smc_params
 
   inference_pred, good_avg_pred, max_pred = predictions_metric
   print('Transformer output', predictions.shape)  # (B,P,S,C)
