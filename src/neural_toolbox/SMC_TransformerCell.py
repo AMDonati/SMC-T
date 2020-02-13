@@ -225,7 +225,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = self.compute_w_regression(predictions=predictions, x=x)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
-    #w_squeezed=tf.stop_gradient(w_squeezed)
+    w_squeezed=tf.stop_gradient(w_squeezed)
     #TODO: add an assert that the sum over num of particles of w is equal to 1.
     predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
@@ -255,19 +255,19 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    #I=tf.stop_gradient(I)
+    I=tf.stop_gradient(I)
 
     # resample K, V, and z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-        K_resampl = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon = self.mha_smc.stddev # shape (B,P,1,D)
 
-    output = [r, z, avg_pred_after_softmax, good_avg_pred, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
     #TODO:
     # if not self.training:
     # output = [r, z, average_prediction, max_prediction, inf_prediction, epsilon, attn_weights]
