@@ -1,124 +1,71 @@
-/Users/alicemartin/miniconda3/envs/tensorflow2.1/bin/python "/Applications/PyCharm CE 2.app/Contents/helpers/pydev/pydevd.py" --multiproc --qt-support=auto --client 127.0.0.1 --port 58001 --file /Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/src/train/launch_training_ts.py
-pydev debugger: process 77572 is connecting
+INFO:training log:saving loss and metrics information...
+INFO:training log:Training time for 10 epochs: 162.03807425498962
+INFO:training log:training of a RNN Baseline for a timeseries dataset done...
+INFO:training log:>>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 2000, 'maximum_position_encoding_smc': 2000}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:GRU model hparams from the config file: {'rnn_bs': 256, 'rnn_emb_dim': 4, 'rnn_units': 8}
+INFO:training log:training the baseline Transformer on a time-series dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:training a baseline transformer with positional encoding...
+INFO:training log:Epoch 1/10
+INFO:training log:saving loss and metrics information...
+INFO:training log:Training time for 10 epochs: 125.1755440235138
+INFO:training log:training of a RNN Baseline for a timeseries dataset done...
+INFO:training log:>>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 2000, 'maximum_position_encoding_smc': 2000}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 1, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.05}
+INFO:training log:GRU model hparams from the config file: {'rnn_bs': 256, 'rnn_emb_dim': 4, 'rnn_units': 8}
+INFO:training log:training the baseline Transformer on a time-series dataset...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch:320
+INFO:training log:training a baseline transformer with positional encoding...
+INFO:training log:Epoch 1/10
+WARNING:tensorflow:Layer transformer is casting an input tensor from dtype float64 to the layer's dtype of float32, which is new behavior in TensorFlow 2.  The layer has dtype float32 because it's dtype defaults to floatx.
 
-Connected to pydev debugger (build 181.5087.37)
-length of original continuous dataset: 420551
-train_data (336290, 25, 1)
-test_data (41981, 25, 1)
-2020-02-10 20:59:41.999070: I tensorflow/core/platform/cpu_feature_guard.cc:142] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
-2020-02-10 20:59:42.015437: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x7fb8998e7890 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
-2020-02-10 20:59:42.015455: I tensorflow/compiler/xla/service/service.cc:176]   StreamExecutor device (0): Host, Default Version
-input example tf.Tensor(
-[[3.76]
- [3.73]
- [3.83]
- [3.36]
- [3.17]
- [3.1 ]
- [3.1 ]
- [2.77]
- [2.3 ]
- [2.54]
- [2.58]
- [2.54]
- [2.69]
- [3.46]
- [4.22]
- [4.89]
- [5.09]
- [4.53]
- [5.16]
- [5.54]
- [5.24]
- [4.92]
- [4.03]
- [3.49]], shape=(24, 1), dtype=float64)
-target example tf.Tensor(
-[[3.73]
- [3.83]
- [3.36]
- [3.17]
- [3.1 ]
- [3.1 ]
- [2.77]
- [2.3 ]
- [2.54]
- [2.58]
- [2.54]
- [2.69]
- [3.46]
- [4.22]
- [4.89]
- [5.09]
- [4.53]
- [5.16]
- [5.54]
- [5.24]
- [4.92]
- [4.03]
- [3.49]
- [3.21]], shape=(24, 1), dtype=float64)
-2020-02-10 20:59:42.325916: W tensorflow/core/kernels/data/cache_dataset_ops.cc:822] The calling iterator did not fully read the dataset being cached. In order to avoid unexpected truncation of the dataset, the partially cached contents of the dataset will be discarded. This can happen if you have an input pipeline similar to `dataset.cache().take(k).repeat()`. You should use `dataset.take(k).cache().repeat()` instead.
-learning rate with custom schedule...
-2020-02-10 20:59:42.475213: W tensorflow/core/kernels/data/cache_dataset_ops.cc:822] The calling iterator did not fully read the dataset being cached. In order to avoid unexpected truncation of the dataset, the partially cached contents of the dataset will be discarded. This can happen if you have an input pipeline similar to `dataset.cache().take(k).repeat()`. You should use `dataset.take(k).cache().repeat()` instead.
-Train for 320 steps, validate for 40 steps
-Epoch 1/70
-320/320 - 15s - loss: 139.9228 - val_loss: 172.3440
-Epoch 2/70
-320/320 - 11s - loss: 119.6507 - val_loss: 131.9982
-Epoch 3/70
-320/320 - 13s - loss: 75.0550 - val_loss: 78.5602
-Epoch 4/70
-320/320 - 13s - loss: 46.7143 - val_loss: 48.5007
-Epoch 5/70
-320/320 - 16s - loss: 26.1020 - val_loss: 25.1732
-Epoch 6/70
-320/320 - 13s - loss: 11.8557 - val_loss: 10.8245
-Epoch 7/70
-320/320 - 12s - loss: 4.4788 - val_loss: 4.0478
-Epoch 8/70
-320/320 - 11s - loss: 1.7101 - val_loss: 1.5911
-Epoch 9/70
-320/320 - 11s - loss: 0.9238 - val_loss: 0.8982
-Epoch 10/70
-320/320 - 11s - loss: 0.7206 - val_loss: 0.7149
-Epoch 11/70
-320/320 - 11s - loss: 0.6546 - val_loss: 0.6667
-Epoch 12/70
-320/320 - 11s - loss: 0.6298 - val_loss: 0.6548
-Epoch 13/70
-320/320 - 11s - loss: 0.6188 - val_loss: 0.6504
-Epoch 14/70
-320/320 - 11s - loss: 0.6126 - val_loss: 0.6412
-Epoch 15/70
-320/320 - 15s - loss: 0.6080 - val_loss: 0.6369
-Epoch 16/70
-320/320 - 12s - loss: 0.6059 - val_loss: 0.6305
-Epoch 17/70
-320/320 - 11s - loss: 0.6040 - val_loss: 0.6283
-Epoch 18/70
-320/320 - 14s - loss: 0.6028 - val_loss: 0.6233
-Epoch 19/70
-320/320 - 11s - loss: 0.6011 - val_loss: 0.6284
-Epoch 20/70
-320/320 - 11s - loss: 0.6003 - val_loss: 0.6434
-Epoch 21/70
-320/320 - 10s - loss: 0.5992 - val_loss: 0.6411
-Epoch 22/70
-320/320 - 11s - loss: 0.5984 - val_loss: 0.6262
-Epoch 23/70
-320/320 - 10s - loss: 0.5982 - val_loss: 0.6376
-Epoch 24/70
-320/320 - 11s - loss: 0.5972 - val_loss: 0.6243
-Epoch 25/70
-320/320 - 11s - loss: 0.5968 - val_loss: 0.6290
-Epoch 26/70
-320/320 - 11s - loss: 0.5961 - val_loss: 0.6287
-Epoch 27/70
-320/320 - 10s - loss: 0.5954 - val_loss: 0.6308
-Epoch 28/70
-320/320 - 10s - loss: 0.5951 - val_loss: 0.6179
-Epoch 29/70
-320/320 - 12s - loss: 0.5949 - val_loss: 0.6202
-Epoch 30/70
-320/320 - 11s - loss: 0.5943 - val_loss: 0.6153
+If you intended to run this layer in float32, you can safely ignore this warning. If in doubt, this warning is likely only an issue if you are porting a TensorFlow 1.X model to TensorFlow 2.
+
+To change all layers to have dtype float64 by default, call `tf.keras.backend.set_floatx('float64')`. To change just this layer, pass dtype='float64' to the layer constructor. If you are the author of this layer, you can disable autocasting by passing autocast=False to the base Layer constructor.
+
+INFO:training log:train loss 0.43997129797935486
+INFO:training log:Time taken for 1 epoch: 73.48017287254333 secs
+
+INFO:training log:Epoch 2/10
+INFO:training log:train loss 0.1344408392906189
+INFO:training log:Time taken for 1 epoch: 84.0069670677185 secs
+
+INFO:training log:Epoch 3/10
+INFO:training log:train loss 0.10211098194122314
+INFO:training log:Time taken for 1 epoch: 69.39834499359131 secs
+
+INFO:training log:Epoch 4/10
+INFO:training log:train loss 0.08913902193307877
+INFO:training log:Time taken for 1 epoch: 91.3856987953186 secs
+
+INFO:training log:Epoch 5/10
+INFO:training log:train loss 0.07758580893278122
+INFO:training log:Time taken for 1 epoch: 113.08395600318909 secs
+
+INFO:training log:Epoch 6/10
+INFO:training log:train loss 0.06960710883140564
+INFO:training log:Time taken for 1 epoch: 138.9555368423462 secs
+
+INFO:training log:Epoch 7/10
+INFO:training log:train loss 0.06579634547233582
+INFO:training log:Time taken for 1 epoch: 87.00338315963745 secs
+
+INFO:training log:Epoch 8/10
+INFO:training log:train loss 0.06267885863780975
+INFO:training log:Time taken for 1 epoch: 71.7609531879425 secs
+
+INFO:training log:Epoch 9/10
+INFO:training log:train loss 0.0593915618956089
+INFO:training log:Time taken for 1 epoch: 76.58502006530762 secs
+
+INFO:training log:Epoch 10/10
+INFO:training log:train loss 0.05694324150681496
+INFO:training log:Time taken for 1 epoch: 84.21771025657654 secs
+
+INFO:training log:total training time for 10 epochs:889.8828799724579
+INFO:training log:saving loss and metrics information...

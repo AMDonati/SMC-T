@@ -2,7 +2,7 @@
    "data": {
     "file_path": "https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip",
      "fname": "jena_climate_2009_2016.csv.zip",
-     "col_name": "T (degC)",
+     "col_name": ["p (mbar)", "T (degC)", "rho (g/m**3)"],
     "index_name": "Date Time",
     "TRAIN_SPLIT": 0.8,
      "history": 150,
