@@ -21,9 +21,9 @@
   },
 
   "smc": {
-    "num_particles": 5,
+    "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05
   },
 
