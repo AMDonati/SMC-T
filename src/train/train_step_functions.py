@@ -127,8 +127,12 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
       raise ValueError('task_type argument in Transformer class is not supported.'
                        'Please choose between "classification" or "regression"')
 
+    trainable_variables = smc_transformer.trainable_variables
     gradients = tape.gradient(loss, smc_transformer.trainable_variables)
-    print(gradients)
+    print('gradients', gradients)
+    print('trainable_variables', smc_transformer.trainable_variables)
+    #var_and_grad_dict = dict(zip(trainable_variables, gradients))
+    #print('dict of variables and associated gradients', var_and_grad_dict)
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
