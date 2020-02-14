@@ -175,6 +175,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
+    print('decoding timestep', self.dec_timestep)
+
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
     x = tf.cast(x, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
@@ -248,8 +250,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # update the genealogy indices matrix from the weights.
     if self.dec_timestep < self.seq_len:
-      # update it only until T-1
-      #TODO: remove this function & consider only the current indice i_t.
+    # update it only until T-1
+    # TODO: remove this function & consider only the current indice i_t.
       i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
@@ -260,7 +262,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample K, V, and z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+        K_resampl = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
@@ -268,6 +270,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     epsilon = self.mha_smc.stddev # shape (B,P,1,D)
 
     output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
+    print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
+
+
     #TODO:
     # if not self.training:
     # output = [r, z, average_prediction, max_prediction, inf_prediction, epsilon, attn_weights]
@@ -280,7 +286,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
-    self.dec_timestep += 1
+    if self.dec_timestep < self.seq_len:
+      self.dec_timestep += 1
 
     return output, new_states
 

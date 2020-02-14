@@ -125,6 +125,14 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     v = self.wv(v)  # (B,P,1,D)
     q = self.wq(q)  # (B,P,1,D)
 
+    gaussian_noise_k = tf.random.normal(shape=tf.shape(k), name='gaussian_k')
+    gaussian_noise_q = tf.random.normal(shape=tf.shape(q), name='gaussian_q')
+    gaussian_noise_v = tf.random.normal(shape=tf.shape(q), name='gaussian_v')
+
+    k = k + tf.scalar_mul(self.sigma_scalar, gaussian_noise_k)
+    v = v + tf.scalar_mul(self.sigma_scalar, gaussian_noise_v)
+    q = q + tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
+
     k = self.split_heads(k, batch_size)  # (B,P,H,1,D/H)
     v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)
     q = self.split_heads(q, batch_size)  # (B,P,H,1,D/H)

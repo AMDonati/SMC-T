@@ -433,6 +433,9 @@ class SMC_Transformer(tf.keras.Model):
                                                             inputs=inputs,
                                                             initial_states=initial_state)
 
+    # reset decoding timestep of the cell to 1:
+    self.cell.dec_timestep = 1
+
     #TODO: if not self.training: create another 'inference cell'?
     #def step_function_inference(inputs, states):
       #return self.cell.inf_fonction(inputs, states)
@@ -488,7 +491,7 @@ class SMC_Transformer(tf.keras.Model):
 if __name__ == "__main__":
   num_particles = 5
   seq_len = 4
-  b = 8
+  b = 1
   F = 1 # multivariate case.
   num_layers = 1
   d_model = 2
