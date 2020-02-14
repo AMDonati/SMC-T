@@ -35,7 +35,7 @@ def categorical_ce_with_particules(real, pred, sampling_weights, data_type):
     real = tf.expand_dims(real, axis=1)
     real = tf.tile(real, multiples=[1, num_particles, 1])
 
-  if data_type=='nlp':
+  if data_type == 'nlp':
     mask = tf.math.logical_not(tf.math.equal(real, 0))
 
   loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
@@ -92,7 +92,7 @@ def binary_ce_with_particules(real, pred, sampling_weights, from_logits=True):
   return loss
 
 
-def mse_with_particles(real, pred, sampling_weights):
+def mse_with_particles(real, pred):
   '''
   :param real: shape (B,S,F)
   :param pred: shape (B,P,S,F)
@@ -179,7 +179,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
     real=tf.tile(real, multiples=[1,num_particles,1])
   if classic_loss:
     # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
-    loss_mse = mse_with_particles(real=real, pred=predictions, sampling_weights=weights)
+    loss_mse = mse_with_particles(real=real, pred=predictions)
   else:
     loss_mse = 0
   if SMC_loss:
@@ -231,20 +231,20 @@ def compute_accuracy_variance(predictions_val, tar, accuracy_metric):
 if __name__ == "__main__":
 
   #------------------------ testing of categorical ce with particules function......-----------------------------------------------------
-  B=8
-  P=5
-  S=10
-  V=50
+  B = 8
+  P = 5
+  S = 10
+  V = 50
 
-  real=tf.ones(shape=(B,P,S))
-  logits=tf.random.uniform(shape=(B,P,S,V))
-  sampling_weights=tf.ones(shape=(B,P))
+  real = tf.ones(shape=(B,P,S))
+  logits = tf.random.uniform(shape=(B,P,S,V))
+  sampling_weights = tf.ones(shape=(B,P))
   loss=categorical_ce_with_particules(real, logits, sampling_weights, data_type='nlp')
 
   print('categorical ce loss for {} classes'.format(V), loss.numpy())
 
   # test in the binary case:
-  V=2
+  V = 2
   logits = tf.random.uniform(shape=(B, P, S, V))
   sampling_weights = tf.ones(shape=(B, P))
   loss_binary = categorical_ce_with_particules(real, logits, sampling_weights, data_type='nlp')

@@ -186,13 +186,14 @@ class SMC_Transformer(tf.keras.Model):
                                 target_feature=target_feature)  # put here the Transformer cell.
 
     # for pre_processing words in the one_layer case.
-    self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+    #TODO: add a one tf.keras.layers.Dense() for the regression / time_series case.
+    if task_type == 'classification':
+      self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
     self.dropout = tf.keras.layers.Dropout(rate)
 
     self.final_layer = self.cell.output_layer
-
     self.target_vocab_size = target_vocab_size
     self.num_particles = num_particles
     self.d_model = d_model
@@ -253,12 +254,25 @@ class SMC_Transformer(tf.keras.Model):
     '''
     # initialize K0, V0, Z0 (=V0)
     K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
-    V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
-    Z = V
+    #V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
+    #K = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
+    V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
+    z = V[:,:,0,:]
+    # compute the $\epsilon$ of the reparametrized noise.
+    if self.cell.noise:
+      gaussian_noise = tf.random.normal(shape=tf.shape(z), name='stddev')  # shape (B,P,1,D)
+    else:
+      gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
+    # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
+    #stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3])  # shape (D,B,1,D)
+    # permuting dimensions to have a tensor of shape (B, P, 1, D)
+    #stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
+    z = z + tf.scalar_mul(self.sigma, gaussian_noise)
+
     # initialize w0
     #TODO: add the FFN layers after z before taking the final layer. (not essential. It is as if r was initializing equal to V finally).
-    logits = self.final_layer(Z)  # shape (B, P, S, V)
-    logits_initial = logits[:, :, 0, :]
+    logits_initial = self.final_layer(z)  # shape (B, P, S, V) #TODO add the noise.
+    #logits_initial = logits[:, :, 0, :]
 
     # computing w0
     if self.task_type == 'classification':
@@ -472,17 +486,16 @@ class SMC_Transformer(tf.keras.Model):
     return (Y0_T, Z0_T, w_T, I), (inference_pred, good_avg_predictions, max_predictions), attn_weights
 
 if __name__ == "__main__":
-
   num_particles = 5
   seq_len = 4
   b = 8
   F = 1 # multivariate case.
   num_layers = 1
-  d_model = 1
+  d_model = 2
   num_heads = 1
   dff = 128
   maximum_position_encoding = seq_len
-  sigma = 1
+  sigma = 0.1
   data_type = 'time_series_uni'
   task_type = 'regression'
   C = 1 # vocabulary size or number of classes.

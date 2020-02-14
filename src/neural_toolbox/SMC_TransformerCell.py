@@ -39,7 +39,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     '''
 
     # store the decoding timestep
-    self.dec_timestep = 0
+    self.dec_timestep = 1 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
     self.mha_smc = MultiHeadAttention_SMC(d_model=d_model,
                                           num_heads=num_heads,
                                           num_particles=num_particles,
@@ -59,8 +59,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.target_vocab_size = target_vocab_size
     self.maximum_position_encoding = maximum_position_encoding
     self.seq_len = seq_len
-    self.target_feature = target_feature # for multi-variate time-series case: select the target feature in the re-sampling weights computation.
-
+    self.target_feature = target_feature
+    # for multi-variate time-series case: select the target feature in the re-sampling weights computation.
+    self.noise = noise
     self.rate = rate
 
     self.training = training
@@ -143,7 +144,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     mu_t = x - predictions
     # mu_t=tf.squeeze(mu_t, axis=-1)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
-    #TODO: add an omega here to have a variance different of 1.
     log_w = tf.scalar_mul(-1 / 2 * omega, log_w)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
@@ -260,7 +260,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample K, V, and z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+        K_resampl = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
@@ -279,7 +279,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
-    #w=tf.stop_gradient(w)
     new_states = NestedState(K=K, V=V, w=w, I=I)
     self.dec_timestep += 1
 

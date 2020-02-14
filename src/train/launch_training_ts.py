@@ -36,6 +36,7 @@ from train.train_step_functions import train_step_SMC_T
 
 from train.loss_functions import compute_accuracy_variance
 from train.loss_functions import CustomSchedule
+from train.loss_functions import loss_function_regression
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.LSTMs import build_GRU_for_classification
@@ -330,7 +331,6 @@ if __name__ == "__main__":
                               data_type=data_type)
 
     # creating checkpoint manager
-    #TODO: put this as a function
     ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
     baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline")
     ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
@@ -352,8 +352,6 @@ if __name__ == "__main__":
     for epoch in range(start_epoch, EPOCHS):
       start = time.time()
       logger.info("Epoch {}/{}".format(epoch+1, EPOCHS))
-
-      #TODO: try a simple model.compile, model.fit instead...
 
       train_loss.reset_states()
       train_accuracy.reset_states()
@@ -468,9 +466,11 @@ if __name__ == "__main__":
     # check the pass forward.
     for input_example_batch, target_example_batch in dataset.take(1):
       (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
-                                              training=False,
+                                              training=True,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}", example_batch_predictions.shape)
+
+    #print('summary of the SMC Transformer', smc_transformer.summary())
 
     if start_epoch > 0:
       if start_epoch > EPOCHS:
@@ -532,6 +532,10 @@ if __name__ == "__main__":
         (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                                                                   training=False,
                                                                                                   mask=create_look_ahead_mask(seq_len))
+        val_loss, val_loss_mse = loss_function_regression(real = tar,
+                                                          predictions = predictions_val,
+                                                          weights = weights_val,
+                                                          transformer = smc_transformer)
         # if batch % 10 == 0:
         #   logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
         #   logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
@@ -580,11 +584,18 @@ if __name__ == "__main__":
 
       elif task_type == 'regression':
         mse_metric = train_accuracies
-        logger.info('train loss {} - mse loss: {}'.format(avg_loss_batch.numpy(),
-                                                          mse_metric.numpy()))
+        template = 'train loss {} -  train mse loss: {} - val loss: {} - val mse loss: {}'
+        logger.info(template.format(avg_loss_batch.numpy(),
+                                    mse_metric.numpy(),
+                                    val_loss.numpy(),
+                                    val_loss_mse.numpy()))
+
+        #TODO: add a tf.keras.metrics.Mean
         # saving loss and metrics information:
         train_loss_history.append(avg_loss_batch.numpy())
         train_loss_mse_history.append(mse_metric.numpy())
+        val_loss_history.append(val_loss.numpy())
+        val_loss_mse_history.append(val_loss_mse.numpy())
 
         #------------- end of saving metrics information -------------------------------------------------------------------------------
 
@@ -609,8 +620,8 @@ if __name__ == "__main__":
                               start_epoch=start_epoch)
 
     elif task_type == 'regression':
-      keys = ['train loss', 'train mse loss']
-      values = [train_loss_history, train_loss_mse_history]
+      keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
+      values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
       saving_training_history(keys=keys, values=values,
                                 output_path=output_path,
                                 csv_fname='smc_transformer_history.csv',
