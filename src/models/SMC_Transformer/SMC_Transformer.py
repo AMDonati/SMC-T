@@ -254,9 +254,9 @@ class SMC_Transformer(tf.keras.Model):
     '''
     # initialize K0, V0, Z0 (=V0)
     K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
-    #V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
+    V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
     #K = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
-    V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
+    #V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
     z = V[:,:,0,:]
     # compute the $\epsilon$ of the reparametrized noise.
     if self.cell.noise:
