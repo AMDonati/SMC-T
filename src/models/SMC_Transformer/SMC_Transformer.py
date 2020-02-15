@@ -304,8 +304,8 @@ class SMC_Transformer(tf.keras.Model):
     ind_matrix_init = tf.stop_gradient(ind_matrix_init)
 
     # resample K & Z using i_0 (nned to be of shape (B,P)
-    K = resample(params=K, i_t=tf.squeeze(i0, axis=-1), t=0)
-    V = resample(params=V, i_t=tf.squeeze(i0, axis=-1), t=0)
+    # K = resample(params=K, i_t=tf.squeeze(i0, axis=-1), t=0)
+    # V = resample(params=V, i_t=tf.squeeze(i0, axis=-1), t=0)
 
     return (K, V), initial_weights, ind_matrix_init
 

@@ -224,7 +224,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
-    print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
+    #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -275,7 +275,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
-    print('K resampled', K[:,:,:,0])
+    #print('K resampled', K[:,:,:,0])
 
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon = self.mha_smc.stddev # shape (B,P,1,D)
