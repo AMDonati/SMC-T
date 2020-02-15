@@ -121,19 +121,34 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     batch_size = tf.shape(v)[0]
 
     # > FOR SMC: q is only the query of the current word: shape (batch_size, num_particles, d_model)
-    k = self.wk(k)  # (B,P,1,D)
-    v = self.wv(v)  # (B,P,1,D)
-    q = self.wq(q)  # (B,P,1,D)
+    k_= self.wk(k)  # (B,P,1,D)
+    v_ = self.wv(v)  # (B,P,1,D)
+    q_ = self.wq(q)  # (B,P,1,D)
 
-    #TODO: add the boolean to choose between no noise and noise.
+    if self.noise:
 
-    gaussian_noise_k = tf.random.normal(shape=tf.shape(k), name='gaussian_k')
-    gaussian_noise_q = tf.random.normal(shape=tf.shape(q), name='gaussian_q')
-    gaussian_noise_v = tf.random.normal(shape=tf.shape(q), name='gaussian_v')
+      gaussian_noise_k = tf.random.normal(shape=tf.shape(k), name='gaussian_k')
+      gaussian_noise_q = tf.random.normal(shape=tf.shape(q), name='gaussian_q')
+      gaussian_noise_v = tf.random.normal(shape=tf.shape(v), name='gaussian_v')
 
-    k = k + tf.scalar_mul(self.sigma_scalar, gaussian_noise_k)
-    v = v + tf.scalar_mul(self.sigma_scalar, gaussian_noise_v)
-    q = q + tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
+    else:
+
+      gaussian_noise_k = tf.zeros(shape=tf.shape(k))
+      gaussian_noise_q = tf.zeros(shape=tf.shape(q))
+      gaussian_noise_v = tf.zeros(shape=tf.shape(v))
+
+    noise_k = tf.scalar_mul(self.sigma_scalar, gaussian_noise_k)
+    noise_q = tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
+    noise_v = tf.scalar_mul(self.sigma_scalar, gaussian_noise_v)
+
+    k = k_ + noise_k
+    v = v_ + noise_v
+    q = q_ + noise_q
+
+    # outputting the normalized mean of k,q,v to add it in the computation of the loss.
+    self.mean_k = tf.scalar_mul(1/self.sigma_scalar, k - k_)
+    self.mean_v = tf.scalar_mul(1 / self.sigma_scalar, v - v_)
+    self.mean_q = tf.scalar_mul(1 / self.sigma_scalar, q - q_)
 
     k = self.split_heads(k, batch_size)  # (B,P,H,1,D/H)
     v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)
@@ -158,7 +173,6 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     # adding a Gaussian noise using the reparametrization trick.
 
-    #TODO: Show to Sylvain how this is done in the VAE tutorial to compare with my method. https://www.tensorflow.org/tutorials/generative/cvae
     # initialize sigma as a 'positive' diagonal matrix as a start
     if self.sigma_scalar=='learned':
       diag=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
@@ -169,18 +183,20 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     #compute the $\epsilon$ of the reparametrized noise.
     if self.noise:
-      gaussian_noise = tf.random.normal(shape=tf.shape(z), seed=seed, name='stddev') # shape (B,P,1,D)
+      gaussian_noise = tf.random.normal(shape=tf.shape(z), seed=seed, name='gaussian_noise_z') # shape (B,P,1,D)
     else:
       gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
 
-    # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
-    stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3]) # shape (D,B,1,D)
-    # permuting dimensions to have a tensor of shape (B, P, 1, D)
-    stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
+    #TODO: remove the commented code below eventually (old way to do the reparam. trick but useless for a diagonal gaussian noise.)
+    # # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
+    # stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3]) # shape (D,B,1,D)
+    # # permuting dimensions to have a tensor of shape (B, P, 1, D)
+    # stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
+    stddev = tf.scalar_mul(self.sigma_scalar, gaussian_noise)
 
     mu = self.dense(z)
-    z = mu + stddev
-    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (z - mu))
+    pred = mu + stddev
+    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (pred - mu)) # used in the computation of the loss.
 
     return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
