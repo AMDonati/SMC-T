@@ -7,7 +7,6 @@ from neural_toolbox.classic_layers import point_wise_feed_forward_network
 
 from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
 from models.SMC_Transformer.transformer_utils import positional_encoding
-
 from models.SMC_Transformer.transformer_utils import resample
 from models.SMC_Transformer.transformer_utils import resample_old
 from models.SMC_Transformer.transformer_utils import resample_z
@@ -175,7 +174,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    print('decoding timestep', self.dec_timestep)
+    #print('decoding timestep', self.dec_timestep)
 
     # unnesting inputs
     r, x = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
@@ -183,9 +182,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
-    print('r', r[:,:,0])
-    print('x', x[:,0])
-    print('K', K[:,:,:,0])
+    #print('r', r[:,:,0])
+    #print('x', x[:,0])
+    #print('K', K[:,:,:,0])
     #print('r', r)
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
@@ -205,7 +204,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     #TODO: put this as an internal function of the cell to be used for inference as well.
 
-    print('K propagated (after mha)', K[:,:,:,0])
+    #print('K propagated (after mha)', K[:,:,:,0])
 
     #print('z', z[:,:,:,0])
 

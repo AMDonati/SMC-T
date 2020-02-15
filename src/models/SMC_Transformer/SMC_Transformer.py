@@ -415,7 +415,7 @@ class SMC_Transformer(tf.keras.Model):
                                                            seq_length=seq_len,
                                                            initial_word_id=initial_word_id)
 
-    print('K0 from init function', K0[:,:,:,0])
+    #print('K0 from init function', K0[:,:,:,0])
     initial_state = NestedState(K=K0,
                                 V=V0,
                                 w=w0,
@@ -435,7 +435,7 @@ class SMC_Transformer(tf.keras.Model):
                                                             initial_states=initial_state)
 
     # reset decoding timestep of the cell to 1:
-    self.cell.dec_timestep = 1
+    self.cell.dec_timestep = 0
 
     #TODO: if not self.training: create another 'inference cell'?
     #def step_function_inference(inputs, states):
@@ -461,7 +461,7 @@ class SMC_Transformer(tf.keras.Model):
     Epsilon0_T = outputs[5] # shape (B,S,P,D)
 
     K = new_states[0]
-    print('final K', K[:,:,:,0])
+    #print('final K', K[:,:,:,0])
     V = new_states[1]
     w_T = new_states[2]
     #TODO: output both w and the matrix of indices matrix. (to save).

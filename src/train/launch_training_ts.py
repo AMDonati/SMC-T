@@ -464,11 +464,12 @@ if __name__ == "__main__":
       start_epoch = 0
 
     # check the pass forward.
-    for input_example_batch, target_example_batch in dataset.take(1):
+    for input_example_batch, target_example_batch in dataset.take(2):
+      #input_model = tf.concat([input_example_batch, target_example_batch[:,-1,:]], axis = 1)
       (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
                                               training=True,
                                               mask=create_look_ahead_mask(seq_len))
-      print("predictions shape: {}", example_batch_predictions.shape)
+      print("predictions shape: {}".format(example_batch_predictions.shape))
 
     #print('summary of the SMC Transformer', smc_transformer.summary())
 

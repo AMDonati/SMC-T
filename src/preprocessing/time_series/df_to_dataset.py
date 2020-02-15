@@ -95,27 +95,42 @@ def split_input_target_uni_step(chunk):
     target_text = chunk[:,1:]
   return input_text, target_text
 
+
 def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
-    x_train, y_train = split_fn(train_data)
-    x_val, y_val = split_fn(val_data)
+  '''
+  :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
+  :param val_data: input data used for validation set > shape (N_val, S+1, F)
+  :param split_fn: used to split between input data and target.
+  :param BUFFER_SIZE: to shuffle the dataset.
+  :param BATCH_SIZE:
+  :param target_feature: used to select the target feature to be predicted. Case of multivariate ts as input data > prediction of a univariate ts.
+  :return:
+  2 tf.data.Dataset, one for the training set, and one for the validation set, with:
+  input data:  batches of train data > shape (B, S+1, F) > S+1 because the data is split in the SMC_Transformer.Py script.
+  target data: shape (B,S,1) > univariate ts to be predicted (shifted from one timestep compared to the input data).
+  '''
+  x_train, y_train = split_fn(train_data)
+  x_val, y_val = split_fn(val_data)
 
-    if target_feature is not None:
-      y_train = y_train[:, :, target_feature]
-      y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
-      y_val = y_val [:, :, target_feature]
-      y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
-      print('univariate timeseries forecasting...')
-    else:
-      print('multivariate timeseries forecasting with {} features'.format(y_train.shape[-1]))
+  if target_feature is not None:
+    y_train = y_train[:, :, target_feature]
+    y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
+    y_val = y_val[:, :, target_feature]
+    y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
+    print('univariate timeseries forecasting...')
+  else:
+    print('multivariate timeseries forecasting with {} features'.format(y_train.shape[-1]))
 
-    # turning it into a tf.data.Dataset.
-    train_dataset= tf.data.Dataset.from_tensor_slices((x_train, y_train))
-    train_dataset = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+  # turning it into a tf.data.Dataset.
+  # use train_data and val_data instead to have as input data a tensor of shape (B,S+1,F)
+  # > trick because then the dataset is split again in the SMC_Transformer cell.
+  train_dataset = tf.data.Dataset.from_tensor_slices((train_data, y_train))
+  train_dataset = train_dataset.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 
-    val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-    val_dataset = val_dataset.batch(BATCH_SIZE, drop_remainder=True)
+  val_dataset = tf.data.Dataset.from_tensor_slices((val_data, y_val))
+  val_dataset = val_dataset.batch(BATCH_SIZE, drop_remainder=True)
 
-    return train_dataset, val_dataset
+  return train_dataset, val_dataset
 
 if __name__ == "__main__":
 
