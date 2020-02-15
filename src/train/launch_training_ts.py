@@ -543,9 +543,9 @@ if __name__ == "__main__":
         #   logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
         #   logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
       logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
-      logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
-      logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
-      logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
+      #logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
+      #logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
+      #logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
 
       #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 
