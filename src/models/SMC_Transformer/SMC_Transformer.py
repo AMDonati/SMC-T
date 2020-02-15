@@ -165,7 +165,7 @@ class SMC_Transformer(tf.keras.Model):
                              rate=rate,
                              data_type=data_type)
     elif num_layers==1:
-      self.input_embedding=tf.keras.layers.Dense(d_model)
+      self.input_dense_projection=tf.keras.layers.Dense(d_model)
     else:
       raise ValueError("num_layers should be superior or equal to 1.")
 
@@ -403,14 +403,14 @@ class SMC_Transformer(tf.keras.Model):
                                          mask=mask)  # shape (B,P,S,D)
       r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
     elif self.num_layers == 1:
+      #TODO: change the name of r to x.
       # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
       # one dense layer to have a tensor of shape (B,P,S,D)
-      r = self.input_embedding(input_tensor_processed)
+      r = self.input_dense_projection(input_tensor_processed)
       r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
-    #TODO:  take only as initial_word_id the feature corresponding to the target (case of multivariate timeseries).
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(inputs)[-1]
       initial_word_id = inputs[:, 0, self.target_feature]
@@ -419,6 +419,8 @@ class SMC_Transformer(tf.keras.Model):
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
                                                            seq_length=seq_len,
                                                            initial_word_id=initial_word_id)
+
+    print('K0 from init function', K0[:,:,:,0])
     initial_state = NestedState(K=K0,
                                 V=V0,
                                 w=w0,
@@ -427,7 +429,11 @@ class SMC_Transformer(tf.keras.Model):
     def step_function(inputs, states):
       return self.cell(inputs, states)
 
-    inputs = NestedInput(x=tf.expand_dims(inputs, axis=-1), r=r) # x > (B,S,F,1), #r > (B,S,P,D)
+    # taking the first S-1 sequence elements for r (input data), & elements 1 to S for x (used for computing w)
+    r = r[:,:seq_len-1,:,:]
+    x = tf.expand_dims(inputs[:,1:,:], axis=-1)
+    inputs = NestedInput(x=x, r=r) # x > (B,S,F,1), #r > (B,S,P,D)
+    #TODO: r=[xo,x1,...,x(s-1)], (x=y)=[x1...xs]
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                             inputs=inputs,
@@ -460,6 +466,7 @@ class SMC_Transformer(tf.keras.Model):
     Epsilon0_T = outputs[5] # shape (B,S,P,D)
 
     K = new_states[0]
+    print('final K', K[:,:,:,0])
     V = new_states[1]
     w_T = new_states[2]
     #TODO: output both w and the matrix of indices matrix. (to save).
@@ -490,16 +497,16 @@ class SMC_Transformer(tf.keras.Model):
 
 if __name__ == "__main__":
   num_particles = 5
-  seq_len = 4
+  seq_len = 5
   b = 1
-  F = 1 # multivariate case.
+  F = 3 # multivariate case.
   num_layers = 1
-  d_model = 2
+  d_model = 12
   num_heads = 1
   dff = 128
   maximum_position_encoding = seq_len
   sigma = 0.1
-  data_type = 'time_series_uni'
+  data_type = 'time_series_multi'
   task_type = 'regression'
   C = 1 # vocabulary size or number of classes.
   noise_encoder = False
@@ -545,24 +552,27 @@ if __name__ == "__main__":
   task_type = task_type,
   target_feature = target_feature)
 
-  inputs = tf.ones(shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
+  inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   mask = create_look_ahead_mask(seq_len)
 
   (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
 
-  inference_pred, good_avg_pred, max_pred = predictions_metric
-  print('Transformer output', predictions.shape)  # (B,P,S,C)
-  print('final z', trajectories.shape) # (B,P,S,D)
-  print('weights', weights.shape) # (B,P,1)
-  print('indices matrix for element 0', ind_matrix[0,:,:])
-  print('inference predictions', inference_pred.shape)  # (B,P,V)
-  print('good average predictions', good_avg_pred.shape)  # (B,P,V)
-  print('max_predictions', max_pred.shape)
+  print('final predictions', predictions)
 
-  print('w_T for element 0 of the batch', weights[0,:])
-  print('indices matrix for element 0 of the batch', ind_matrix[0,:])
+  inference_pred, good_avg_pred, max_pred = predictions_metric
+  #print('Transformer output', predictions.shape)  # (B,P,S,C)
+  #print('final z', trajectories.shape) # (B,P,S,D)
+  #print('weights', weights.shape) # (B,P,1)
+  #print('indices matrix for element 0', ind_matrix[0,:,:])
+  #print('inference predictions', inference_pred.shape)  # (B,P,V)
+  #print('good average predictions', good_avg_pred.shape)  # (B,P,V)
+  #print('max_predictions', max_pred.shape)
+
+
+  #print('w_T for element 0 of the batch', weights[0,:])
+  #print('indices matrix for element 0 of the batch', ind_matrix[0,:])
 
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)

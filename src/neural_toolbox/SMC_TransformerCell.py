@@ -178,13 +178,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     print('decoding timestep', self.dec_timestep)
 
     # unnesting inputs
-    r, x = tf.nest.flatten(inputs)  # r output prev trqnsformer, y: label/target
+    r, x = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
     x = tf.cast(x, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
-
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
-
+    print('r', r[:,:,0])
+    print('x', x[:,0])
+    print('K', K[:,:,:,0])
+    #print('r', r)
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
@@ -203,6 +205,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     #TODO: put this as an internal function of the cell to be used for inference as well.
+
+    print('z', z[:,:,:,0])
+
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     r = tf.expand_dims(r, axis=2)
@@ -212,10 +217,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     ffn_output = self.dropout3(ffn_output, training=self.training)
     r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
 
+    #print('z', z)
+
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
+    #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -262,17 +270,18 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample K, V, and z:
     if self.resampling:
       if self.dec_timestep < self.seq_len:
-        K_resampl = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
         z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
+
+    print('K resampled', K[:,:,:,0])
 
     # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
     epsilon = self.mha_smc.stddev # shape (B,P,1,D)
 
     output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
-    print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
-    print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
-
+    #print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
+    #print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
 
     #TODO:
     # if not self.training:
