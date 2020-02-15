@@ -14,7 +14,6 @@ the training accuracy (train & val datasets),
 # - checkpoints of the model in a file .ckpt.
 # dictionary of hparams (cf Nicolas's script...).
 """
-
 """Transformer model parameters (from the tensorflow tutorial):
 d_model: 512
 num_heads: 8
@@ -22,7 +21,6 @@ dff: 1048
 num_layers: 2
 max_positional_encoding = target_vocab_size. 
 """
-
 """
 ALL INPUTS CAN BE OF SHAPE (B,S,F) (F=1 for NLP / univariate time_series case, F > 1 for multivariate case.)
 """

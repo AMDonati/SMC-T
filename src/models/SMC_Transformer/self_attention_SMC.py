@@ -173,13 +173,14 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     # adding a Gaussian noise using the reparametrization trick.
 
-    # initialize sigma as a 'positive' diagonal matrix as a start
+    #initialize sigma as a 'positive' diagonal matrix as a start
     if self.sigma_scalar=='learned':
       diag=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
       self.sigma = tf.matmul(diag, diag, transpose_b=True)
     else:
       sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
       self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
+      self.sigma = tf.stop_gradient(self.sigma)
 
     #compute the $\epsilon$ of the reparametrized noise.
     if self.noise:
