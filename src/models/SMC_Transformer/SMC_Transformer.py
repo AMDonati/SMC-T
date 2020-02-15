@@ -253,26 +253,21 @@ class SMC_Transformer(tf.keras.Model):
             -Z0, K0, V0 (dim (B,P,S,D)) w0 (dim (B,P,1)), initial indices matrix (dim (B, P, S))
     '''
     # initialize K0, V0, Z0 (=V0)
-    K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
-    V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
-    #K = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
-    #V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
+    #K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
+    #V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
+    K = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
+    V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
     z = V[:,:,0,:]
     # compute the $\epsilon$ of the reparametrized noise.
     if self.cell.noise:
       gaussian_noise = tf.random.normal(shape=tf.shape(z), name='stddev')  # shape (B,P,1,D)
     else:
       gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
-    # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
-    #stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3])  # shape (D,B,1,D)
-    # permuting dimensions to have a tensor of shape (B, P, 1, D)
-    #stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
     z = z + tf.scalar_mul(self.sigma, gaussian_noise)
 
     # initialize w0
     #TODO: add the FFN layers after z before taking the final layer. (not essential. It is as if r was initializing equal to V finally).
     logits_initial = self.final_layer(z)  # shape (B, P, S, V) #TODO add the noise.
-    #logits_initial = logits[:, :, 0, :]
 
     # computing w0
     if self.task_type == 'classification':

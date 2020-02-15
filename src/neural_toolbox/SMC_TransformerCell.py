@@ -39,7 +39,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     '''
 
     # store the decoding timestep
-    self.dec_timestep = 1 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
+    self.dec_timestep = 0 # decoding timestep starts at 1 because we have the init step. Cell is called S times.
     self.mha_smc = MultiHeadAttention_SMC(d_model=d_model,
                                           num_heads=num_heads,
                                           num_particles=num_particles,
@@ -197,7 +197,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     if self.dec_timestep < self.seq_len:
       # store (K,V) only in that case.
-      #TODO: for inference, sample N samples of z_t^m > z_t^m,i.
       (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
     else:
       # otherwise K,V is not updated.
@@ -206,7 +205,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     #TODO: put this as an internal function of the cell to be used for inference as well.
 
-    print('z', z[:,:,:,0])
+    print('K propagated (after mha)', K[:,:,:,0])
+
+    #print('z', z[:,:,:,0])
 
     # computing r from z:
     z = self.dropout1(z, training=self.training)
@@ -223,7 +224,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
-    #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
+    print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -257,10 +258,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #-----------------end of weights computation--------------------------------------------------------------------
 
     # update the genealogy indices matrix from the weights.
-    if self.dec_timestep < self.seq_len:
+    #if self.dec_timestep < self.seq_len:
     # update it only until T-1
     # TODO: remove this function & consider only the current indice i_t.
-      i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
+    i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
 
@@ -269,10 +270,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # resample K, V, and z:
     if self.resampling:
-      if self.dec_timestep < self.seq_len:
-        K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
-        V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
-        z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
+      #if self.dec_timestep < self.seq_len:
+      K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+      V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
+      z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
     print('K resampled', K[:,:,:,0])
 
@@ -295,8 +296,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
-    if self.dec_timestep < self.seq_len:
-      self.dec_timestep += 1
+    #TODO: remove the condition loop if we start with a decoding timestep = 0.
+    # if self.dec_timestep < self.seq_len:
+    self.dec_timestep += 1
 
     return output, new_states
 
