@@ -344,6 +344,7 @@ class SMC_Transformer(tf.keras.Model):
 
       SMC_loss_tensor=compute_SMC_ll_one_layer(epsilon=epsilon, sigma=sigma)
       # multiply by -1/2 to get the right formula.
+      #TODO: refactor this: put the -1/2 in the compute_SMC_ll_one_layer.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
 
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over seq dim.

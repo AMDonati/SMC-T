@@ -73,8 +73,8 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -313,6 +313,7 @@ if __name__ == "__main__":
 
     # storing the losses & accuracy in a list for each epoch
     average_losses_baseline = []
+    val_losses_baseline = []
     training_accuracies_baseline = []
     val_accuracies_baseline = []
 
@@ -356,7 +357,8 @@ if __name__ == "__main__":
       val_accuracy.reset_states()
 
       for (batch, (inp, tar)) in enumerate(dataset):
-        _, avg_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp,
+        inp_model = inp [:,:-1, :]
+        train_loss_batch, avg_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp_model,
                                                                           targets=tar,
                                                                           transformer=transformer,
                                                                           train_loss=train_loss,
@@ -366,9 +368,13 @@ if __name__ == "__main__":
                                                                           task_type=task_type)
 
       for (inp, tar) in val_dataset:
-        predictions_val, attn_weights_val = transformer(inputs=inp,
+        inp_model = inp[:, :-1, :]
+        predictions_val, attn_weights_val = transformer(inputs=inp_model,
                                                         training=False,
                                                         mask=create_look_ahead_mask(seq_len))
+        val_loss = tf.keras.losses.MSE(tar, predictions_val)
+        val_loss = tf.reduce_mean(val_loss, axis=-1)
+        val_loss = tf.reduce_mean(val_loss, axis=-1)
 
       if task_type == 'classification':
         train_acc = train_accuracy.result()
@@ -385,8 +391,9 @@ if __name__ == "__main__":
         val_accuracies_baseline.append(val_accuracy_batch.numpy())
 
       elif task_type == 'regression':
-        logger.info('train loss {}'.format(avg_loss_batch))
-        average_losses_baseline.append(avg_loss_batch.numpy())
+        logger.info('train loss: {} - val loss: {}'.format(train_loss_batch.numpy(), val_loss.numpy()))
+        average_losses_baseline.append(train_loss_batch.numpy())
+        val_losses_baseline.append(val_loss.numpy())
 
       ckpt_save_path = ckpt_manager.save()
       logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
@@ -399,8 +406,8 @@ if __name__ == "__main__":
       values = [average_losses_baseline, training_accuracies_baseline, val_accuracies_baseline]
 
     elif task_type == 'regression':
-      keys = ['loss']
-      values = [average_losses_baseline]
+      keys = ['train loss', 'val loss']
+      values = [average_losses_baseline, val_losses_baseline]
 
     history = dict(zip(keys, values))
     csv_fname = 'baseline_history.csv'

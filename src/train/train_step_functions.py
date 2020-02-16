@@ -46,6 +46,10 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
     else:
       raise ValueError("task_type should be either 'regression' or 'classification'")
 
+    # averaging loss over the seq and batch dims
+    loss = tf.reduce_mean(loss, axis=-1) # (B,)
+    loss = tf.reduce_mean(loss, axis=-1)
+
   gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
