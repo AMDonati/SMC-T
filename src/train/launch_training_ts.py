@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_multi.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_multi_VMAzure.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output/exp_reg', help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 

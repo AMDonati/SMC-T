@@ -196,8 +196,8 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     stddev = tf.scalar_mul(self.sigma_scalar, gaussian_noise)
 
     mu = self.dense(z)
-    pred = mu + stddev
-    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (pred - mu)) # used in the computation of the loss.
+    z = mu + stddev
+    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (z - mu)) # used in the computation of the loss.
 
     return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
