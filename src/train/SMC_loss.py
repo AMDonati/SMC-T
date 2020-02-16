@@ -4,7 +4,7 @@ import math
 #TODO: redo the mathematical computation of the loss from the log likelihood to check that the formulas implemented are correct.
 
 #TODO: ask Florian if I need to add a @tf.function to this function. cf https://www.tensorflow.org/tutorials/generative/cvae as an example.
-def compute_SMC_ll_one_layer(epsilon, sigma):
+def compute_SMC_ll_one_layer(list_means):
   '''
   compute log p(z_j / z_(0:j-1), Y(0:j-1))
   :param epsilon: epsilon of the reparametrized noise (normal gaussian distrib.) > shape (B,P,S,D)
@@ -12,8 +12,17 @@ def compute_SMC_ll_one_layer(epsilon, sigma):
   :return:
   a tensor of shape (B,P,S) with the log-likelihood corresponding to one layer.
   '''
-  epsilon = tf.transpose(epsilon, perm=[0, 3, 1, 2]) # shape (B,D,P,S)
-  epsilon_part= tf.reduce_sum(tf.multiply(epsilon, epsilon), axis=1)
+  mean_z = list_means[0]
+  mean_k = list_means[1]
+  mean_v = list_means[2]
+  mean_q = list_means[3]
+
+  mean_z = tf.transpose(mean_z, perm=[0, 3, 1, 2]) # shape (B,D,P,S)
+  mean_k = tf.transpose(mean_k, perm=[0, 3, 1, 2])  # shape (B,D,P,S)
+  mean_v = tf.transpose(mean_v, perm=[0, 3, 1, 2])  # shape (B,D,P,S)
+  mean_q = tf.transpose(mean_q, perm=[0, 3, 1, 2])  # shape (B,D,P,S)
+
+  epsilon_part= tf.reduce_sum(tf.multiply(mean_z, mean_z), axis=1) + tf.reduce_sum(tf.multiply(mean_k, mean_k), axis=1) + tf.reduce_sum(tf.multiply(mean_v, mean_v), axis=1) + tf.reduce_sum(tf.multiply(mean_q, mean_q), axis=1)
   #det_part=tf.linalg.logdet(sigma) # 2*math.pi removed for easier debugging.
   #ll_one_layer = det_part + epsilon_part
   ll_one_layer = epsilon_part

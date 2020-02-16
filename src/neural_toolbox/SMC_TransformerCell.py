@@ -279,10 +279,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     #print('K resampled', K[:,:,:,0])
 
-    # get the output (r_t^l, z_t^l, epsilon_t^l, average prediction, prediction for largest w_t)
-    epsilon = self.mha_smc.stddev # shape (B,P,1,D)
+    # get the normalized mean of z,k,q,v for the SMC loss.
+    mean_z = self.mha_smc.stddev # shape (B,P,1,D)
+    mean_k = self.mha_smc.mean_k
+    mean_v = self.mha_smc.mean_v
+    mean_q = self.mha_smc.mean_q
 
-    output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, epsilon, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    list_means = [mean_z, mean_k, mean_v, mean_q]
+
+    output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, list_means, attn_weights] # attn_weights > shape (B,P,H,1,D)
     #print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
     #print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
 

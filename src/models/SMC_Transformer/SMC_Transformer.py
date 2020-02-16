@@ -320,11 +320,11 @@ class SMC_Transformer(tf.keras.Model):
 
     # multi-layer case.
     if self.num_layers > 1:
-
+    #TODO: modify this for the multilayer case (because of the addition of the noise in k,q,v.)
       # get epsilon for each layer for the Encoder
       list_epsilon = self.encoder.list_stddev
       # add the one from the last layer
-      list_epsilon.append(self.epsilon_seq_last_layer)
+      list_epsilon.append(self.means_seq)
       # get the list of sigmas from the list of the Encoder's layer
       list_layers=self.encoder.dec_layers
       list_sigma = [l.mha1.sigma for l in list_layers]
@@ -332,17 +332,16 @@ class SMC_Transformer(tf.keras.Model):
       sigma_last_layer=self.cell.mha_smc.sigma
       list_sigma.append(sigma_last_layer)
 
-      SMC_loss= compute_SMC_log_likelihood(list_epsilon=list_epsilon,
+      SMC_loss = compute_SMC_log_likelihood(list_epsilon=list_epsilon,
                                           list_sigma=list_sigma,
                                           sampling_weights=sampling_weights)
 
     # one-layer case.
     elif self.num_layers == 1:
+      #sigma=self.cell.mha_smc.sigma
+      list_means=self.means_seq
 
-      sigma=self.cell.mha_smc.sigma
-      epsilon=self.epsilon_seq_last_layer
-
-      SMC_loss_tensor=compute_SMC_ll_one_layer(epsilon=epsilon, sigma=sigma)
+      SMC_loss_tensor = compute_SMC_ll_one_layer(list_means=list_means)
       # multiply by -1/2 to get the right formula.
       #TODO: refactor this: put the -1/2 in the compute_SMC_ll_one_layer.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
@@ -459,7 +458,7 @@ class SMC_Transformer(tf.keras.Model):
     good_avg_predictions = outputs[3]
     max_predictions = outputs[4] # (B,S,V)
 
-    Epsilon0_T = outputs[5] # shape (B,S,P,D)
+    list_means_0_T = outputs[5] # shape (B,S,P,D)
 
     K = new_states[0]
     #print('final K', K[:,:,:,0])
@@ -474,9 +473,9 @@ class SMC_Transformer(tf.keras.Model):
     w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T = tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
-    Epsilon0_T = tf.transpose(Epsilon0_T, perm=[0,2,1,3]) # shape (B,P,S,D)
+    list_means_0_T = [tf.transpose(mean, perm=[0,2,1,3]) for mean in list_means_0_T] # shape (B,P,S,D)
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
-    self.epsilon_seq_last_layer = Epsilon0_T
+    self.means_seq = list_means_0_T
 
     attn_weights_SMC_layer = outputs[6] # shape (B,S,P,H,S)
     attn_weights_SMC_layer = tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
