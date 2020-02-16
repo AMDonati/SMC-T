@@ -134,10 +134,8 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     trainable_variables = list(smc_transformer.trainable_variables)
     trainable_variables_names = [t.name for t in trainable_variables]
     gradients = tape.gradient(loss, smc_transformer.trainable_variables)
-    #print('gradients', gradients)
-    #print('trainable_variables', trainable_variables_names)
-    var_and_grad_dict = dict(zip(trainable_variables_names, gradients))
-    print('dict of variables and associated gradients', var_and_grad_dict)
+    #var_and_grad_dict = dict(zip(trainable_variables_names, gradients))
+    #print('dict of variables and associated gradients', var_and_grad_dict)
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
