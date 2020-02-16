@@ -142,12 +142,13 @@ class Decoder(tf.keras.layers.Layer):
     self.num_layers = num_layers
     self.maximum_position_encoding=maximum_position_encoding
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+    self.input_dense_projection = tf.keras.layers.Dense(d_model) # for regression case (multivariate > to be able to have a d_model > F).
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate)
                        for _ in range(num_layers)]
     self.dropout = tf.keras.layers.Dropout(rate)
-    self.data_type=data_type
+    self.data_type = data_type
 
   def call(self, inputs, training, look_ahead_mask):
     seq_len = tf.shape(inputs)[1]
@@ -157,6 +158,9 @@ class Decoder(tf.keras.layers.Layer):
     if self.data_type=='nlp':
       inputs = self.embedding(inputs)  # (B,S,D) # CAUTION: target_vocab_size needs to be bigger than d_model...
     # TODO: see if this needs to be added for time_series as well. Yes, I think!
+    elif self.data_type == 'time_series_uni' or 'time_series_multi':
+      inputs = self.input_dense_projection(inputs)
+
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
@@ -208,14 +212,14 @@ class Transformer(tf.keras.Model):
 
 if __name__ == "__main__":
   B= 8
-  F = 1
+  F = 3
   num_layers = 4
   d_model = 64
   num_heads = 2
   dff = 128
   maximum_position_encoding = 30
-  data_type = 'nlp'
-  C = 300 #
+  data_type = 'time_series_multi'
+  C = 300
   S = 20
 
   sample_transformer = Transformer(
@@ -224,7 +228,7 @@ if __name__ == "__main__":
     maximum_position_encoding=maximum_position_encoding,
     data_type=data_type)
 
-  temp_input = tf.random.uniform((B, S), dtype=tf.float32, minval=0, maxval=200)
+  temp_input = tf.random.uniform((B, S, F), dtype=tf.float32, minval=0, maxval=200)
 
   mask=create_look_ahead_mask(S)
 

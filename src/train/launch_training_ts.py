@@ -68,13 +68,13 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_multi_VMAzure.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-config", type=str, default='../../config/config_ts_reg_multi.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output/exp_reg', help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -256,6 +256,10 @@ if __name__ == "__main__":
 
   #---------------------- TRAINING OF A SIMPLE RNN BASELINE --------------------------------------------------------------------------------------
   if args.train_rnn:
+    for (inp, _) in train_dataset.take(1):
+      pred_temp = model(inp)
+
+    print('LSTM summary', model.summary())
     start_epoch = 0
     model.compile(optimizer=optimizer,
                   loss='mse')
@@ -329,6 +333,7 @@ if __name__ == "__main__":
                               maximum_position_encoding=maximum_position_encoding_baseline,
                               data_type=data_type)
 
+
     # creating checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
     baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline")
@@ -366,6 +371,8 @@ if __name__ == "__main__":
                                                                           optimizer=optimizer,
                                                                           data_type=data_type,
                                                                           task_type=task_type)
+        if batch == 0:
+          print('baseline transformer summary', transformer.summary())
 
       for (inp, tar) in val_dataset:
         inp_model = inp[:, :-1, :]
@@ -475,7 +482,7 @@ if __name__ == "__main__":
                                               training=True,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}".format(example_batch_predictions.shape))
-
+   
     #print('summary of the SMC Transformer', smc_transformer.summary())
 
     if start_epoch > 0:
