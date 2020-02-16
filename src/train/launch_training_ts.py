@@ -633,7 +633,9 @@ if __name__ == "__main__":
                          predictions=predictions_val,
                          attn_weights=attn_weights_val,
                          pred_fname='smc_predictions.npy',
-                         attn_weights_fname='smc_attn_weights.npy')
+                         attn_weights_fname='smc_attn_weights.npy',
+                         logger=logger)
+
     model_output_path = os.path.join(output_path, "model_outputs")
     # saving weights on top of it.
     weights_fn = model_output_path + '/' + 'smc_weights.npy'

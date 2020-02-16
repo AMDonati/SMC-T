@@ -46,10 +46,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                           sigma=sigma,
                                           noise=noise)
     self.ffn = point_wise_feed_forward_network(d_model, dff)
-    self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-    self.dropout1 = tf.keras.layers.Dropout(rate)
-    self.dropout3 = tf.keras.layers.Dropout(rate)
+    self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm1')
+    self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6, name='layer_norm2')
+    self.dropout1 = tf.keras.layers.Dropout(rate, name='dropout1')
+    self.dropout3 = tf.keras.layers.Dropout(rate, name='dropout2')
 
     self.num_heads = num_heads
     self.dff = dff
@@ -70,7 +70,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.task_type=task_type
 
     # output layer for computing the weights
-    self.output_layer = tf.keras.layers.Dense(target_vocab_size)
+    self.output_layer = tf.keras.layers.Dense(target_vocab_size, name='output_layer')
 
     #------------- state_size and output_size of the SMC Cell (without the batch dimension)-----------------------------------------
 
@@ -89,7 +89,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                         tf.TensorShape([self.num_particles, 1, self.d_model]), # epsilon
                         tf.TensorShape([self.num_particles, 1, self.seq_len])) # attention_weights
 
-    self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model)
+    self.embedding = tf.keras.layers.Embedding(self.target_vocab_size, self.d_model, name='embedding_layer')
     if self.maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(self.maximum_position_encoding, self.d_model)
       self.pos_encoding_SMC = positional_encoding_SMC(self.maximum_position_encoding, self.d_model, self.num_particles)
@@ -183,7 +183,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
     #print('r', r[:,:,0])
-    #print('x', x[:,0])
+    #if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
+      #print('x', x[:,0])
     #print('K', K[:,:,:,0])
     #print('r', r)
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
@@ -223,7 +224,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
-    #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
+
+    #if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
+      #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 

@@ -18,7 +18,7 @@ def softmax_layer(logits, labels, num_labels, mask):
 
 def point_wise_feed_forward_network(d_model, dff):
   return tf.keras.Sequential([
-      tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
-      tf.keras.layers.Dense(d_model)  # (batch_size, NUM_PARTICLES, seq_len, d_model)
+      tf.keras.layers.Dense(dff, activation='relu', name='FFN1_after_mha_dff'),  # (B, S, dff)
+      tf.keras.layers.Dense(d_model, name='FFN2_after_mha_dmodel')  # (B, P, S, d_model)
   ])
 

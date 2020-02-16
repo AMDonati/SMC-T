@@ -164,8 +164,8 @@ class SMC_Transformer(tf.keras.Model):
                              noise=noise_encoder,
                              rate=rate,
                              data_type=data_type)
-    elif num_layers==1:
-      self.input_dense_projection=tf.keras.layers.Dense(d_model)
+    elif num_layers == 1:
+      self.input_dense_projection=tf.keras.layers.Dense(d_model, name='projection_layer_ts')
     else:
       raise ValueError("num_layers should be superior or equal to 1.")
 
