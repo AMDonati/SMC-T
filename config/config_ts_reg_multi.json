@@ -13,8 +13,8 @@
   "model": {
       "num_layers": 1,
       "num_heads": 1,
-      "d_model": 3,
-      "dff": 12,
+      "d_model": 12,
+      "dff": 48,
       "rate": 0.1,
       "maximum_position_encoding_baseline": "None",
       "maximum_position_encoding_smc": "None"
@@ -37,7 +37,7 @@
   "RNN_hparams": {
       "rnn_bs": 256,
       "rnn_emb_dim": 4,
-      "rnn_units": 8
+      "rnn_units": 4
   },
 
    "task": {

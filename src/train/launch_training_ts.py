@@ -73,8 +73,8 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -260,6 +260,7 @@ if __name__ == "__main__":
       pred_temp = model(inp)
 
     print('LSTM summary', model.summary())
+    #TODO: modify code (train_dataset, val_dataset to have an input of length of 24 instead of 25.)
     start_epoch = 0
     model.compile(optimizer=optimizer,
                   loss='mse')
@@ -482,7 +483,7 @@ if __name__ == "__main__":
                                               training=True,
                                               mask=create_look_ahead_mask(seq_len))
       print("predictions shape: {}".format(example_batch_predictions.shape))
-   
+
     #print('summary of the SMC Transformer', smc_transformer.summary())
 
     if start_epoch > 0:
