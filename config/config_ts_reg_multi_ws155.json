@@ -16,7 +16,7 @@
       "d_model": 3,
       "dff": 12,
       "rate": 0.1,
-      "maximum_position_encoding_baseline": "None",
+      "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
 
