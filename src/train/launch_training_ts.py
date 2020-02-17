@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
+  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args=parser.parse_args()
