@@ -21,7 +21,7 @@
   },
 
   "smc": {
-    "num_particles": 5,
+    "num_particles": 25,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
     "sigma" : 0.1
@@ -30,7 +30,7 @@
   "optim": {
       "BATCH_SIZE": 1048,
       "learning_rate": 0.001,
-      "EPOCHS": 30,
+      "EPOCHS": 20,
       "custom_schedule": "True"
   },
 
