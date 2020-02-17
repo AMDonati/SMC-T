@@ -348,7 +348,7 @@ class SMC_Transformer(tf.keras.Model):
 
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over seq dim.
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # 'uniform' mean over particle dim. (w_final= 1/M)
-      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean ober batch dim.
+      SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over batch dim.
 
     return SMC_loss
 

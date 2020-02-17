@@ -121,7 +121,7 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
                                           classic_loss=classic_loss)
 
     elif smc_transformer.task_type == 'regression':
-      loss, metric_mse = loss_function_regression(real=tar_real,
+      loss, metric_mse, loss_mse_std = loss_function_regression(real=tar_real,
                                       predictions=predictions,
                                       weights=weights,
                                       transformer=smc_transformer,
@@ -152,14 +152,14 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     train_max_acc_batch = train_accuracy(tar_real, train_max_pred_batch)
     train_accuracies = (train_inf_batch, train_avg_acc_batch, train_max_acc_batch)
   else:
-    train_accuracies = scalar_mse
+    train_accuracies = (scalar_mse, loss_mse_std)
 
   if perplexity_metric is not None:
     train_perplexity = perplexity_metric(tar_real, predictions)
   else:
     train_perplexity = None
 
-  return loss, scalar_loss, train_accuracies, train_perplexity
+  return scalar_loss, train_accuracies, train_perplexity
 
 
 @tf.function

@@ -147,8 +147,8 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
 
     # outputting the normalized mean of k,q,v to add it in the computation of the loss.
     self.mean_k = tf.scalar_mul(1/self.sigma_scalar, k - k_)
-    self.mean_v = tf.scalar_mul(1 / self.sigma_scalar, v - v_)
-    self.mean_q = tf.scalar_mul(1 / self.sigma_scalar, q - q_)
+    self.mean_v = tf.scalar_mul(1/self.sigma_scalar, v - v_)
+    self.mean_q = tf.scalar_mul(1/self.sigma_scalar, q - q_)
 
     k = self.split_heads(k, batch_size)  # (B,P,H,1,D/H)
     v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)

@@ -106,13 +106,17 @@ def mse_with_particles(real, pred):
   real = tf.expand_dims(real, axis=1)
   real= tf.tile(real, multiples=[1, num_particles, 1, 1])
   mse = tf.keras.losses.MSE
-  loss = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
+  loss_tensor = mse(y_true=real, y_pred=pred)  # shape (B,P,S)
 
-  loss = tf.reduce_mean(loss, axis=-1) # mean over seq dim > (B,P)
-  loss = tf.reduce_mean(loss, axis=-1) # mean over particles dim (weights of 1/M because is resampling is done after propagation.) > (B,)
+  loss_tensor = tf.reduce_mean(loss_tensor, axis=-1) # mean over seq dim > (B,P)
+
+  loss = tf.reduce_mean(loss_tensor, axis=-1) # mean over particles dim (weights of 1/M because is resampling is done after propagation.) > (B,)
+  loss_std = tf.math.reduce_std(loss_tensor, axis = -1)
+
   loss = tf.reduce_mean(loss, axis=-1) # mean over batch dims.
+  loss_std = tf.reduce_mean(loss_std, axis=-1)
 
-  return loss
+  return loss, loss_std
 
 
 def loss_function_classification(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
@@ -179,7 +183,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
     real=tf.tile(real, multiples=[1,num_particles,1])
   if classic_loss:
     # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
-    loss_mse = mse_with_particles(real=real, pred=predictions)
+    loss_mse, loss_mse_std = mse_with_particles(real=real, pred=predictions)
   else:
     loss_mse = 0
   if SMC_loss:
@@ -190,7 +194,7 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
   loss = loss_mse + loss_smc
 
   #TODO: add as return the loss_mse that will be used as a metric for the regression case.
-  return loss, loss_mse
+  return loss, loss_mse, loss_mse_std
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):

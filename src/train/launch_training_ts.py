@@ -78,8 +78,8 @@ if __name__ == "__main__":
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
-  args=parser.parse_args()
-  config_path=args.config
+  args = parser.parse_args()
+  config_path = args.config
 
   #------------------Uploading the hyperparameters info------------------------------------------------------------------------
 
@@ -513,7 +513,7 @@ if __name__ == "__main__":
       if test_loss:
       #TODO: check that the loss is the same for 1 particule, and 5 particules with no noise.
         for (inp_ex_batch, target_ex_batch) in dataset.take(1):
-          _, loss_temp, accuracies_temp, _ = train_step_SMC_T(inputs=inp,
+          loss_temp, accuracies_temp, _ = train_step_SMC_T(inputs=inp,
                                                             targets=tar,
                                                             smc_transformer=smc_transformer,
                                                             optimizer=optimizer,
@@ -526,19 +526,19 @@ if __name__ == "__main__":
       # training step:
       for (batch, (inp, tar)) in enumerate(dataset):
         #TODO: add the output of the weights and indices matrix every 100 steps_per_epochs.
-        loss_smc, avg_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
-                                                                         targets=tar,
-                                                                         smc_transformer=smc_transformer,
-                                                                         optimizer=optimizer,
-                                                                         train_loss=train_loss,
-                                                                         train_accuracy=train_accuracy,
-                                                                         classic_loss=True,
-                                                                         SMC_loss=True)
+        avg_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
+                                                              targets=tar,
+                                                              smc_transformer=smc_transformer,
+                                                              optimizer=optimizer,
+                                                              train_loss=train_loss,
+                                                              train_accuracy=train_accuracy,
+                                                              classic_loss=True,
+                                                              SMC_loss=True)
 
         if task_type == 'classification':
           train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
         elif task_type == 'regression':
-          mse_metric = train_accuracies
+          mse_metric, mse_loss_std= train_accuracies
 
       # compute the validation accuracy on the validation dataset:
       # TODO: here consider a validation set with a batch_size equal to the number of samples.
@@ -546,19 +546,14 @@ if __name__ == "__main__":
         (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                                                                   training=False,
                                                                                                   mask=create_look_ahead_mask(seq_len))
-        val_loss, val_loss_mse = loss_function_regression(real = tar,
+        val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real = tar,
                                                           predictions = predictions_val,
                                                           weights = weights_val,
                                                           transformer = smc_transformer)
-        # if batch % 10 == 0:
-        #   logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
-        #   logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
-        #   logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
-        #   logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
+        #TODO: add the classification case
+
       logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
-      #logger.info('indices matrix of first element of batch: {}'.format(ind_matrix_val[0,:]))
-      #logger.info('indices matrix of second element of batch: {}'.format(ind_matrix_val[1, :]))
-      #logger.info('indices matrix of third element of batch: {}'.format(ind_matrix_val[2, :]))
+
 
       #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 
@@ -597,12 +592,14 @@ if __name__ == "__main__":
         val_acc_variance_history.append(val_acc_variance)
 
       elif task_type == 'regression':
-        mse_metric = train_accuracies
-        template = 'train loss {} -  train mse loss: {} - val loss: {} - val mse loss: {}'
+        mse_metric, mse_loss_std = train_accuracies
+        template = 'train loss {} -  train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
         logger.info(template.format(avg_loss_batch.numpy(),
                                     mse_metric.numpy(),
+                                    mse_loss_std.numpy(),
                                     val_loss.numpy(),
-                                    val_loss_mse.numpy()))
+                                    val_loss_mse.numpy(),
+                                    val_loss_mse_std.numpy()))
 
         #TODO: add a tf.keras.metrics.Mean
         # saving loss and metrics information:
