@@ -130,7 +130,16 @@ def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_
   val_dataset = tf.data.Dataset.from_tensor_slices((val_data, y_val))
   val_dataset = val_dataset.batch(BATCH_SIZE, drop_remainder=True)
 
-  return train_dataset, val_dataset
+  train_dataset_for_RNN = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+  train_dataset_for_RNN = train_dataset_for_RNN.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+
+  val_dataset_for_RNN = tf.data.Dataset.from_tensor_slices((x_val, y_val))
+  val_dataset_for_RNN = val_dataset_for_RNN.batch(BATCH_SIZE, drop_remainder=True)
+
+
+  return train_dataset, val_dataset, train_dataset_for_RNN, val_dataset_for_RNN
+
+
 
 if __name__ == "__main__":
 

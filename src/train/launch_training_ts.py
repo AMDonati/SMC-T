@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args=parser.parse_args()
@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
   BUFFER_SIZE = 10000
 
-  train_dataset, val_dataset = data_to_dataset_uni_step(train_data=train_data,
+  train_dataset, val_dataset, train_dataset_for_RNN, val_dataset_for_RNN = data_to_dataset_uni_step(train_data=train_data,
                                                         val_data=val_data,
                                                         split_fn=split_input_target_uni_step,
                                                         BUFFER_SIZE=BUFFER_SIZE,
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
   num_classes= 25 if data_type == 'classification' else 1
   target_vocab_size = num_classes # 25 bins
-  seq_len = train_data.shape[1] - 1 # 24 observations
+  seq_len = train_data.shape[1] - 1 # 24 observationse
   training_samples = train_data.shape[0]
   steps_per_epochs = int(train_data.shape[0]/BATCH_SIZE)
 
@@ -265,9 +265,9 @@ if __name__ == "__main__":
     model.compile(optimizer=optimizer,
                   loss='mse')
     start_training = time.time()
-    rnn_history=model.fit(train_dataset,
+    rnn_history=model.fit(train_dataset_for_RNN,
               epochs=EPOCHS,
-              validation_data=val_dataset,
+              validation_data=val_dataset_for_RNN,
               verbose=2)
 
     train_loss_history_rnn = rnn_history.history['loss']

@@ -152,6 +152,38 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
     return w
 
+  def inference_function(self, inputs, num_samples, inference_decoding_timestep):
+    assert self.training is False
+    sampled_z = []
+    N = num_samples
+    t = inference_decoding_timestep
+
+    r = inputs # x after one dense layer.
+
+    input_mha = tf.expand_dims(r, axis=2)  # shape (B,P,1,D)
+    inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
+
+    for n in range(N):
+      (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep = t, K=K, V=V)
+      sampled_z.append(z)
+
+    sampled_z=tf.stack(z, axis=1) # > (B,N,P,1,D)
+
+    #PASS FORWARD UNTIL OUTPUT LAYER:
+    z = self.dropout1(sampled_z, training=self.training)
+    #TODO: add computation of r from the inputs (or r = inputs?)
+    r = tf.expand_dims(r, axis=2)
+    out1 = self.layernorm1(z + r)
+    ffn_output = self.ffn(out1)  # (batch_size, NUM_PARTICLES, target_seq_len, d_model)
+    ffn_output = self.dropout3(ffn_output, training=self.training)
+    sampled_out3 = self.layernorm3(ffn_output + out1)  # (B, N, P, 1, D)
+    sampled_pred_N_P = self.output_layer(sampled_out3) + tf.scalar_mul(self.sigma_scalar, tf.random.normal(shape=sampled_out3)) # (B,N,P,1,V)
+    pred_particles_P = tf.reduce_mean(sampled_pred_N_P, axis=1) # (B,P,1,V)
+    inf_prediction = tf.reduce_mean(pred_particles_P, axis=1)  # (B,1,V)
+
+    return inf_prediction, pred_particles_P, sampled_pred_N_P
+
+
   def call(self, inputs, states):
     # x -> r
     # w -> prev_sampling_weights
