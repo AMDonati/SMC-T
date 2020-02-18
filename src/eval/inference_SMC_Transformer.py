@@ -90,8 +90,6 @@ if __name__ == "__main__":
     task_type=task_type,
     target_feature=target_feature)
 
-  mask = create_look_ahead_mask(seq_len)
-
   inputs = tf.random.uniform(shape=(b,seq_len,F))
   input_seq_length = 13
 
