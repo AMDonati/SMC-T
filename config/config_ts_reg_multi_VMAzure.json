@@ -12,19 +12,19 @@
 
   "model": {
       "num_layers": 1,
-      "num_heads": 1,
-      "d_model": 3,
-      "dff": 12,
+      "num_heads": 4,
+      "d_model": 12,
+      "dff": 48,
       "rate": 0.1,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 25,
+    "num_particles": 5,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
-    "sigma" : 0.1
+    "sigma" : 0.05
   },
 
   "optim": {
