@@ -1,0 +1,166 @@
+INFO:training log:model hyperparameters from the config file: {'num_layers': 1, 'num_heads': 1, 'd_model': 12, 'dff': 48, 'rate': 0.1, 'maximum_position_encoding_baseline': 50, 'maximum_position_encoding_smc': 'None'}
+INFO:training log:smc hyperparameters from the config file: {'num_particles': 5, 'noise_encoder': 'False', 'noise_SMC_layer': 'True', 'sigma': 0.1}
+INFO:training log:starting the training of the smc transformer...
+INFO:training log:number of training samples: 336290
+INFO:training log:steps per epoch: 320
+WARNING:tensorflow:Layer smc__transformer is casting an input tensor from dtype float64 to the layer's dtype of float32, which is new behavior in TensorFlow 2.  The layer has dtype float32 because it's dtype defaults to floatx.
+
+If you intended to run this layer in float32, you can safely ignore this warning. If in doubt, this warning is likely only an issue if you are porting a TensorFlow 1.X model to TensorFlow 2.
+
+To change all layers to have dtype float64 by default, call `tf.keras.backend.set_floatx('float64')`. To change just this layer, pass dtype='float64' to the layer constructor. If you are the author of this layer, you can disable autocasting by passing autocast=False to the base Layer constructor.
+
+INFO:training log:Epoch 1/30
+INFO:training log:final weights of first 3 elements of batch: [0.19376622 0.20094167 0.19593647 0.2095208  0.19983488], [0.17508371 0.10007037 0.22823921 0.21132544 0.2852813 ], [0.202427   0.19912934 0.19958417 0.201601   0.1972585 ]
+INFO:training log:train loss 24.24616050720215 -  train mse loss: 0.25306904315948486 - train loss std (mse): 0.043458275496959686 - val loss: 24.198760986328125 - val mse loss: 0.20488208532333374 - val loss std (mse): 0.025635700672864914
+INFO:training log:Time taken for 1 epoch: 1038.4723613262177 secs
+
+INFO:training log:Epoch 2/30
+INFO:training log:final weights of first 3 elements of batch: [0.20576438 0.19865514 0.21130583 0.17404321 0.21023148], [0.21034552 0.221644   0.15341361 0.21193422 0.2026626 ], [0.19756596 0.20012914 0.20081796 0.20027627 0.20121066]
+INFO:training log:train loss 24.064224243164062 -  train mse loss: 0.060891635715961456 - train loss std (mse): 0.010937473736703396 - val loss: 24.02690315246582 - val mse loss: 0.03966911509633064 - val loss std (mse): 0.0057678851298987865
+INFO:training log:Time taken for 1 epoch: 1042.7395176887512 secs
+
+INFO:training log:Epoch 3/30
+INFO:training log:final weights of first 3 elements of batch: [0.21265544 0.17731966 0.17913936 0.20809276 0.2227927 ], [0.20563184 0.18688126 0.19000036 0.20927097 0.2082155 ], [0.20141524 0.1993608  0.19846438 0.20048249 0.20027716]
+INFO:training log:train loss 24.024654388427734 -  train mse loss: 0.03093896433711052 - train loss std (mse): 0.006223523989319801 - val loss: 24.017086029052734 - val mse loss: 0.017946479842066765 - val loss std (mse): 0.0033972959499806166
+INFO:training log:Time taken for 1 epoch: 1044.7137715816498 secs
+
+INFO:training log:Epoch 4/30
+INFO:training log:final weights of first 3 elements of batch: [0.20680667 0.19634962 0.19600661 0.22506489 0.17577219], [0.19893418 0.19511986 0.21100216 0.18931763 0.20562616], [0.1992696  0.20217751 0.19807073 0.20032711 0.20015515]
+INFO:training log:train loss 24.026601791381836 -  train mse loss: 0.018598606809973717 - train loss std (mse): 0.00406102929264307 - val loss: 23.97814178466797 - val mse loss: 0.011214802972972393 - val loss std (mse): 0.0023063819389790297
+INFO:training log:Time taken for 1 epoch: 1039.7267372608185 secs
+
+INFO:training log:Epoch 5/30
+INFO:training log:final weights of first 3 elements of batch: [0.18703184 0.19869463 0.19469655 0.207951   0.21162607], [0.21515472 0.20589437 0.19492665 0.18651119 0.19751309], [0.20021415 0.20264257 0.20180492 0.19905986 0.19627854]
+INFO:training log:train loss 24.004680633544922 -  train mse loss: 0.012109000235795975 - train loss std (mse): 0.002703570295125246 - val loss: 24.006847381591797 - val mse loss: 0.008151569403707981 - val loss std (mse): 0.0016915679443627596
+INFO:training log:Time taken for 1 epoch: 1043.320333480835 secs
+
+INFO:training log:Epoch 6/30
+INFO:training log:final weights of first 3 elements of batch: [0.2066012  0.17596354 0.20374481 0.20834093 0.20534958], [0.20372206 0.20259815 0.20655848 0.18480174 0.20231956], [0.20047528 0.19981603 0.20190917 0.19836241 0.1994371 ]
+INFO:training log:train loss 24.01568031311035 -  train mse loss: 0.008957757614552975 - train loss std (mse): 0.0019366357009857893 - val loss: 24.006332397460938 - val mse loss: 0.005976206157356501 - val loss std (mse): 0.0011897665681317449
+INFO:training log:Time taken for 1 epoch: 1046.2816977500916 secs
+
+INFO:training log:Epoch 7/30
+INFO:training log:final weights of first 3 elements of batch: [0.19156617 0.21153669 0.20340315 0.19034497 0.20314899], [0.19532816 0.20497148 0.19507593 0.19502914 0.20959525], [0.20268781 0.19745028 0.1989387  0.20183292 0.19909024]
+INFO:training log:train loss 24.000816345214844 -  train mse loss: 0.007769210729748011 - train loss std (mse): 0.0016307056648656726 - val loss: 24.017789840698242 - val mse loss: 0.005214504897594452 - val loss std (mse): 0.0010083343368023634
+INFO:training log:Time taken for 1 epoch: 1047.343141078949 secs
+
+INFO:training log:Epoch 8/30
+INFO:training log:final weights of first 3 elements of batch: [0.19665802 0.20308188 0.20019346 0.19644862 0.20361803], [0.20100415 0.1970481  0.20425014 0.19472294 0.20297466], [0.20100933 0.1975276  0.20163432 0.20281643 0.19701238]
+INFO:training log:train loss 24.006486892700195 -  train mse loss: 0.007355892099440098 - train loss std (mse): 0.0015624582301825285 - val loss: 24.020610809326172 - val mse loss: 0.005320799071341753 - val loss std (mse): 0.0009808596223592758
+INFO:training log:Time taken for 1 epoch: 1043.2550208568573 secs
+
+INFO:training log:Epoch 9/30
+INFO:training log:final weights of first 3 elements of batch: [0.19130109 0.19676097 0.20882413 0.2017612  0.20135264], [0.20315835 0.21056758 0.19053766 0.20166068 0.19407573], [0.19945835 0.2004186  0.19988374 0.19927025 0.20096906]
+INFO:training log:train loss 24.01576042175293 -  train mse loss: 0.006428314372897148 - train loss std (mse): 0.0012666265247389674 - val loss: 24.00958251953125 - val mse loss: 0.004415178205817938 - val loss std (mse): 0.0007990938611328602
+INFO:training log:Time taken for 1 epoch: 1044.4285426139832 secs
+
+INFO:training log:Epoch 10/30
+INFO:training log:final weights of first 3 elements of batch: [0.19666186 0.19647223 0.20509398 0.19034073 0.21143119], [0.20006879 0.19620207 0.20243949 0.20269066 0.19859901], [0.19689387 0.19944136 0.20297998 0.20252284 0.19816194]
+INFO:training log:train loss 24.011119842529297 -  train mse loss: 0.006014584563672543 - train loss std (mse): 0.001156255486421287 - val loss: 24.000085830688477 - val mse loss: 0.004410166759043932 - val loss std (mse): 0.000765508390031755
+INFO:training log:Time taken for 1 epoch: 1042.6910650730133 secs
+
+INFO:training log:Epoch 11/30
+INFO:training log:final weights of first 3 elements of batch: [0.20870064 0.19871189 0.19150926 0.19171184 0.20936634], [0.18827847 0.20242058 0.19970277 0.20437579 0.20522237], [0.19752306 0.2006907  0.20084086 0.20255223 0.19839314]
+INFO:training log:train loss 24.031082153320312 -  train mse loss: 0.0056790439411997795 - train loss std (mse): 0.0010636603692546487 - val loss: 23.9969425201416 - val mse loss: 0.00459019560366869 - val loss std (mse): 0.000770748418290168
+INFO:training log:Time taken for 1 epoch: 1045.6899466514587 secs
+
+INFO:training log:Epoch 12/30
+INFO:training log:final weights of first 3 elements of batch: [0.19646363 0.19090885 0.21086575 0.19749708 0.20426464], [0.19617115 0.20379335 0.1996159  0.20152159 0.19889803], [0.1964355  0.20285061 0.19890319 0.20187141 0.19993934]
+INFO:training log:train loss 23.996379852294922 -  train mse loss: 0.005422793794423342 - train loss std (mse): 0.0010186219587922096 - val loss: 24.017696380615234 - val mse loss: 0.004104078281670809 - val loss std (mse): 0.0006482813041657209
+INFO:training log:Time taken for 1 epoch: 1043.0932273864746 secs
+
+INFO:training log:Epoch 13/30
+INFO:training log:final weights of first 3 elements of batch: [0.19627635 0.19958822 0.1977891  0.20622468 0.20012167], [0.19759624 0.20070252 0.20466532 0.19725034 0.1997856 ], [0.19991723 0.19915852 0.1998221  0.20107166 0.20003048]
+INFO:training log:train loss 24.019437789916992 -  train mse loss: 0.005179464351385832 - train loss std (mse): 0.0008931155316531658 - val loss: 23.994871139526367 - val mse loss: 0.004423792473971844 - val loss std (mse): 0.0006704821716994047
+INFO:training log:Time taken for 1 epoch: 1046.0167560577393 secs
+
+INFO:training log:Epoch 14/30
+INFO:training log:final weights of first 3 elements of batch: [0.19402306 0.20625368 0.19602369 0.20437971 0.19931984], [0.20723648 0.19338423 0.19851622 0.19915408 0.20170899], [0.1998343  0.20054388 0.20079897 0.19870195 0.20012094]
+INFO:training log:train loss 23.996082305908203 -  train mse loss: 0.004502990748733282 - train loss std (mse): 0.0008091466152109206 - val loss: 23.996906280517578 - val mse loss: 0.003675694577395916 - val loss std (mse): 0.0005652097752317786
+INFO:training log:Time taken for 1 epoch: 1043.6504292488098 secs
+
+INFO:training log:Epoch 15/30
+INFO:training log:final weights of first 3 elements of batch: [0.19574404 0.2088507  0.19558963 0.19662471 0.20319097], [0.19682825 0.197092   0.19931972 0.19989789 0.20686217], [0.2010132  0.19656783 0.2014524  0.2017783  0.19918823]
+INFO:training log:train loss 23.998807907104492 -  train mse loss: 0.005077781155705452 - train loss std (mse): 0.0008592671365477145 - val loss: 23.982158660888672 - val mse loss: 0.003851243993267417 - val loss std (mse): 0.0005712724523618817
+INFO:training log:Time taken for 1 epoch: 1044.545551776886 secs
+
+INFO:training log:Epoch 16/30
+INFO:training log:final weights of first 3 elements of batch: [0.2054297  0.1972636  0.18895525 0.21028551 0.19806588], [0.20689578 0.20759845 0.19595583 0.19364652 0.19590347], [0.20138314 0.19959472 0.19935258 0.20099498 0.19867454]
+INFO:training log:train loss 24.02535057067871 -  train mse loss: 0.004813560284674168 - train loss std (mse): 0.0007675365195609629 - val loss: 24.00356674194336 - val mse loss: 0.0038979840464890003 - val loss std (mse): 0.0005494736833497882
+INFO:training log:Time taken for 1 epoch: 1045.0496907234192 secs
+
+INFO:training log:Epoch 17/30
+INFO:training log:final weights of first 3 elements of batch: [0.20009835 0.19997165 0.20237032 0.2002588  0.19730087], [0.20691735 0.19751263 0.19939822 0.19888332 0.19728845], [0.19818538 0.19973148 0.20105219 0.2027798  0.19825114]
+INFO:training log:train loss 24.02858543395996 -  train mse loss: 0.0046789818443357944 - train loss std (mse): 0.0007643926073797047 - val loss: 24.010099411010742 - val mse loss: 0.004216780886054039 - val loss std (mse): 0.0005642495234496891
+INFO:training log:Time taken for 1 epoch: 1046.8085997104645 secs
+
+INFO:training log:Epoch 18/30
+INFO:training log:final weights of first 3 elements of batch: [0.20792869 0.20136832 0.19497366 0.20077905 0.19495025], [0.198517   0.20376436 0.20197676 0.1978757  0.19786626], [0.2003381  0.20056638 0.20156671 0.19847207 0.19905677]
+INFO:training log:train loss 23.989032745361328 -  train mse loss: 0.00467586237937212 - train loss std (mse): 0.0007196356891654432 - val loss: 24.017921447753906 - val mse loss: 0.0045397235080599785 - val loss std (mse): 0.0005808487185277045
+INFO:training log:Time taken for 1 epoch: 1046.007274389267 secs
+
+INFO:training log:Epoch 19/30
+INFO:training log:final weights of first 3 elements of batch: [0.20515837 0.19283119 0.20558177 0.19937074 0.19705799], [0.20306863 0.1980537  0.20268412 0.1989057  0.19728784], [0.20072436 0.20067446 0.20111363 0.19936961 0.19811791]
+INFO:training log:train loss 24.018417358398438 -  train mse loss: 0.004112575203180313 - train loss std (mse): 0.0006685748230665922 - val loss: 24.003299713134766 - val mse loss: 0.004502463154494762 - val loss std (mse): 0.000560650834813714
+INFO:training log:Time taken for 1 epoch: 1046.2943353652954 secs
+
+INFO:training log:Epoch 20/30
+INFO:training log:final weights of first 3 elements of batch: [0.2016093  0.1939846  0.1963329  0.20471823 0.20335498], [0.19432132 0.1983825  0.20782332 0.1925139  0.20695905], [0.19845133 0.20160998 0.20041096 0.19864845 0.20087934]
+INFO:training log:train loss 23.9936466217041 -  train mse loss: 0.004131436347961426 - train loss std (mse): 0.0006785440491512418 - val loss: 24.017343521118164 - val mse loss: 0.003984059672802687 - val loss std (mse): 0.0005095017841085792
+INFO:training log:Time taken for 1 epoch: 1041.648404598236 secs
+
+INFO:training log:Epoch 21/30
+INFO:training log:final weights of first 3 elements of batch: [0.19329943 0.19757459 0.2009685  0.20986888 0.19828862], [0.19975737 0.19526197 0.19634114 0.20887564 0.19976382], [0.20067422 0.19802399 0.20109941 0.19983241 0.20037003]
+INFO:training log:train loss 24.006614685058594 -  train mse loss: 0.004351027309894562 - train loss std (mse): 0.0006465797778218985 - val loss: 24.006444931030273 - val mse loss: 0.004205500707030296 - val loss std (mse): 0.0005017576622776687
+INFO:training log:Time taken for 1 epoch: 1042.75425863266 secs
+
+INFO:training log:Epoch 22/30
+INFO:training log:final weights of first 3 elements of batch: [0.19915266 0.20300943 0.20420143 0.20043659 0.19319986], [0.20183294 0.20324166 0.19847247 0.19678707 0.19966583], [0.19914867 0.20009105 0.20059252 0.2000725  0.20009525]
+INFO:training log:train loss 23.9824161529541 -  train mse loss: 0.004244064446538687 - train loss std (mse): 0.0006595547311007977 - val loss: 23.98771858215332 - val mse loss: 0.004060792736709118 - val loss std (mse): 0.000501125818118453
+INFO:training log:Time taken for 1 epoch: 1042.781841993332 secs
+
+INFO:training log:Epoch 23/30
+INFO:training log:final weights of first 3 elements of batch: [0.20534429 0.19814855 0.19482775 0.19721329 0.2044661 ], [0.1978313  0.20197064 0.20013317 0.20165108 0.1984138 ], [0.19892654 0.20044416 0.19999796 0.20017733 0.20045412]
+INFO:training log:train loss 24.00777816772461 -  train mse loss: 0.004161350429058075 - train loss std (mse): 0.0006397485267370939 - val loss: 24.004955291748047 - val mse loss: 0.003863312304019928 - val loss std (mse): 0.0004712435184046626
+INFO:training log:Time taken for 1 epoch: 1043.844066143036 secs
+
+INFO:training log:Epoch 24/30
+INFO:training log:final weights of first 3 elements of batch: [0.20463774 0.19351791 0.20199443 0.19665222 0.20319772], [0.19951491 0.1974235  0.20553066 0.19582894 0.20170201], [0.201429   0.1992364  0.1986332  0.20076518 0.19993632]
+INFO:training log:train loss 24.000158309936523 -  train mse loss: 0.004168311599642038 - train loss std (mse): 0.0006613022997044027 - val loss: 24.001737594604492 - val mse loss: 0.004538433160632849 - val loss std (mse): 0.0005170807708054781
+INFO:training log:Time taken for 1 epoch: 1042.7927360534668 secs
+
+INFO:training log:Epoch 25/30
+INFO:training log:final weights of first 3 elements of batch: [0.1968315  0.2033448  0.20458369 0.19577143 0.19946857], [0.20247476 0.19468936 0.19996974 0.205875   0.19699115], [0.20085351 0.19887595 0.20039357 0.19979154 0.2000854 ]
+INFO:training log:train loss 24.02092742919922 -  train mse loss: 0.003838009899482131 - train loss std (mse): 0.0006270704325288534 - val loss: 23.997779846191406 - val mse loss: 0.0040057022124528885 - val loss std (mse): 0.0004669938643928617
+INFO:training log:Time taken for 1 epoch: 1044.1083993911743 secs
+
+INFO:training log:Epoch 26/30
+INFO:training log:final weights of first 3 elements of batch: [0.19607735 0.19785415 0.19984886 0.20472294 0.20149672], [0.19689485 0.20286664 0.19545646 0.20239204 0.20239   ], [0.19982967 0.20033057 0.20139508 0.19867127 0.19977336]
+INFO:training log:train loss 24.00560760498047 -  train mse loss: 0.003879820927977562 - train loss std (mse): 0.0005998816341161728 - val loss: 24.006160736083984 - val mse loss: 0.0038310338277369738 - val loss std (mse): 0.00044580420944839716
+INFO:training log:Time taken for 1 epoch: 1049.9766988754272 secs
+
+INFO:training log:Epoch 27/30
+INFO:training log:final weights of first 3 elements of batch: [0.19549917 0.20512508 0.2059809  0.1918638  0.2015311 ], [0.1981874  0.20475166 0.20048831 0.20135432 0.19521831], [0.19992399 0.19949885 0.2019637  0.19985762 0.19875583]
+INFO:training log:train loss 24.01380729675293 -  train mse loss: 0.004076565615832806 - train loss std (mse): 0.0005988688790239394 - val loss: 24.0013427734375 - val mse loss: 0.004530915059149265 - val loss std (mse): 0.00048792868619784713
+INFO:training log:Time taken for 1 epoch: 1049.8441624641418 secs
+
+INFO:training log:Epoch 28/30
+INFO:training log:final weights of first 3 elements of batch: [0.19820222 0.1999278  0.20559932 0.19869699 0.19757365], [0.20389141 0.19961956 0.19909534 0.19369835 0.20369527], [0.20098482 0.20124157 0.19683497 0.20099139 0.1999472 ]
+INFO:training log:train loss 23.98921012878418 -  train mse loss: 0.0039091710932552814 - train loss std (mse): 0.0005724639631807804 - val loss: 23.998126983642578 - val mse loss: 0.004033643752336502 - val loss std (mse): 0.00045471524936147034
+INFO:training log:Time taken for 1 epoch: 1050.7299926280975 secs
+
+INFO:training log:Epoch 29/30
+INFO:training log:final weights of first 3 elements of batch: [0.19503985 0.1998318  0.20722634 0.19792713 0.19997495], [0.20013681 0.19743498 0.20193295 0.19501126 0.20548403], [0.20083687 0.20015758 0.20025307 0.19965638 0.19909607]
+INFO:training log:train loss 23.996763229370117 -  train mse loss: 0.0038017109036445618 - train loss std (mse): 0.0005746120004914701 - val loss: 24.006250381469727 - val mse loss: 0.004060117527842522 - val loss std (mse): 0.00045184718328528106
+INFO:training log:Time taken for 1 epoch: 1050.2077615261078 secs
+
+INFO:training log:Epoch 30/30
+INFO:training log:final weights of first 3 elements of batch: [0.19814283 0.1993482  0.20209032 0.20145302 0.19896553], [0.19747221 0.19838941 0.20196478 0.19970207 0.20247157], [0.20039915 0.19884127 0.1997582  0.20123485 0.19976644]
+INFO:training log:train loss 23.992021560668945 -  train mse loss: 0.003952643368393183 - train loss std (mse): 0.0005698514287360013 - val loss: 23.983470916748047 - val mse loss: 0.003715834114700556 - val loss std (mse): 0.00042032625060528517
+INFO:training log:Time taken for 1 epoch: 1042.6866664886475 secs
+
+INFO:training log:total training time for 30 epochs:31341.512790203094
+INFO:training log:saving loss and metrics information...
+INFO:training log:saving model output in .npy files...
+INFO:training log:training of SMC Transformer for a time-series dataset done...
+INFO:training log:>>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<
