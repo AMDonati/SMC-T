@@ -21,7 +21,7 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
   if K is not None:
     # compute K(0:k) from K(0:k-1) & k
     # dim of K in the case of multi-head attention: (batch_size, num_particles, num_heads, seq_length, Depth)
-    if K.shape[3] == dec_timestep:
+    if dec_timestep == tf.shape(K)[3]: # here sequence is the third dimension (because of the head dimension).
       K = tf.concat([K[:, :, :, :dec_timestep-1, :], k], axis=3)
     elif dec_timestep == 0:
       K = tf.concat([k, K[:, :, :, dec_timestep + 1:, :]], axis=3)
@@ -33,7 +33,7 @@ def self_attention_SMC(q, k, v, dec_timestep, K=None, V=None):
     # compute the V(0:k) with V(0:k-1) & v
     if dec_timestep == 0:
       V = tf.concat([v, V[:, :, :, dec_timestep+1:, :]], axis=3)
-    elif V.shape[3] == dec_timestep:
+    elif dec_timestep == tf.shape(V)[3]:
       V = tf.concat([V[:, :, :, :dec_timestep-1, :], v], axis=3)
     else:
       V = tf.concat([V[:, :, :, :dec_timestep, :], v, V[:, :, :, dec_timestep+1:, :]], axis=3)

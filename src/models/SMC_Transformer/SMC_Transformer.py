@@ -6,11 +6,9 @@ from neural_toolbox.SMC_layers import DecoderLayer
 from neural_toolbox.SMC_TransformerCell import SMC_Transf_Cell
 from models.SMC_Transformer.transformer_utils import initialize_indices_matrix
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 from train.SMC_loss import compute_SMC_log_likelihood
 from train.SMC_loss import compute_SMC_ll_one_layer
 import collections
-from models.SMC_Transformer.transformer_utils import resample
 
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
@@ -460,9 +458,12 @@ class SMC_Transformer(tf.keras.Model):
 
     list_means_0_T = outputs[5] # shape (B,S,P,D)
 
-    K = new_states[0]
-    #print('final K', K[:,:,:,0])
-    V = new_states[1]
+    K = new_states[0] # (B,P,S+1,D)
+    K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
+
+    V = new_states[1] # (B,P,S+1,D)
+    V = V[:,:,1:,:] # (B,S,P,D)
+
     w_T = new_states[2]
     #TODO: output both w and the matrix of indices matrix. (to save).
     I = new_states[3]
@@ -488,10 +489,10 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, I), (inference_pred, good_avg_predictions, max_predictions), attn_weights
+    return (Y0_T, Z0_T, w_T, (K,V)), (inference_pred, good_avg_predictions, max_predictions), attn_weights
 
 if __name__ == "__main__":
-  num_particles = 5
+  num_particles = 10
   seq_len = 5
   b = 1
   F = 3 # multivariate case.
@@ -550,11 +551,12 @@ if __name__ == "__main__":
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   mask = create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
+  (predictions, trajectories, weights, (K,V)), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
-
   print('final predictions', predictions)
+  print('final K', K)
+  print('final V', V)
 
   inference_pred, good_avg_pred, max_pred = predictions_metric
   #print('Transformer output', predictions.shape)  # (B,P,S,C)
@@ -565,10 +567,6 @@ if __name__ == "__main__":
   #print('good average predictions', good_avg_pred.shape)  # (B,P,V)
   #print('max_predictions', max_pred.shape)
 
-
-  #print('w_T for element 0 of the batch', weights[0,:])
-  #print('indices matrix for element 0 of the batch', ind_matrix[0,:])
-
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)
 
@@ -576,3 +574,19 @@ if __name__ == "__main__":
 
   SMC_loss = sample_transformer.compute_SMC_log_likelihood(sampling_weights=weights)
   print('SMC_loss', SMC_loss.numpy())
+
+  ### test of inference function.
+  input = inputs[:,-1,:] # (B,F)
+  input = tf.expand_dims(input, axis=1) # (B,1,F)
+  input = tf.tile(input, multiples=[1, num_particles, 1]) # (B,P,F)
+  input = tf.expand_dims(input, axis=2) # (B,P,1,F)
+  input = tf.cast(input, dtype = tf.float32)
+  input = sample_transformer.input_dense_projection(input) # (B,P,1,D)
+
+  inference_dec_timestep = tf.shape(K)[2]
+  num_samples = 2
+  preds, attn_params = sample_transformer.cell.inference_function(inputs=input,
+                                                                  K=K,
+                                                                  V=V,
+                                                                  num_samples=num_samples,
+                                                                  inference_decoding_timestep=inference_dec_timestep)

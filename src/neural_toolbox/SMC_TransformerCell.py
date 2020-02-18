@@ -152,43 +152,67 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
     return w
 
-  def inference_function(self, inputs, num_samples, inference_decoding_timestep):
-    #TODO: put this in the SMC Transformer instead??
-    assert self.training is False
-    sampled_z = []
+  def inference_function(self, inputs, K, V, num_samples, inference_decoding_timestep):
+    '''
+    :param inputs preprocessed: input data > shape (B,P,1,D)
+    :param K: key matrix in self_attention > shape (B,P,S,D)
+    :param V: value matrix in self_attention > shape (B,P,S,D)
+    :param num_samples:
+    :param inference_decoding_timestep:
+    :return:
+    '''
+    sampled_z, sampled_K, sampled_V = [], [], []
     N = num_samples
     t = inference_decoding_timestep
 
-    r = inputs # x after one dense layer.
-
-    input_mha = tf.expand_dims(r, axis=2)  # shape (B,P,1,D)
-    inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
+    inputs_mha = [inputs for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
 
     for n in range(N):
-      (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep = t, K=K, V=V)
-      sampled_z.append(z)
+      (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=t, K=K, V=V)
+      sampled_z.append(z) # (B,P,1,D)
+      sampled_K.append(K) # (B,P,S,D)
+      sampled_V.append(V) # (B,P,S,D)
 
-    sampled_z=tf.stack(z, axis=1) # > (B,N,P,1,D)
+    sampled_z = tf.stack(sampled_z, axis=1) # (B,N,P,1,D)
+    sampled_K = tf.stack(sampled_K, axis=1) # (B,N,P,S,D)
+    sampled_V = tf.stack(sampled_V, axis=1) # (B,N,P,S,D)
 
-    #PASS FORWARD UNTIL OUTPUT LAYER:
-    z = self.dropout1(sampled_z, training=self.training)
-    #TODO: add computation of r from the inputs (or r = inputs?)
-    r = tf.expand_dims(r, axis=2)
-    out1 = self.layernorm1(z + r) # (B, N, P, 1, D)
+    mean_sampled_z = tf.reduce_mean(sampled_z, axis=1)
+    new_K = tf.reduce_mean(sampled_K, axis=1)
+    new_V = tf.reduce_mean(sampled_V, axis=1)
+
+    shape_NP = (tf.shape(sampled_z)[0],
+                tf.shape(sampled_z)[1]*tf.shape(sampled_z)[2],
+                -1,
+                tf.shape(sampled_z)[3], tf.shape(sampled_z)[-1])
+    sampled_z = tf.reshape(sampled_z, shape=shape_NP) # shape (B,N*P,1,1,D)
+    sampled_z = tf.squeeze(sampled_z, axis = 2) # shape (B,N*P,1,D)
+
+    # pass forward until output layer for sampled_z
+    z = self.dropout1(sampled_z, training=False)
+    inputs_N = tf.tile(inputs, multiples=[1,num_samples,1,1]) # (B,N*P,1,D)
+    out1 = self.layernorm1(z + inputs_N) # (B, N, P, 1, D)
     ffn_output = self.ffn(out1)  # (B, N, P, 1, D)
-    ffn_output = self.dropout3(ffn_output, training=self.training) # (B, N, P, 1, D)
+    ffn_output = self.dropout3(ffn_output, training=False) # (B, N, P, 1, D)
     sampled_out3 = self.layernorm3(ffn_output + out1)  # (B, N, P, 1, D)
-    sampled_pred_N_P = self.output_layer(sampled_out3) + tf.random.normal(shape=sampled_out3) # (B,N,P,1,V)
-    pred_particles_P = tf.reduce_mean(sampled_pred_N_P, axis=1) # (B,P,1,V)
+    sampled_pred_N_P = self.output_layer(sampled_out3)
+    sampled_pred_N_P = sampled_pred_N_P + tf.random.normal(shape=tf.shape(sampled_pred_N_P))# (B,NP,1,F)
+
+    # pass forward until output layer for mean_sampled_z
+    mean_z = self.dropout1(mean_sampled_z, training=False)
+    mean_out1 = self.layernorm1(mean_z + inputs) # (B, N, P, 1, D)
+    mean_ffn_output = self.ffn(mean_out1)  # (B, N, P, 1, D)
+    mean_ffn_output = self.dropout3(mean_ffn_output, training=False) # (B, N, P, 1, D)
+    mean_sampled_out3 = self.layernorm3(mean_ffn_output + mean_out1)  # (B, N, P, 1, D)
+    pred_particles_P = self.output_layer(mean_sampled_out3)
+    pred_particles_P = pred_particles_P + tf.random.normal(shape=tf.shape(pred_particles_P))# (B,NP,1,F)
+
     inf_prediction = tf.reduce_mean(pred_particles_P, axis=1)  # (B,1,V)
 
-    return inf_prediction, pred_particles_P, sampled_pred_N_P
+    return (inf_prediction, pred_particles_P, sampled_pred_N_P), (new_K, new_V)
 
 
   def call(self, inputs, states):
-    # x -> r
-    # w -> prev_sampling_weights
-    # y -> target_word_id
     '''
     -args:
       - inputs: (r^{l-1}[0:T] > shape (B, P, S, D) , (X tiled. (X[0:T] input of the while model) > shape (B,P,S).
@@ -215,11 +239,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
-    #print('r', r[:,:,0])
-    #if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
-      #print('x', x[:,0])
-    #print('K', K[:,:,:,0])
-    #print('r', r)
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
@@ -235,31 +254,19 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       # otherwise K,V is not updated.
       (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
-    #TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
-    #TODO: put this as an internal function of the cell to be used for inference as well.
-
-    #print('K propagated (after mha)', K[:,:,:,0])
-
-    #print('z', z[:,:,:,0])
-
+    # TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     r = tf.expand_dims(r, axis=2)
     out1 = self.layernorm1(z + r) # r corresponds here to r^(l-1) (input of the cell).
-
-    ffn_output = self.ffn(out1)  # (B, P, S, D)
+    ffn_output = self.ffn(out1)  # (B, P, 1, D)
     ffn_output = self.dropout3(ffn_output, training=self.training)
     r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
-
-    #print('z', z)
 
     # 3. FOR SMC: compute the new set of weights.
     if len(tf.shape(x)) == 1:
       x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
-
-    #if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
-      #print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -298,8 +305,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # TODO: remove this function & consider only the current indice i_t.
     i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
-    #print('preview of the indices matrix for decoding timestep {}: {}'.format(self.dec_timestep, I[0,:,:]))
-
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I=tf.stop_gradient(I)
 
@@ -310,8 +315,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
 
-    #print('K resampled', K[:,:,:,0])
-
     # get the normalized mean of z,k,q,v for the SMC loss.
     mean_z = self.mha_smc.stddev # shape (B,P,1,D)
     mean_k = self.mha_smc.mean_k
@@ -321,12 +324,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     list_means = [mean_z, mean_k, mean_v, mean_q]
 
     output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, list_means, attn_weights] # attn_weights > shape (B,P,H,1,D)
-    #print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
-    #print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
-
-    #TODO:
-    # if not self.training:
-    # output = [r, z, average_prediction, max_prediction, inf_prediction, epsilon, attn_weights]
 
     if len(tf.shape(w_squeezed)) == 2:
       w = tf.expand_dims(w_squeezed, axis=-1)
@@ -467,5 +464,22 @@ if __name__ == "__main__":
 
   # if not self.training:
   # inf_pred=inference_pred(N)
+
+  # print('r', r[:,:,0])
+  # if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
+  # print('x', x[:,0])
+  # print('K', K[:,:,:,0])
+  # print('r', r)
+
+  #print('K resampled', K[:,:,:,0])
+
+  # print('r_ at decoding timestep {}: {}'.format(self.dec_timestep,r_))
+  # print('z at decoding timestep {}: {}'.format(self.dec_timestep, z))
+
+  # print('K propagated (after mha)', K[:,:,:,0])
+  # print('z', z[:,:,:,0])
+
+  # if self.dec_timestep == 1 or self.dec_timestep == self.seq_len - 1:
+  # print('prediction at time {} : {}'.format(self.dec_timestep, predictions))
 
 
