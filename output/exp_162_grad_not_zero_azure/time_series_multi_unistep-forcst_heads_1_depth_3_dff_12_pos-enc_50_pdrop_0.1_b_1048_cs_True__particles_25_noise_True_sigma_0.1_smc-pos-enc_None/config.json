@@ -1,0 +1,49 @@
+{
+   "data": {
+    "file_path": "https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip",
+     "fname": "jena_climate_2009_2016.csv.zip",
+     "col_name": ["p (mbar)", "T (degC)", "rho (g/m**3)"],
+    "index_name": "Date Time",
+    "TRAIN_SPLIT": 0.8,
+     "history": 150,
+     "step": 6,
+     "target_feature": 0
+   },
+
+  "model": {
+      "num_layers": 1,
+      "num_heads": 1,
+      "d_model": 3,
+      "dff": 12,
+      "rate": 0.1,
+      "maximum_position_encoding_baseline": 50,
+      "maximum_position_encoding_smc": "None"
+  },
+
+  "smc": {
+    "num_particles": 25,
+    "noise_encoder": "False",
+    "noise_SMC_layer": "True",
+    "sigma" : 0.1
+  },
+
+  "optim": {
+      "BATCH_SIZE": 1048,
+      "learning_rate": 0.001,
+      "EPOCHS": 20,
+      "custom_schedule": "True"
+  },
+
+  "RNN_hparams": {
+      "rnn_bs": 256,
+      "rnn_emb_dim": 4,
+      "rnn_units": 8
+  },
+
+   "task": {
+      "data_type": "time_series_multi",
+      "task_type": "regression",
+      "task": "unistep-forcst"
+  }
+
+}
