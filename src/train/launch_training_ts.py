@@ -76,6 +76,7 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-skip_training", type=bool, default=False,)
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -176,7 +177,7 @@ if __name__ == "__main__":
 
   num_classes= 25 if data_type == 'classification' else 1
   target_vocab_size = num_classes # 25 bins
-  seq_len = train_data.shape[1] - 1 # 24 observationse
+  seq_len = train_data.shape[1] - 1 # 24 observations
   training_samples = train_data.shape[0]
   steps_per_epochs = int(train_data.shape[0]/BATCH_SIZE)
 
@@ -260,7 +261,7 @@ if __name__ == "__main__":
       pred_temp = model(inp)
 
     print('LSTM summary', model.summary())
-    #TODO: modify code (train_dataset, val_dataset to have an input of length of 24 instead of 25.)
+
     start_epoch = 0
     model.compile(optimizer=optimizer,
                   loss='mse')
