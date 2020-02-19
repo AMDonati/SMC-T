@@ -73,7 +73,7 @@ if __name__ == "__main__":
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
 
-  out_folder_default = '../../output'
+  out_folder_default = '../../output/exp_192_temp_forecast_changes_train_split_normalisation'
   config_folder = '../../config/config_ts_reg_multi_synthetic.json'
 
   parser = argparse.ArgumentParser()
@@ -83,8 +83,8 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
@@ -187,6 +187,10 @@ if __name__ == "__main__":
     elif task == 'synthetic':
       X_data = np.load(file_path)
       train_data, val_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
+      val_data_path = '../../data/val_data_synthetic.npy'
+      train_data_path = '../../data/train_data_synthetic.py'
+      np.save(val_data_path, val_data)
+      np.save(train_data_path, train_data)
 
       BUFFER_SIZE = 2000
 
@@ -407,7 +411,7 @@ if __name__ == "__main__":
                                                                             optimizer=optimizer,
                                                                             data_type=data_type,
                                                                             task_type=task_type)
-          if batch == 0:
+          if batch == 0 and epoch==0:
             print('baseline transformer summary', transformer.summary())
 
         for (inp, tar) in val_dataset:
@@ -471,6 +475,44 @@ if __name__ == "__main__":
 
       logger.info('training of a classic Transformer for a time-series dataset done...')
       logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+
+      #------- computing statistics at the end of training -------------------------------------------------------------------------------------------------------------------
+
+      logger.info("computing metrics at the end of training...")
+      train_loss_mse, val_loss_mse= [], []
+      for batch_train, (inp, tar) in enumerate(train_dataset):
+        inp_model = inp[:, :-1, :]
+        predictions_train, _ = transformer(
+          inputs=inp_model,
+          training=False,
+          mask=create_look_ahead_mask(seq_len))
+        train_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_train)
+        train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
+        train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
+
+        train_loss_mse.append(train_loss_mse_batch.numpy())
+
+      for batch_val, (inp, tar) in enumerate(val_dataset):
+        inp_model = inp[:, :-1, :]
+        predictions_val, _ = transformer(
+          inputs=inp_model,
+          training=False,
+          mask=create_look_ahead_mask(seq_len))
+        val_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_val)
+        val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
+        val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
+
+        val_loss_mse.append(val_loss_mse_batch.numpy())
+
+      # computing as a metric the mean of losses & std losses over the number of batches
+      mean_train_loss_mse = statistics.mean(train_loss_mse)
+      mean_val_loss_mse = statistics.mean(val_loss_mse)
+
+      logger.info(
+        "average losses over batches: train mse loss:{}  - val mse loss:{}".format(
+          mean_train_loss_mse,
+          mean_val_loss_mse))
+
 
   #------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
@@ -703,7 +745,7 @@ if __name__ == "__main__":
                                                                                      weights=weights_train,
                                                                                      transformer=smc_transformer)
         train_loss_mse.append(train_loss_mse_batch.numpy())
-        train_loss_std.append(train_loss_mse_batch.numpy())
+        train_loss_std.append(train_loss_mse_std_batch.numpy())
 
       for batch_val, (inp, tar) in enumerate(val_dataset):
         (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(

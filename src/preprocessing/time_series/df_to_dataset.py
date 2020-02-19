@@ -45,7 +45,7 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
   val_data = split_dataset_into_seq(uni_data_categorized, TRAIN_SPLIT, None, history,step)
 
   # split between validation dataset and test set:
-  val_data, test_data=train_test_split(val_data, train_size=0.5)
+  val_data, test_data=train_test_split(val_data, train_size=0.8)
 
   return (train_data, val_data, test_data), uni_data_merged, uni_data_df
 
@@ -69,6 +69,9 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
   # normalization
   data_mean = uni_data[:TRAIN_SPLIT].mean(axis=0)
   data_std = uni_data[:TRAIN_SPLIT].std(axis=0)
+
+  #data_mean = uni_data.mean(axis=0)
+  #data_std = uni_data.std(axis=0)
 
   uni_data = (uni_data - data_mean) / data_std
 
