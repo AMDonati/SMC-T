@@ -1,0 +1,45 @@
+{
+   "data": {
+    "file_path": "data/synthetic_dataset.npy",
+    "TRAIN_SPLIT": 0.8,
+     "target_feature": 0
+   },
+
+  "model": {
+      "num_layers": 1,
+      "num_heads": 1,
+      "d_model": 2,
+      "dff": 8,
+      "rate": 0.1,
+      "maximum_position_encoding_baseline": "None",
+      "maximum_position_encoding_smc": "None"
+  },
+
+  "smc": {
+    "num_particles": 10,
+    "noise_encoder": "False",
+    "noise_SMC_layer": "True",
+    "sigma" : 0.05,
+    "omega" : 0.25
+  },
+
+  "optim": {
+      "BATCH_SIZE": 256,
+      "learning_rate": 0.001,
+      "EPOCHS": 15,
+      "custom_schedule": "True"
+  },
+
+  "RNN_hparams": {
+      "rnn_bs": 256,
+      "rnn_emb_dim": 4,
+      "rnn_units": 4
+  },
+
+   "task": {
+      "data_type": "time_series_multi",
+      "task_type": "regression",
+      "task": "synthetic"
+  }
+
+}
