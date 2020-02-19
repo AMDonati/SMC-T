@@ -1,6 +1,6 @@
 {
    "data": {
-    "file_path": "/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/synthetic_dataset.npy",
+    "file_path": "../../data/synthetic_dataset.npy",
     "TRAIN_SPLIT": 0.8,
      "target_feature": 0
    },
