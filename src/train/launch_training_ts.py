@@ -700,7 +700,7 @@ if __name__ == "__main__":
 
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
-    compute last mse train loss, std loss / val loss
+    # compute last mse train loss, std loss / val loss
     for (inp, tar) in train_dataset:
       (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
         inputs=inp,
