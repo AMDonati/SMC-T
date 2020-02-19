@@ -700,31 +700,31 @@ if __name__ == "__main__":
 
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
-    # compute last mse train loss, std loss / val loss
-    # for (inp, tar) in train_dataset:
-    #   (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
-    #     inputs=inp,
-    #     training=False,
-    #     mask=create_look_ahead_mask(seq_len))
-    #   train_loss, train_loss_mse, train_loss_mse_std = loss_function_regression(real=tar,
-    #                                                                       predictions=predictions_train,
-    #                                                                       weights=weights_train,
-    #                                                                       transformer=smc_transformer)
-    #
-    # for (inp, tar) in val_dataset:
-    #   (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
-    #     inputs=inp,
-    #     training=False,
-    #     mask=create_look_ahead_mask(seq_len))
-    #   val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
-    #                                                                       predictions=predictions_val,
-    #                                                                       weights=weights_val,
-    #                                                                       transformer=smc_transformer)
-    #
-    # logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(train_loss_mse.numpy(),
-    #                                                                                                             train_loss_mse_std.numpy(),
-    #                                                                                                             val_loss_mse.numpy(),
-    #                                                                                                             val_loss_mse_std.numpy()))
+    compute last mse train loss, std loss / val loss
+    for (inp, tar) in train_dataset:
+      (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+        inputs=inp,
+        training=False,
+        mask=create_look_ahead_mask(seq_len))
+      train_loss, train_loss_mse, train_loss_mse_std = loss_function_regression(real=tar,
+                                                                          predictions=predictions_train,
+                                                                          weights=weights_train,
+                                                                          transformer=smc_transformer)
+
+    for (inp, tar) in val_dataset:
+      (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+        inputs=inp,
+        training=False,
+        mask=create_look_ahead_mask(seq_len))
+      val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
+                                                                          predictions=predictions_val,
+                                                                          weights=weights_val,
+                                                                          transformer=smc_transformer)
+
+    logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(train_loss_mse.numpy(),
+                                                                                                                train_loss_mse_std.numpy(),
+                                                                                                                val_loss_mse.numpy(),
+                                                                                                                val_loss_mse_std.numpy()))
 
 
     # # test loss value
