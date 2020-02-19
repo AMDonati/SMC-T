@@ -97,6 +97,14 @@ def split_input_target_uni_step(chunk):
     target_text = chunk[:,1:]
   return input_text, target_text
 
+def split_synthetic_dataset(x_data, TRAIN_SPLIT):
+  num_samples = tf.shape(x_data)[0].numpy()
+  TRAIN_SPLIT = int(TRAIN_SPLIT*num_samples)
+  #VAL_SPLIT = int((num_samples-TRAIN_SPLIT)/2)
+  train_data = x_data[:TRAIN_SPLIT,:,:]
+  val_data = x_data[TRAIN_SPLIT:,:,:]
+
+  return train_data, val_data
 
 def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
   '''
@@ -171,7 +179,7 @@ if __name__ == "__main__":
   BUFFER_SIZE = 10000
   BATCH_SIZE = 64
 
-  train_dataset, val_dataset = data_to_dataset_uni_step(train_data=train_data,
+  train_dataset, val_dataset, _, _ = data_to_dataset_uni_step(train_data=train_data,
                                                       val_data=val_data,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=BUFFER_SIZE,
@@ -180,9 +188,28 @@ if __name__ == "__main__":
 
   print(train_dataset)
 
-  for (inp, tar) in train_dataset.take(1):
-    print('input data', inp)
-    print('target data', tar)
+  # for (inp, tar) in train_dataset.take(1):
+  #   print('input data', inp)
+  #   print('target data', tar)
+
+  # ----- load and prepare synthetic dataset -------------------------------------------------------------------
+
+  file_path="/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/synthetic_dataset.npy"
+  X_data = np.load(file_path)
+  train_data_synt, val_data_synt = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=0.8)
+
+  print('train data', train_data_synt.shape)
+
+  train_dataset_synt, val_dataset_synt, _, _ = data_to_dataset_uni_step(train_data=train_data_synt,
+                                                      val_data=val_data_synt,
+                                                      split_fn=split_input_target_uni_step,
+                                                      BUFFER_SIZE=2000,
+                                                      BATCH_SIZE=64,
+                                                      target_feature=0)
+
+  print('train synthetic dataset', train_dataset_synt)
+  print('val dataset synthetic', val_dataset_synt)
+
 
   #TODO save datasets in .npy files.
   # #print(data_categorized_df.head())

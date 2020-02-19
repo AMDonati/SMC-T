@@ -20,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
+              num_layers, sigma, noise, task_type, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
                rate=0.1, **kwargs):
     #TODO: remove default Value for maximum_position_encoding (not essential).
     '''
@@ -61,6 +61,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     self.target_feature = target_feature
     # for multi-variate time-series case: select the target feature in the re-sampling weights computation.
     self.noise = noise
+    self.omega = omega
     self.rate = rate
 
     self.training = training
@@ -110,7 +111,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
     return w_squeezed  # shape (B,P)
 
-  def compute_w_regression(self, predictions, x, omega=1):
+  def compute_w_regression(self, predictions, x):
     '''
     # FORMULA
     # -0.5 * mu_t ^ T * mu_t / omega
@@ -143,7 +144,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     mu_t = x - predictions
     # mu_t=tf.squeeze(mu_t, axis=-1)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
-    log_w = tf.scalar_mul(-1 / 2 * omega, log_w)
+    log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min

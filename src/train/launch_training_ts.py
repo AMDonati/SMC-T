@@ -52,6 +52,7 @@ import warnings
 from preprocessing.time_series.df_to_dataset import df_to_data_regression
 from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
 from preprocessing.time_series.df_to_dataset import split_input_target_uni_step
+from preprocessing.time_series.df_to_dataset import split_synthetic_dataset
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger
@@ -73,8 +74,8 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default=config_path_after_training, help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", type=str, default=out_folder_for_args, help="path for the outputs folder")
+  parser.add_argument("-config", type=str, default="../../config/config_ts_reg_multi_synthetic.json", help="path for the config file with hyperparameters")
+  parser.add_argument("-out_folder", type=str, default="../../output", help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
@@ -111,6 +112,7 @@ if __name__ == "__main__":
   noise_SMC_layer_str = hparams["smc"]["noise_SMC_layer"]
   noise_SMC_layer = True if noise_SMC_layer_str == "True" else False
   sigma = hparams["smc"]["sigma"]
+  omega = hparams["smc"]["omega"]
   # computing manually resampling parameter
   resampling = False if num_particles == 1 else True
 
@@ -131,7 +133,7 @@ if __name__ == "__main__":
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
 
   # loading data arguments for the regression case
-  if task_type == 'regression':
+  if task_type == 'regression' and task =='unistep-forcst':
 
     file_path = hparams["data"]["file_path"]
     fname = hparams["data"]["fname"]
@@ -140,6 +142,13 @@ if __name__ == "__main__":
     TRAIN_SPLIT = hparams["data"]["TRAIN_SPLIT"]
     history = hparams["data"]["history"]
     step = hparams["data"]["step"]
+    target_feature = hparams["data"]["target_feature"]
+    if target_feature == "None":
+      target_feature = None
+
+  if task_type == 'regression' and task == 'synthetic':
+    file_path = hparams["data"]["file_path"]
+    TRAIN_SPLIT = hparams["data"]["TRAIN_SPLIT"]
     target_feature = hparams["data"]["target_feature"]
     if target_feature == "None":
       target_feature = None
@@ -157,7 +166,9 @@ if __name__ == "__main__":
 
   elif task_type == 'regression':
 
-    (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
+    if task =='unistep-forcst':
+
+      (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
                                                                            fname=fname,
                                                                            col_name=col_name,
                                                                            index_name=index_name,
@@ -165,10 +176,17 @@ if __name__ == "__main__":
                                                                            history=history,
                                                                            step=step)
 
-  print('train_data', train_data.shape)
-  print('test_data', test_data.shape)
+      BUFFER_SIZE = 10000
 
-  BUFFER_SIZE = 10000
+    elif task == 'synthetic':
+      X_data = np.load(file_path)
+      train_data, val_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
+
+      BUFFER_SIZE = 2000
+
+  print('train_data', train_data.shape)
+  print('val_data', val_data.shape)
+
 
   train_dataset, val_dataset, train_dataset_for_RNN, val_dataset_for_RNN = data_to_dataset_uni_step(train_data=train_data,
                                                         val_data=val_data,
@@ -186,6 +204,7 @@ if __name__ == "__main__":
   seq_len = train_data.shape[1] - 1 # 24 observations
   training_samples = train_data.shape[0]
   steps_per_epochs = int(train_data.shape[0]/BATCH_SIZE)
+  print("steps per epochs", steps_per_epochs)
 
   # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
 

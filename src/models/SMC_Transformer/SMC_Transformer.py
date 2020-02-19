@@ -15,7 +15,7 @@ import collections
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'w', 'I'])
 
-# -------- Class Decoder and Class Transformer--------------------
+# -------- Class Decoder and Class Transformer-------------------------------------------------------------------------------------------------------------
 # class Decoder that takes a SMC Decoder Layers as input.
 class Encoder(tf.keras.layers.Layer):
   '''Class Encoder with the Encoder architecture
@@ -145,7 +145,7 @@ class SMC_Transformer(tf.keras.Model):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type,
+               target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, omega=1,
                rate=0.1, target_feature=None, maximum_position_encoding=None, resampling=True):
     super(SMC_Transformer, self).__init__()
 
@@ -178,6 +178,7 @@ class SMC_Transformer(tf.keras.Model):
                                 num_heads=num_heads,
                                 sigma=sigma,
                                 noise=noise_SMC_layer,
+                                omega=omega,
                                 task_type=task_type,
                                 resampling=resampling,
                                 rate=rate,
@@ -502,6 +503,7 @@ if __name__ == "__main__":
   dff = 128
   maximum_position_encoding = seq_len
   sigma = 0.1
+  omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'
   C = 1 # vocabulary size or number of classes.
@@ -542,6 +544,7 @@ if __name__ == "__main__":
     num_particles = num_particles,
   seq_len = seq_len,
   sigma = sigma,
+  omega = omega,
   noise_encoder = noise_encoder,
   noise_SMC_layer = noise_SMC_layer,
   data_type = data_type,
