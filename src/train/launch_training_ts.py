@@ -741,55 +741,55 @@ if __name__ == "__main__":
 
     # ------------------------------------------------- preparing test dataset ------------------------------------------------------------------
 
-    # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
-    test_data = test_data[:10,:,:]
-    x_test, y_test = split_input_target_uni_step(test_data)
-    if target_feature is not None:
-      y_test = y_test[:, :, target_feature]
-      y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
-    BATCH_SIZE_test = test_data.shape[0]
-    test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
-    test_dataset = test_dataset.batch(BATCH_SIZE_test)
-
-    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
-    logger.info("unistep evaluation with N=1...")
-    for (inp,tar) in test_dataset:
-      (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-
-    #TODO: unnormalized predictions and targets.
-    # save predictions & attention weights:
-    eval_output_path = os.path.join(output_path, "eval_outputs")
-    if not os.path.isdir(eval_output_path):
-      os.makedirs(eval_output_path)
-    pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
-    attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
-    targets_test = eval_output_path + '/' + 'targets_test.npy'
-    np.save(pred_unistep_N_1_test, predictions_test)
-    np.save(attn_weights_unistep_N_1_test, attn_weights_test)
-    np.save(targets_test, tar)
-
-    # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
-    input_seq_length = 13
-    num_samples = 2
-
-    for (inp,tar) in test_dataset:
-      (pred_inp, attn_weights), (mean_pred, pred_P, pred_NP), inp_to_infer = evaluate_one_timestep(
-      model=smc_transformer,
-      inputs=inp,
-      num_samples=num_samples,
-      inp_seq_len=input_seq_length)
-
-    # save output of evaluation function in .npy files.
-    eval_output_path = os.path.join(output_path, "eval_outputs")
-    mean_pred_test = eval_output_path + '/' + 'mean_pred_test.npy'
-    pred_P_test = eval_output_path + '/' + 'pred_P_test.npy'
-    pred_NP_test = eval_output_path + '/' + 'pred_NP_test.npy'
-    np.save(mean_pred_test, mean_pred)
-    np.save(pred_P_test, pred_P)
-    np.save(pred_NP_test, pred_NP)
+    # # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
+    # test_data = test_data[:10,:,:]
+    # x_test, y_test = split_input_target_uni_step(test_data)
+    # if target_feature is not None:
+    #   y_test = y_test[:, :, target_feature]
+    #   y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
+    # BATCH_SIZE_test = test_data.shape[0]
+    # test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
+    # test_dataset = test_dataset.batch(BATCH_SIZE_test)
+    #
+    # # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
+    # logger.info("unistep evaluation with N=1...")
+    # for (inp,tar) in test_dataset:
+    #   (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
+    #     inputs=inp,
+    #     training=False,
+    #     mask=create_look_ahead_mask(seq_len))
+    #
+    # #TODO: unnormalized predictions and targets.
+    # # save predictions & attention weights:
+    # eval_output_path = os.path.join(output_path, "eval_outputs")
+    # if not os.path.isdir(eval_output_path):
+    #   os.makedirs(eval_output_path)
+    # pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
+    # attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
+    # targets_test = eval_output_path + '/' + 'targets_test.npy'
+    # np.save(pred_unistep_N_1_test, predictions_test)
+    # np.save(attn_weights_unistep_N_1_test, attn_weights_test)
+    # np.save(targets_test, tar)
+    #
+    # # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
+    # input_seq_length = 13
+    # num_samples = 2
+    #
+    # for (inp,tar) in test_dataset:
+    #   (pred_inp, attn_weights), (mean_pred, pred_P, pred_NP), inp_to_infer = evaluate_one_timestep(
+    #   model=smc_transformer,
+    #   inputs=inp,
+    #   num_samples=num_samples,
+    #   inp_seq_len=input_seq_length)
+    #
+    # # save output of evaluation function in .npy files.
+    # eval_output_path = os.path.join(output_path, "eval_outputs")
+    # mean_pred_test = eval_output_path + '/' + 'mean_pred_test.npy'
+    # pred_P_test = eval_output_path + '/' + 'pred_P_test.npy'
+    # pred_NP_test = eval_output_path + '/' + 'pred_NP_test.npy'
+    # np.save(mean_pred_test, mean_pred)
+    # np.save(pred_P_test, pred_P)
+    # np.save(pred_NP_test, pred_NP)
 
     ##-----------------old code scripts --------------------------------------------------------------------------------------------------------------
 
