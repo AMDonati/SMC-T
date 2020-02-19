@@ -81,8 +81,8 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
+  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
+  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -701,30 +701,30 @@ if __name__ == "__main__":
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
     # compute last mse train loss, std loss / val loss
-    for (inp, tar) in train_dataset:
-      (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-      train_loss, train_loss_mse, train_loss_mse_std = loss_function_regression(real=tar,
-                                                                          predictions=predictions_train,
-                                                                          weights=weights_train,
-                                                                          transformer=smc_transformer)
-
-    for (inp, tar) in val_dataset:
-      (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-      val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
-                                                                          predictions=predictions_val,
-                                                                          weights=weights_val,
-                                                                          transformer=smc_transformer)
-
-    logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(train_loss_mse.numpy(),
-                                                                                                                train_loss_mse_std.numpy(),
-                                                                                                                val_loss_mse.numpy(),
-                                                                                                                val_loss_mse_std.numpy()))
+    # for (inp, tar) in train_dataset:
+    #   (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+    #     inputs=inp,
+    #     training=False,
+    #     mask=create_look_ahead_mask(seq_len))
+    #   train_loss, train_loss_mse, train_loss_mse_std = loss_function_regression(real=tar,
+    #                                                                       predictions=predictions_train,
+    #                                                                       weights=weights_train,
+    #                                                                       transformer=smc_transformer)
+    #
+    # for (inp, tar) in val_dataset:
+    #   (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+    #     inputs=inp,
+    #     training=False,
+    #     mask=create_look_ahead_mask(seq_len))
+    #   val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
+    #                                                                       predictions=predictions_val,
+    #                                                                       weights=weights_val,
+    #                                                                       transformer=smc_transformer)
+    #
+    # logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(train_loss_mse.numpy(),
+    #                                                                                                             train_loss_mse_std.numpy(),
+    #                                                                                                             val_loss_mse.numpy(),
+    #                                                                                                             val_loss_mse_std.numpy()))
 
 
     # # test loss value
@@ -741,37 +741,37 @@ if __name__ == "__main__":
 
     # ------------------------------------------------- preparing test dataset ------------------------------------------------------------------
 
-    # # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
-    # test_data = test_data[:10,:,:]
-    # x_test, y_test = split_input_target_uni_step(test_data)
-    # if target_feature is not None:
-    #   y_test = y_test[:, :, target_feature]
-    #   y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
-    # BATCH_SIZE_test = test_data.shape[0]
-    # test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
-    # test_dataset = test_dataset.batch(BATCH_SIZE_test)
-    #
-    # # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
-    # logger.info("unistep evaluation with N=1...")
-    # for (inp,tar) in test_dataset:
-    #   (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-    #     inputs=inp,
-    #     training=False,
-    #     mask=create_look_ahead_mask(seq_len))
-    #
-    # #TODO: unnormalized predictions and targets.
-    # # save predictions & attention weights:
-    # eval_output_path = os.path.join(output_path, "eval_outputs")
-    # if not os.path.isdir(eval_output_path):
-    #   os.makedirs(eval_output_path)
-    # pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
-    # attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
-    # targets_test = eval_output_path + '/' + 'targets_test.npy'
-    # np.save(pred_unistep_N_1_test, predictions_test)
-    # np.save(attn_weights_unistep_N_1_test, attn_weights_test)
-    # np.save(targets_test, tar)
-    #
-    # # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
+    # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
+    test_data = test_data[:100,:,:]
+    x_test, y_test = split_input_target_uni_step(test_data)
+    if target_feature is not None:
+      y_test = y_test[:, :, target_feature]
+      y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
+    BATCH_SIZE_test = test_data.shape[0]
+    test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
+    test_dataset = test_dataset.batch(BATCH_SIZE_test)
+
+    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
+    logger.info("unistep evaluation with N=1...")
+    for (inp,tar) in test_dataset:
+      (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
+        inputs=inp,
+        training=False,
+        mask=create_look_ahead_mask(seq_len))
+
+    #TODO: unnormalized predictions and targets.
+    # save predictions & attention weights:
+    eval_output_path = os.path.join(output_path, "eval_outputs")
+    if not os.path.isdir(eval_output_path):
+      os.makedirs(eval_output_path)
+    pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
+    attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
+    targets_test = eval_output_path + '/' + 'targets_test.npy'
+    np.save(pred_unistep_N_1_test, predictions_test)
+    np.save(attn_weights_unistep_N_1_test, attn_weights_test)
+    np.save(targets_test, y_test)
+
+    # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
     # num_samples = 2
     #
