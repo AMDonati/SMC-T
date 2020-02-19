@@ -84,7 +84,9 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
     val_data = np.reshape(val_data, newshape=(val_data.shape[0], val_data.shape[1], 1))
     test_data = np.reshape(test_data, newshape=(test_data.shape[0], test_data.shape[1], 1))
 
-  return (train_data, val_data, test_data), uni_data_df
+  stats = (data_mean[0], data_std[0])
+
+  return (train_data, val_data, test_data), uni_data_df, stats
 
 def split_input_target_uni_step(chunk):
   if len(chunk.shape) == 3:
@@ -156,7 +158,7 @@ if __name__ == "__main__":
   history = 144+6
   step= 6 # sample a temperature every 4 hours.
 
-  (train_data, val_data, test_data), original_df = df_to_data_regression(file_path=file_path,
+  (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
                                                                          fname=fname,
                                                                          col_name=col_name,
                                                                          index_name=index_name,

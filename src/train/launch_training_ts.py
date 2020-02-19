@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
   elif task_type == 'regression':
 
-    (train_data, val_data, test_data), original_df = df_to_data_regression(file_path=file_path,
+    (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
                                                                            fname=fname,
                                                                            col_name=col_name,
                                                                            index_name=index_name,
@@ -760,6 +760,11 @@ if __name__ == "__main__":
         mask=create_look_ahead_mask(seq_len))
 
     #TODO: unnormalized predictions and targets.
+      # unnormalized predictions & target:
+    data_mean, data_std = stats
+    predictions_unnormalized = predictions_test * data_std + data_mean
+    targets_unnormalized = y_test * data_std + data_mean
+
     # save predictions & attention weights:
     eval_output_path = os.path.join(output_path, "eval_outputs")
     if not os.path.isdir(eval_output_path):
@@ -767,9 +772,13 @@ if __name__ == "__main__":
     pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
     attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
     targets_test = eval_output_path + '/' + 'targets_test.npy'
+    pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
+    targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
     np.save(pred_unistep_N_1_test, predictions_test)
     np.save(attn_weights_unistep_N_1_test, attn_weights_test)
     np.save(targets_test, y_test)
+    np.save(pred_unnorm, predictions_unnormalized)
+    np.save(targets_unnorm, targets_unnormalized)
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
