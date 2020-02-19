@@ -48,6 +48,7 @@ import shutil
 import json
 import argparse
 import warnings
+import statistics
 
 from preprocessing.time_series.df_to_dataset import df_to_data_regression
 from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
@@ -72,11 +73,14 @@ if __name__ == "__main__":
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
 
+  out_folder_default = '../../output'
+  config_folder = '../../config/config_ts_reg_multi_synthetic.json'
+
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default="../../config/config_ts_reg_multi_synthetic.json", help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", type=str, default="../../output", help="path for the outputs folder")
-  parser.add_argument("-data_folder", type=str, default='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/ts_10c_s24', help="path for the outputs folder")
+  parser.add_argument("-config", type=str, default=config_folder, help="path for the config file with hyperparameters")
+  parser.add_argument("-out_folder", type=str, default=out_folder_default, help="path for the outputs folder")
+  parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
@@ -105,6 +109,11 @@ if __name__ == "__main__":
   max_pos_enc_smc_str = hparams["model"]["maximum_position_encoding_smc"]
   maximum_position_encoding_smc = None if max_pos_enc_smc_str == "None" else max_pos_enc_smc_str
 
+  # task params
+  data_type = hparams["task"]["data_type"]
+  task_type = hparams["task"]["task_type"]
+  task = hparams["task"]["task"]
+
   # smc params
   num_particles = hparams["smc"]["num_particles"]
   noise_encoder_str = hparams["smc"]["noise_encoder"]
@@ -112,7 +121,9 @@ if __name__ == "__main__":
   noise_SMC_layer_str = hparams["smc"]["noise_SMC_layer"]
   noise_SMC_layer = True if noise_SMC_layer_str == "True" else False
   sigma = hparams["smc"]["sigma"]
-  omega = hparams["smc"]["omega"]
+  omega = 1
+  if task == 'synthetic':
+    omega = hparams["smc"]["omega"]
   # computing manually resampling parameter
   resampling = False if num_particles == 1 else True
 
@@ -121,11 +132,6 @@ if __name__ == "__main__":
   learning_rate = hparams["optim"]["learning_rate"]
   EPOCHS = hparams["optim"]["EPOCHS"]
   custom_schedule = hparams["optim"]["custom_schedule"]
-
-  # task params
-  data_type = hparams["task"]["data_type"]
-  task_type = hparams["task"]["task_type"]
-  task = hparams["task"]["task"]
 
   # adding RNN hyper-parameters
   rnn_bs = BATCH_SIZE
@@ -477,7 +483,7 @@ if __name__ == "__main__":
         logger.info("no resampling because only one particle is taken...")
 
       start_epoch = 0
-
+      #TODO: add omega here:
       smc_transformer = SMC_Transformer(num_layers=num_layers,
                             d_model=d_model,
                             num_heads=num_heads,
@@ -486,6 +492,7 @@ if __name__ == "__main__":
                             maximum_position_encoding=maximum_position_encoding_smc,
                             num_particles=num_particles,
                             sigma=sigma,
+                            omega=omega,
                             noise_encoder=noise_encoder,
                             noise_SMC_layer=noise_SMC_layer,
                             seq_len=seq_len,
@@ -682,6 +689,47 @@ if __name__ == "__main__":
       weights_fn = model_output_path + '/' + 'smc_weights.npy'
       np.save(weights_fn, weights_val)
 
+      #----------------------  compute statistics at the end of training ----------------------------------------------------------------------------
+
+      logger.info("computing metrics at the end of training...")
+      train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
+      for batch_train, (inp, tar) in enumerate(train_dataset):
+        (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+          inputs=inp,
+          training=False,
+          mask=create_look_ahead_mask(seq_len))
+        _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
+                                                                                     predictions=predictions_train,
+                                                                                     weights=weights_train,
+                                                                                     transformer=smc_transformer)
+        train_loss_mse.append(train_loss_mse_batch.numpy())
+        train_loss_std.append(train_loss_mse_batch.numpy())
+
+      for batch_val, (inp, tar) in enumerate(val_dataset):
+        (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+          inputs=inp,
+          training=False,
+          mask=create_look_ahead_mask(seq_len))
+        _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
+                                                                                 predictions=predictions_val,
+                                                                                 weights=weights_val,
+                                                                                 transformer=smc_transformer)
+
+        val_loss_mse.append(val_loss_mse_batch.numpy())
+        val_loss_std.append(val_loss_mse_std_batch.numpy())
+
+      # computing as a metric the mean of losses & std losses over the number of batches
+      mean_train_loss_mse = statistics.mean(train_loss_mse)
+      mean_train_loss_std = statistics.mean(train_loss_std)
+      mean_val_loss_mse = statistics.mean(val_loss_mse)
+      mean_val_loss_std = statistics.mean(val_loss_std)
+
+      logger.info("average losses over batches: train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
+        mean_train_loss_mse,
+        mean_train_loss_std,
+        mean_val_loss_mse,
+        mean_val_loss_std))
+
       logger.info('training of SMC Transformer for a time-series dataset done...')
 
       logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
@@ -720,30 +768,43 @@ if __name__ == "__main__":
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
     # compute last mse train loss, std loss / val loss
-    for (inp, tar) in train_dataset:
+    train_loss_mse, train_loss_std, val_loss_mse, val_loss_std= [], [], [], []
+    for batch_train, (inp, tar) in enumerate(train_dataset.take(5)):
       (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      train_loss, train_loss_mse, train_loss_mse_std = loss_function_regression(real=tar,
+      _, train_loss_mse_batch, train_loss_mse_std_batch= loss_function_regression(real=tar,
                                                                           predictions=predictions_train,
                                                                           weights=weights_train,
                                                                           transformer=smc_transformer)
+      train_loss_mse.append(train_loss_mse_batch.numpy())
+      train_loss_std.append(train_loss_mse_batch.numpy())
 
-    for (inp, tar) in val_dataset:
+    for batch_val, (inp, tar) in enumerate(val_dataset.take(5)):
       (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
+      _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                           predictions=predictions_val,
                                                                           weights=weights_val,
                                                                           transformer=smc_transformer)
 
-    logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(train_loss_mse.numpy(),
-                                                                                                                train_loss_mse_std.numpy(),
-                                                                                                                val_loss_mse.numpy(),
-                                                                                                                val_loss_mse_std.numpy()))
+      val_loss_mse.append(val_loss_mse_batch.numpy())
+      val_loss_std.append(val_loss_mse_std_batch.numpy())
+
+    # computing as a metric the mean of losses & std losses over the number of batches
+    mean_train_loss_mse = statistics.mean(train_loss_mse)
+    mean_train_loss_std = statistics.mean(train_loss_std)
+    mean_val_loss_mse = statistics.mean(val_loss_mse)
+    mean_val_loss_std = statistics.mean(val_loss_std)
+
+    logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
+      mean_train_loss_mse,
+      mean_train_loss_std,
+      mean_val_loss_mse,
+      mean_val_loss_std))
 
 
     # # test loss value

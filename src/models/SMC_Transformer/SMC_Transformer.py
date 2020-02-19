@@ -207,6 +207,7 @@ class SMC_Transformer(tf.keras.Model):
     self.task_type = task_type
 
     self.sigma = sigma
+    self.omega = omega
     self.noise_encoder = noise_encoder
     self.noise_SMC_layer = noise_SMC_layer
     self.maximum_position_encoding = maximum_position_encoding
