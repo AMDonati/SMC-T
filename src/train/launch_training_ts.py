@@ -845,6 +845,9 @@ if __name__ == "__main__":
     predictions_val_path = output_path + "/" + "predictions_val_end_of_training.npy"
     np.save(predictions_val_path, predictions_validation_set)
 
+    logger.info("saving predictions on validation set...")
+    logger.info("predictions shape: {}".format(predictions_validation_set.shape))
+
     # computing as a metric the mean of losses & std losses over the number of batches
     mean_train_loss_mse = statistics.mean(train_loss_mse)
     mean_train_loss_std = statistics.mean(train_loss_std)
@@ -917,6 +920,9 @@ if __name__ == "__main__":
     np.save(targets_test, y_test)
     np.save(pred_unnorm, predictions_unnormalized)
     np.save(targets_unnorm, targets_unnormalized)
+
+    logger.info("predictions shape for test set:{}".format(predictions_test.shape))
+    logger.info("unormalized predictions shape for test set:{}".format(predictions_unnormalized.shape))
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
