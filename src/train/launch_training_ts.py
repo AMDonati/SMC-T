@@ -73,8 +73,8 @@ if __name__ == "__main__":
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
 
-  out_folder_default = '../../output/exp_192_temp_forecast_changes_train_split_normalisation'
-  config_folder = '../../config/config_ts_reg_multi_synthetic.json'
+  out_folder_default = '../../output/exp_192_back_to_beginning_pressure_TRAIN_SPLIT_0.8'
+  config_folder = '../../config/config_ts_reg_multi.json'
 
   parser = argparse.ArgumentParser()
 
@@ -83,9 +83,9 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
       X_data = np.load(file_path)
       train_data, val_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
       val_data_path = '../../data/val_data_synthetic.npy'
-      train_data_path = '../../data/train_data_synthetic.py'
+      train_data_path = '../../data/train_data_synthetic.npy'
       np.save(val_data_path, val_data)
       np.save(train_data_path, train_data)
 
