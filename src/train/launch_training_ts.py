@@ -72,22 +72,24 @@ if __name__ == "__main__":
 
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
+  config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config.json'
+  out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
 
   out_folder_default = '../../output/exp_192_back_to_beginning_pressure_TRAIN_SPLIT_0.8'
-  config_folder = '../../config/config_ts_reg_multi.json'
+  config_folder = '../../config/config_ts_reg_multi_synthetic.json'
 
   parser = argparse.ArgumentParser()
 
   parser.add_argument("-config", type=str, default=config_folder, help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", type=str, default=out_folder_default, help="path for the outputs folder")
+  parser.add_argument("-out_folder", type=str, default=out_folder_after_training_synthetic, help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
+  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
+  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -154,6 +156,7 @@ if __name__ == "__main__":
 
   if task_type == 'regression' and task == 'synthetic':
     file_path = hparams["data"]["file_path"]
+    #file_path = '../../' + file_path
     TRAIN_SPLIT = hparams["data"]["TRAIN_SPLIT"]
     target_feature = hparams["data"]["target_feature"]
     if target_feature == "None":
@@ -811,7 +814,8 @@ if __name__ == "__main__":
 
     # compute last mse train loss, std loss / val loss
     train_loss_mse, train_loss_std, val_loss_mse, val_loss_std= [], [], [], []
-    for batch_train, (inp, tar) in enumerate(train_dataset.take(5)):
+    predictions_validation_set = []
+    for batch_train, (inp, tar) in enumerate(train_dataset):
       (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
         inputs=inp,
         training=False,
@@ -821,9 +825,9 @@ if __name__ == "__main__":
                                                                           weights=weights_train,
                                                                           transformer=smc_transformer)
       train_loss_mse.append(train_loss_mse_batch.numpy())
-      train_loss_std.append(train_loss_mse_batch.numpy())
+      train_loss_std.append(train_loss_mse_std_batch.numpy())
 
-    for batch_val, (inp, tar) in enumerate(val_dataset.take(5)):
+    for batch_val, (inp, tar) in enumerate(val_dataset):
       (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
         inputs=inp,
         training=False,
@@ -832,9 +836,14 @@ if __name__ == "__main__":
                                                                           predictions=predictions_val,
                                                                           weights=weights_val,
                                                                           transformer=smc_transformer)
-
+      predictions_validation_set.append(predictions_val)
       val_loss_mse.append(val_loss_mse_batch.numpy())
       val_loss_std.append(val_loss_mse_std_batch.numpy())
+
+    # saving predictions for all validation set:
+    predictions_validation_set= tf.stack(predictions_validation_set, axis= 0)
+    predictions_val_path = output_path + "/" + "predictions_val_end_of_training.npy"
+    np.save(predictions_val_path, predictions_validation_set)
 
     # computing as a metric the mean of losses & std losses over the number of batches
     mean_train_loss_mse = statistics.mean(train_loss_mse)
@@ -864,43 +873,50 @@ if __name__ == "__main__":
     # ------------------------------------------------- preparing test dataset ------------------------------------------------------------------
 
     # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
-    test_data = test_data[:100,:,:]
-    x_test, y_test = split_input_target_uni_step(test_data)
-    if target_feature is not None:
-      y_test = y_test[:, :, target_feature]
-      y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
-    BATCH_SIZE_test = test_data.shape[0]
-    test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
-    test_dataset = test_dataset.batch(BATCH_SIZE_test)
-
-    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
-    logger.info("unistep evaluation with N=1...")
-    for (inp,tar) in test_dataset:
-      (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-
-    #TODO: unnormalized predictions and targets.
-      # unnormalized predictions & target:
-    data_mean, data_std = stats
-    predictions_unnormalized = predictions_test * data_std + data_mean
-    targets_unnormalized = y_test * data_std + data_mean
-
-    # save predictions & attention weights:
-    eval_output_path = os.path.join(output_path, "eval_outputs")
-    if not os.path.isdir(eval_output_path):
-      os.makedirs(eval_output_path)
-    pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
-    attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
-    targets_test = eval_output_path + '/' + 'targets_test.npy'
-    pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
-    targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
-    np.save(pred_unistep_N_1_test, predictions_test)
-    np.save(attn_weights_unistep_N_1_test, attn_weights_test)
-    np.save(targets_test, y_test)
-    np.save(pred_unnorm, predictions_unnormalized)
-    np.save(targets_unnorm, targets_unnormalized)
+    # test_data = test_data[:100,:,:]
+    # x_test, y_test = split_input_target_uni_step(test_data)
+    # if target_feature is not None:
+    #   y_test = y_test[:, :, target_feature]
+    #   y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
+    # BATCH_SIZE_test = test_data.shape[0]
+    # test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
+    # test_dataset = test_dataset.batch(BATCH_SIZE_test)
+    #
+    # # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
+    # logger.info("unistep evaluation with N=1...")
+    # for (inp,tar) in test_dataset:
+    #   (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
+    #     inputs=inp,
+    #     training=False,
+    #     mask=create_look_ahead_mask(seq_len))
+    #   _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=tar,
+    #                                                                   predictions=predictions_test,
+    #                                                                   weights=weights_test,
+    #                                                                   transformer=smc_transformer)
+    #
+    # logger.info('test mse loss: {} - test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_std))
+    #
+    # #TODO: unnormalized predictions and targets.
+    #   # unnormalized predictions & target:
+    # data_mean, data_std = stats
+    # predictions_unnormalized = predictions_test * data_std + data_mean
+    # targets_unnormalized = y_test * data_std + data_mean
+    #
+    # # save predictions & attention weights:
+    # logger.info("saving predictions for test set in .npy files...")
+    # eval_output_path = os.path.join(output_path, "eval_outputs")
+    # if not os.path.isdir(eval_output_path):
+    #   os.makedirs(eval_output_path)
+    # pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
+    # attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
+    # targets_test = eval_output_path + '/' + 'targets_test.npy'
+    # pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
+    # targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
+    # np.save(pred_unistep_N_1_test, predictions_test)
+    # np.save(attn_weights_unistep_N_1_test, attn_weights_test)
+    # np.save(targets_test, y_test)
+    # np.save(pred_unnorm, predictions_unnormalized)
+    # np.save(targets_unnorm, targets_unnormalized)
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
