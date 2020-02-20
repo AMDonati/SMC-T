@@ -88,8 +88,8 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
+  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
+  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -820,7 +820,7 @@ if __name__ == "__main__":
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      _, train_loss_mse_batch, train_loss_mse_std_batch= loss_function_regression(real=tar,
+      _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                           predictions=predictions_train,
                                                                           weights=weights_train,
                                                                           transformer=smc_transformer)
@@ -872,51 +872,51 @@ if __name__ == "__main__":
 
     # ------------------------------------------------- preparing test dataset ------------------------------------------------------------------
 
-    # transform test data (numpy array) into a tensor (use a tf.dataset instead.)
-    # test_data = test_data[:100,:,:]
-    # x_test, y_test = split_input_target_uni_step(test_data)
-    # if target_feature is not None:
-    #   y_test = y_test[:, :, target_feature]
-    #   y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
-    # BATCH_SIZE_test = test_data.shape[0]
-    # test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
-    # test_dataset = test_dataset.batch(BATCH_SIZE_test)
-    #
-    # # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
-    # logger.info("unistep evaluation with N=1...")
-    # for (inp,tar) in test_dataset:
-    #   (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-    #     inputs=inp,
-    #     training=False,
-    #     mask=create_look_ahead_mask(seq_len))
-    #   _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=tar,
-    #                                                                   predictions=predictions_test,
-    #                                                                   weights=weights_test,
-    #                                                                   transformer=smc_transformer)
-    #
-    # logger.info('test mse loss: {} - test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_std))
-    #
-    # #TODO: unnormalized predictions and targets.
-    #   # unnormalized predictions & target:
-    # data_mean, data_std = stats
-    # predictions_unnormalized = predictions_test * data_std + data_mean
-    # targets_unnormalized = y_test * data_std + data_mean
-    #
-    # # save predictions & attention weights:
-    # logger.info("saving predictions for test set in .npy files...")
-    # eval_output_path = os.path.join(output_path, "eval_outputs")
-    # if not os.path.isdir(eval_output_path):
-    #   os.makedirs(eval_output_path)
-    # pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
-    # attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
-    # targets_test = eval_output_path + '/' + 'targets_test.npy'
-    # pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
-    # targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
-    # np.save(pred_unistep_N_1_test, predictions_test)
-    # np.save(attn_weights_unistep_N_1_test, attn_weights_test)
-    # np.save(targets_test, y_test)
-    # np.save(pred_unnorm, predictions_unnormalized)
-    # np.save(targets_unnorm, targets_unnormalized)
+    #transform test data (numpy array) into a tensor (use a tf.dataset instead.)
+    #test_data = test_data[:100,:,:]
+    x_test, y_test = split_input_target_uni_step(test_data)
+    if target_feature is not None:
+      y_test = y_test[:, :, target_feature]
+      y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
+    BATCH_SIZE_test = test_data.shape[0]
+    test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
+    test_dataset = test_dataset.batch(BATCH_SIZE_test)
+
+    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
+    logger.info("unistep evaluation with N=1...")
+    for (inp,tar) in test_dataset:
+      (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
+        inputs=inp,
+        training=False,
+        mask=create_look_ahead_mask(seq_len))
+      _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=tar,
+                                                                      predictions=predictions_test,
+                                                                      weights=weights_test,
+                                                                      transformer=smc_transformer)
+
+    logger.info('test mse loss: {} - test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_std))
+
+    #TODO: unnormalized predictions and targets.
+    # unnormalized predictions & target:
+    data_mean, data_std = stats
+    predictions_unnormalized = predictions_test * data_std + data_mean
+    targets_unnormalized = y_test * data_std + data_mean
+
+    # save predictions & attention weights:
+    logger.info("saving predictions for test set in .npy files...")
+    eval_output_path = os.path.join(output_path, "eval_outputs")
+    if not os.path.isdir(eval_output_path):
+      os.makedirs(eval_output_path)
+    pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
+    attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
+    targets_test = eval_output_path + '/' + 'targets_test.npy'
+    pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
+    targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
+    np.save(pred_unistep_N_1_test, predictions_test)
+    np.save(attn_weights_unistep_N_1_test, attn_weights_test)
+    np.save(targets_test, y_test)
+    np.save(pred_unnorm, predictions_unnormalized)
+    np.save(targets_unnorm, targets_unnormalized)
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
