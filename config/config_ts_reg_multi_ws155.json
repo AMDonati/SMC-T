@@ -15,7 +15,7 @@
       "num_heads": 4,
       "d_model": 12,
       "dff": 48,
-      "rate": 0,
+      "rate": 0.1,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
@@ -23,7 +23,7 @@
   "smc": {
     "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05
   },
 
