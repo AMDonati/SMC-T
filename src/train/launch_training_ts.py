@@ -190,8 +190,8 @@ if __name__ == "__main__":
     elif task == 'synthetic':
       X_data = np.load(file_path)
       train_data, val_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
-      val_data_path = '../../data/val_data_synthetic.npy'
-      train_data_path = '../../data/train_data_synthetic.npy'
+      val_data_path = 'data/val_data_synthetic.npy'
+      train_data_path = 'data/train_data_synthetic.npy'
       np.save(val_data_path, val_data)
       np.save(train_data_path, train_data)
 
