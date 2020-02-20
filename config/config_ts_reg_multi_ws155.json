@@ -15,7 +15,7 @@
       "num_heads": 4,
       "d_model": 12,
       "dff": 48,
-      "rate": 0.1,
+      "rate": 0,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
@@ -37,7 +37,7 @@
   "RNN_hparams": {
       "rnn_bs": 256,
       "rnn_emb_dim": 4,
-      "rnn_units": 8
+      "rnn_units": 20
   },
 
    "task": {
