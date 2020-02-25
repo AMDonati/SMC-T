@@ -2,15 +2,10 @@
 
 **README in construction**
 
-### TO DO (by order of priority): 
-* take care of the #TODOs in the code linked to the debugging of the training algos & the computation of the loss. 
-* Test the formula of the SMC loss by replacing it by the classic one in the SMC Transformer training (for num_particles=1). 
-* IN THE TRAINING SCRIPT: store all the information needed (with callbacks, checkpoints, & logging library)
-* Automatization of the experiments (cf GuessWhat training script or uncertainties's one). 
-#### if enough time
-* implement the multivariate case. (input_data=multivariate time-series, output data=univariate time-series.)
-* regression case: computation of the 'customized mse' to allow to have an omega (std of the sampling weights) different of one. 
-* inference function (to see with Sylvain). 
+### TO DO (25/02/2020): 
+* clean code (useless functions & parameters inside them)
+* finalise implementation of the inference function. 
+* understand the issue of shift of one between predictions and targets. (do proper documented testing.)
 
 ### Download
 ```
@@ -42,14 +37,9 @@ To launch the experiments in the local directory, you first have to set the pyth
 export PYTHONPATH=src:${PYTHONPATH} 
 ```
 
-### training on synthetic data
+### training on time-series data
 ```
-python src/train/test_training_dummy_dataset.py
+python src/train/launch_training_ts.py
 
 ```
 
-### training on toy datasets 
-```
-python src/train/test_training_toy_datasets.py
-
-```
