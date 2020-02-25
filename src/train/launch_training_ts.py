@@ -70,24 +70,24 @@ if __name__ == "__main__":
 
   # -------- parsing arguments ---------------------------------------------------------------------------------------------------------------------------------------
 
-  out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
+  #out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
   config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config.json'
   out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
 
-  out_folder_default = '../../output/exp_192_back_to_beginning_pressure_TRAIN_SPLIT_0.8'
-  config_folder = '../../config/config_ts_reg_multi_synthetic.json'
+  out_folder_default = '../../output/exp_after_UAI'
+  config_folder_default = '../../config/config_ts_reg_multi.json'
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default=config_folder, help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", type=str, default=out_folder_after_training_synthetic, help="path for the outputs folder")
+  parser.add_argument("-config", type=str, default=config_folder_default, help="path for the config file with hyperparameters")
+  parser.add_argument("-out_folder", type=str, default=out_folder_default, help="path for the outputs folder")
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
@@ -139,6 +139,7 @@ if __name__ == "__main__":
   rnn_bs = BATCH_SIZE
   rnn_emb_dim = hparams["RNN_hparams"]["rnn_emb_dim"]
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
+  rnn_dropout_rate = hparams["RNN_hparams"]["rnn_dropout_rate"]
 
   # loading data arguments for the regression case
   if task_type == 'regression' and task =='unistep-forcst':
@@ -212,7 +213,7 @@ if __name__ == "__main__":
     print('input example', inp[0])
     print('target example', tar[0])
 
-  num_classes= 25 if data_type == 'classification' else 1
+  num_classes = 25 if data_type == 'classification' else 1
   target_vocab_size = num_classes # 25 bins
   seq_len = train_data.shape[1] - 1 # 24 observations
   training_samples = train_data.shape[0]
@@ -277,7 +278,7 @@ if __name__ == "__main__":
   #-------------------- Building the RNN Baseline & the associated training algo -----------------------------------------------------------
 
   if task_type == 'regression':
-    model = build_LSTM_for_regression(rnn_units=rnn_units)
+    model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
   elif task_type == 'classification':
     model = build_GRU_for_classification(vocab_size=target_vocab_size,
                                          embedding_dim=rnn_emb_dim,
@@ -877,6 +878,7 @@ if __name__ == "__main__":
 
     #transform test data (numpy array) into a tensor (use a tf.dataset instead.)
     #test_data = test_data[:100,:,:]
+    #TODO: do this in the preprocessing function.
     x_test, y_test = split_input_target_uni_step(test_data)
     if target_feature is not None:
       y_test = y_test[:, :, target_feature]

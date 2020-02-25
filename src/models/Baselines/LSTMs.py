@@ -12,10 +12,11 @@ def build_GRU_for_classification(vocab_size, embedding_dim, rnn_units, batch_siz
     tf.keras.layers.Dense(vocab_size)])
   return model
 
-def build_LSTM_for_regression(rnn_units):
+def build_LSTM_for_regression(rnn_units, dropout_rate):
   simple_lstm_model = tf.keras.models.Sequential([
     tf.keras.layers.LSTM(rnn_units,
-                         return_sequences=True),  # TODO: ADD THE INPUT SHAPE HERE...
+                         return_sequences=True),
+    tf.keras.layers.Dropout(rate=dropout_rate),
     tf.keras.layers.Dense(1)])
 
   return simple_lstm_model

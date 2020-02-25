@@ -44,6 +44,7 @@ def evaluate_one_timestep(model, num_samples, inputs, inp_seq_len):
     inp_t = inputs_mha[:, :, t, :] # shape (B,P,D)
     inp_t = tf.expand_dims(inp_t, axis=2)
     (inf_pred, pred_P, pred_N_P), (K, V) = model.cell.inference_function(inp_t, K, V, num_samples, t)
+    #TODO: add resampling step here? (by adding as output w_t and as input of the function the target?)
     list_inf_pred.append(inf_pred)  # (B,1,F=1)
     list_pred_P.append(pred_P)  # (B,P,1,F=1)
     list_pred_N_P.append(pred_N_P)  # (B,N*P,1,F=1)

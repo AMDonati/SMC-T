@@ -22,7 +22,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
               num_particles, seq_len,
               num_layers, sigma, noise, task_type, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
                rate=0.1, **kwargs):
-    #TODO: remove default Value for maximum_position_encoding (not essential).
+    #TODO: remove default Value for maximum_position_encoding.
     '''
     -Args:
       -d_model: model depth
@@ -99,19 +99,19 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     super(SMC_Transf_Cell, self).__init__(**kwargs)
 
-  def compute_w_classification(self, predictions, x):
+  def compute_w_classification(self, predictions, y):
     '''
     :param predictions: output of final layer (logits.)
     :param x: current sequence element (x_t) >
     :return:
     '''
     log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-    w = tf.gather(log_probas, x, axis=-1, batch_dims=1)
+    w = tf.gather(log_probas, y, axis=-1, batch_dims=1)
     w = tf.squeeze(w, axis=-1)  # shape (B,P,1)
     w_squeezed = tf.squeeze(w, axis=-1)  # shape (B,P)
     return w_squeezed  # shape (B,P)
 
-  def compute_w_regression(self, predictions, x):
+  def compute_w_regression(self, predictions, y):
     '''
     # FORMULA
     # -0.5 * mu_t ^ T * mu_t / omega
@@ -120,17 +120,17 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # logw = logw - min(logw)
     # w = exp(logw)
     :param predictions: output of final layer (logits.) > shape (B,P,1) (regression case)
-    :param x: current sequence element (x_t) > shape (B,F,1); F > 1 for multivariate case.
+    :param y: current sequence element (x_t) > shape (B,F,1); F > 1 for multivariate case.
     :return:
     '''
     # TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
-    x = tf.cast(x, dtype=tf.float32)  # x of shape (B,P) for classif case / shape (B,P,F) for time_series case.
-    x = tf.squeeze(x, axis=-1)
+    y = tf.cast(y, dtype=tf.float32)  # x of shape (B,P) for classif case / shape (B,P,F) for time_series case.
+    y = tf.squeeze(y, axis=-1)
     if len(tf.shape(predictions)) == 4:
       predictions = tf.squeeze(predictions, axis=-1)  # shape (B,P,1)
     # expanding and tiling x over the particle dimensions to have the right shape
-    x = tf.expand_dims(x, axis=1) # (B,1,F,1)
-    x = tf.tile(x, multiples=[1, self.num_particles, 1])
+    y = tf.expand_dims(y, axis=1) # (B,1,F,1)
+    y = tf.tile(y, multiples=[1, self.num_particles, 1])
     # if len(tf.shape(x)) == 3:  # nlp /classif case
     #   x = tf.tile(x, multiples=[1, self.num_particles, 1])  # shape (B,P,1)
     # elif len(tf.shape(x)) == 4:
@@ -138,10 +138,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # multivariate case: selecting the target feature as the ground truth (labels)
     if self.target_feature is not None:
-      assert self.target_feature < tf.shape(x)[-1]
-      x = x[:, :, self.target_feature] # (B, P)
-      x = tf.expand_dims(x, axis=-1) # (B, P, 1)
-    mu_t = x - predictions
+      assert self.target_feature < tf.shape(y)[-1]
+      y = y[:, :, self.target_feature] # (B, P)
+      y = tf.expand_dims(y, axis=-1) # (B, P, 1)
+    mu_t = y - predictions
     # mu_t=tf.squeeze(mu_t, axis=-1)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
     log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w)
@@ -162,6 +162,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :param inference_decoding_timestep:
     :return:
     '''
+
+    #TODO: add the resampling part on this one.
     sampled_z, sampled_K, sampled_V = [], [], []
     N = num_samples
     t = inference_decoding_timestep
@@ -235,8 +237,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #print('decoding timestep', self.dec_timestep)
 
     # unnesting inputs
-    r, x = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
-    x = tf.cast(x, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
+    x, y = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
+    y = tf.cast(y, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
@@ -246,7 +248,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       #V = resample_old(V, I)
 
     # multi-head attention:
-    input_mha = tf.expand_dims(r, axis=2)  # shape (B,P,1,D)
+    input_mha = tf.expand_dims(x, axis=2)  # shape (B,P,1,D)
     inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     if self.dec_timestep < self.seq_len:
       # store (K,V) only in that case.
@@ -258,25 +260,25 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
     z = self.dropout1(z, training=self.training)
-    r = tf.expand_dims(r, axis=2)
-    out1 = self.layernorm1(z + r) # r corresponds here to r^(l-1) (input of the cell).
+    x = tf.expand_dims(x, axis=2)
+    out1 = self.layernorm1(z + x) # r corresponds here to r^(l-1) (input of the cell).
     ffn_output = self.ffn(out1)  # (B, P, 1, D)
     ffn_output = self.dropout3(ffn_output, training=self.training)
     r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
 
     # 3. FOR SMC: compute the new set of weights.
-    if len(tf.shape(x)) == 1:
-      x = tf.expand_dims(x, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
+    if len(tf.shape(y)) == 1:
+      y = tf.expand_dims(y, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     if self.task_type == 'classification':
       assert self.target_vocab_size > 1
-      w_squeezed = self.compute_w_classification(predictions=predictions, x=x)
+      w_squeezed = self.compute_w_classification(predictions=predictions, x=y)
     elif self.task_type == 'regression':
       assert self.target_vocab_size == 1
-      w_squeezed = self.compute_w_regression(predictions=predictions, x=x)
+      w_squeezed = self.compute_w_regression(predictions=predictions, y=y)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
     w_squeezed=tf.stop_gradient(w_squeezed)
@@ -301,8 +303,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     #-----------------end of weights computation--------------------------------------------------------------------
 
     # update the genealogy indices matrix from the weights.
-    #if self.dec_timestep < self.seq_len:
-    # update it only until T-1
     # TODO: remove this function & consider only the current indice i_t.
     i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
@@ -334,8 +334,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
     new_states = NestedState(K=K, V=V, w=w, I=I)
-    #TODO: remove the condition loop if we start with a decoding timestep = 0.
-    # if self.dec_timestep < self.seq_len:
+
     self.dec_timestep += 1
 
     return output, new_states

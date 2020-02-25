@@ -12,7 +12,7 @@ import collections
 
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
-NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
+NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'w', 'I'])
 
 # -------- Class Decoder and Class Transformer-------------------------------------------------------------------------------------------------------------
@@ -263,6 +263,7 @@ class SMC_Transformer(tf.keras.Model):
       gaussian_noise = tf.random.normal(shape=tf.shape(z), name='stddev')  # shape (B,P,1,D)
     else:
       gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
+    #TODO: check this with Sylvain.
     z = z + tf.scalar_mul(self.sigma, gaussian_noise)
 
     # initialize w0
@@ -285,7 +286,7 @@ class SMC_Transformer(tf.keras.Model):
       initial_word_id = tf.expand_dims(initial_word_id, axis=1)
       initial_word_id = tf.tile(initial_word_id, multiples=[1, self.num_particles, 1])  # shape (B,P,F)
 
-      initial_weights = self.cell.compute_w_regression(predictions=logits_initial, x=initial_word_id) # shape (B,P)
+      initial_weights = self.cell.compute_w_regression(predictions=logits_initial, y=initial_word_id) # shape (B,P)
 
     # call the initialization of the ancestor indices matrix - create an initial 'identity function' indices matrix.
     ind_matrix_init = initialize_indices_matrix(batch_size, seq_length, self.num_particles) # (B,P,S)
@@ -393,17 +394,17 @@ class SMC_Transformer(tf.keras.Model):
 
     # First: 'Transformer embedding' for the first L-1 layers if num_layers > 1:
     if self.num_layers > 1:
-      r, attn_weights_enc = self.encoder(inputs=input_tensor_processed,
+      x, attn_weights_enc = self.encoder(inputs=input_tensor_processed,
                                          training=training,
                                          mask=mask)  # shape (B,P,S,D)
-      r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+      x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+
     elif self.num_layers == 1:
       #TODO: change the name of r to x.
       # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
-      # one dense layer to have a tensor of shape (B,P,S,D)
-      r = self.input_dense_projection(input_tensor_processed)
-      r = tf.transpose(r, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
+      x = self.input_dense_projection(input_tensor_processed) # one dense layer to have a tensor of shape (B,P,S,D)
+      x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
     if self.target_feature is not None:
@@ -424,26 +425,18 @@ class SMC_Transformer(tf.keras.Model):
     def step_function(inputs, states):
       return self.cell(inputs, states)
 
-    # taking the first S-1 sequence elements for r (input data), & elements 1 to S for x (used for computing w)
-    r = r[:,:seq_len-1,:,:]
-    x = tf.expand_dims(inputs[:,1:,:], axis=-1)
-    inputs = NestedInput(x=x, r=r) # x > (B,S,F,1), #r > (B,S,P,D)
-    #TODO: r=[xo,x1,...,x(s-1)], (x=y)=[x1...xs]
+    # taking the first S-1 sequence elements for x (input data), & elements 1 to S for y (used for computing w)
+    x = x[:,:seq_len-1,:,:]
+    y = tf.expand_dims(inputs[:,1:,:], axis=-1)
+    inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #r > (B,S,P,D)
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
-                                                            inputs=inputs,
+                                                            inputs=inputs_for_rnn,
                                                             initial_states=initial_state)
-
     # reset decoding timestep of the cell to 1:
     self.cell.dec_timestep = 0
 
-    #TODO: if not self.training: create another 'inference cell'?
-    #def step_function_inference(inputs, states):
-      #return self.cell.inf_fonction(inputs, states)
-
-    #inf_predictions=tf.keras.backend.rnn(step_function=step_function_inference,
-                                                            #inputs=inputs,
-                                                            #initial_states=initial_state)
+    # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ----------------------------------------------------------
 
     # last_output > (B,P,1,D)
     last_output = [tf.squeeze(out, axis=-2) for out in last_output] # (B,P,D)
@@ -451,14 +444,14 @@ class SMC_Transformer(tf.keras.Model):
 
     r_T = last_output[0]
     z_T = last_output[1]
-    r0_T = outputs[0] # shape (B,S,P,D)
-    Z0_T = outputs[1] # shape (B,S,P,D)
+    r0_T = outputs[0] # (B,S,P,D)
+    Z0_T = outputs[1] # (B,S,P,D)
 
     inference_pred = outputs[2]
     good_avg_predictions = outputs[3]
     max_predictions = outputs[4] # (B,S,V)
 
-    list_means_0_T = outputs[5] # shape (B,S,P,D)
+    list_means_0_T = outputs[5] # (B,S,P,D) > for computing the loss function.
 
     K = new_states[0] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
@@ -467,7 +460,6 @@ class SMC_Transformer(tf.keras.Model):
     V = V[:,:,1:,:] # (B,S,P,D)
 
     w_T = new_states[2]
-    #TODO: output both w and the matrix of indices matrix. (to save).
     I = new_states[3]
 
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
