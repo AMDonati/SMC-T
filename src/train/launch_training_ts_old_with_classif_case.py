@@ -32,10 +32,12 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
 
+from train.loss_functions import compute_accuracy_variance
 from train.loss_functions import CustomSchedule
 from train.loss_functions import loss_function_regression
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+from models.Baselines.LSTMs import build_GRU_for_classification
 from models.Baselines.LSTMs import build_LSTM_for_regression
 
 import time
@@ -165,49 +167,58 @@ if __name__ == "__main__":
 
   #------------------ UPLOAD the training dataset ----------------------------------------------------------------------------------------------------------------------
 
-  if task =='unistep-forcst':
+  if task_type == 'classification':
 
-    (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
-                                                                                  fname=fname,
-                                                                                  col_name=col_name,
-                                                                                  index_name=index_name,
-                                                                                  TRAIN_SPLIT=TRAIN_SPLIT,
-                                                                                  history=history,
-                                                                                  step=step)
+    data_folder = args.data_folder
+    train_data = np.load(data_folder + '/ts_weather_train_data.npy')
+    val_data = np.load(data_folder + '/ts_weather_val_data.npy')
+    test_data = np.load(data_folder + '/ts_weather_test_data.npy')
 
-    BUFFER_SIZE = 10000
+  elif task_type == 'regression':
 
-  elif task == 'synthetic':
-    X_data = np.load(file_path)
-    train_data, val_data, test_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
-    val_data_path = 'data/val_data_synthetic.npy'
-    train_data_path = 'data/train_data_synthetic.npy'
-    np.save(val_data_path, val_data)
-    np.save(train_data_path, train_data)
+    if task =='unistep-forcst':
 
-    BUFFER_SIZE = 2000
+      (train_data, val_data, test_data), original_df, stats = df_to_data_regression(file_path=file_path,
+                                                                           fname=fname,
+                                                                           col_name=col_name,
+                                                                           index_name=index_name,
+                                                                           TRAIN_SPLIT=TRAIN_SPLIT,
+                                                                           history=history,
+                                                                           step=step)
+
+      BUFFER_SIZE = 10000
+
+    elif task == 'synthetic':
+      X_data = np.load(file_path)
+      train_data, val_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
+      val_data_path = 'data/val_data_synthetic.npy'
+      train_data_path = 'data/train_data_synthetic.npy'
+      np.save(val_data_path, val_data)
+      np.save(train_data_path, train_data)
+
+      BUFFER_SIZE = 2000
 
   print('train_data', train_data.shape)
   print('val_data', val_data.shape)
 
-  train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_uni_step(
-    train_data=train_data,
-    val_data=val_data,
-    test_data=test_data,
-    split_fn=split_input_target_uni_step,
-    BUFFER_SIZE=BUFFER_SIZE,
-    BATCH_SIZE=BATCH_SIZE,
-    target_feature=target_feature)
+
+  train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_uni_step(train_data=train_data,
+                                                        val_data=val_data,
+                                                        test_data=test_data,
+                                                        split_fn=split_input_target_uni_step,
+                                                        BUFFER_SIZE=BUFFER_SIZE,
+                                                        BATCH_SIZE=BATCH_SIZE,
+                                                        target_feature=target_feature)
 
   for (inp, tar) in train_dataset.take(1):
     print('input example', inp[0])
     print('target example', tar[0])
 
   num_classes = 25 if data_type == 'classification' else 1
-  target_vocab_size = num_classes  # 25 bins
-  seq_len = train_data.shape[1] - 1  # 24 observations
+  target_vocab_size = num_classes # 25 bins
+  seq_len = train_data.shape[1] - 1 # 24 observations
   training_samples = train_data.shape[0]
-  steps_per_epochs = int(train_data.shape[0] / BATCH_SIZE)
+  steps_per_epochs = int(train_data.shape[0]/BATCH_SIZE)
   print("steps per epochs", steps_per_epochs)
 
   # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
@@ -267,7 +278,13 @@ if __name__ == "__main__":
 
   #-------------------- Building the RNN Baseline & the associated training algo -----------------------------------------------------------
 
-  model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
+  if task_type == 'regression':
+    model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
+  elif task_type == 'classification':
+    model = build_GRU_for_classification(vocab_size=target_vocab_size,
+                                         embedding_dim=rnn_emb_dim,
+                                         rnn_units=rnn_units,
+                                         batch_size=BATCH_SIZE)
 
   # Directory where the checkpoints will be saved
   checkpoint_dir = os.path.join(checkpoint_path, "RNN_baseline")
@@ -411,9 +428,24 @@ if __name__ == "__main__":
           val_loss = tf.reduce_mean(val_loss, axis=-1)
           val_loss = tf.reduce_mean(val_loss, axis=-1)
 
-        logger.info('train loss: {} - val loss: {}'.format(train_loss_batch.numpy(), val_loss.numpy()))
-        average_losses_baseline.append(train_loss_batch.numpy())
-        val_losses_baseline.append(val_loss.numpy())
+        if task_type == 'classification':
+          train_acc = train_accuracy.result()
+          # computing the validation accuracy for each batch...
+          val_accuracy_batch = val_accuracy(tar, predictions_val)
+
+          val_acc = val_accuracy.result()
+
+          log_template='train loss {} - train acc {} - val acc {}'
+          logger.info(log_template.format(avg_loss_batch, train_acc, val_acc))
+          # saving loss and metrics information:
+          average_losses_baseline.append(avg_loss_batch.numpy())
+          training_accuracies_baseline.append(train_accuracy_batch.numpy())
+          val_accuracies_baseline.append(val_accuracy_batch.numpy())
+
+        elif task_type == 'regression':
+          logger.info('train loss: {} - val loss: {}'.format(train_loss_batch.numpy(), val_loss.numpy()))
+          average_losses_baseline.append(train_loss_batch.numpy())
+          val_losses_baseline.append(val_loss.numpy())
 
         ckpt_save_path = ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
@@ -421,8 +453,13 @@ if __name__ == "__main__":
       logger.info('total training time for {} epochs:{}'.format(EPOCHS,time.time() - start_training))
 
       # storing history of losses and accuracies in a csv file
-      keys = ['train loss', 'val loss']
-      values = [average_losses_baseline, val_losses_baseline]
+      if task_type == 'classification':
+        keys = ['loss', 'train_accuracy', 'val_accuracy']
+        values = [average_losses_baseline, training_accuracies_baseline, val_accuracies_baseline]
+
+      elif task_type == 'regression':
+        keys = ['train loss', 'val loss']
+        values = [average_losses_baseline, val_losses_baseline]
 
       history = dict(zip(keys, values))
       csv_fname = 'baseline_history.csv'
@@ -481,6 +518,7 @@ if __name__ == "__main__":
           mean_train_loss_mse,
           mean_val_loss_mse))
 
+
   #------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
     if train_smc_transformer:
@@ -492,6 +530,7 @@ if __name__ == "__main__":
         logger.info("no resampling because only one particle is taken...")
 
       start_epoch = 0
+      #TODO: add omega here:
       smc_transformer = SMC_Transformer(num_layers=num_layers,
                             d_model=d_model,
                             num_heads=num_heads,
@@ -540,8 +579,13 @@ if __name__ == "__main__":
       start_training = time.time()
 
       # preparing recording of loss and metrics information
-      train_loss_history, train_loss_mse_history = [], []
-      val_loss_history, val_loss_mse_history = [], []
+      if task_type == 'classification':
+        train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history= [], [], [], []
+        val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history = [], [], [], []
+
+      elif task_type == 'regression':
+        train_loss_history, train_loss_mse_history = [], []
+        val_loss_history, val_loss_mse_history = [], []
 
       for epoch in range(start_epoch, EPOCHS):
         start = time.time()
@@ -574,7 +618,10 @@ if __name__ == "__main__":
                                                                 classic_loss=True,
                                                                 SMC_loss=True)
 
-          mse_metric, mse_loss_std= train_accuracies
+          if task_type == 'classification':
+            train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
+          elif task_type == 'regression':
+            mse_metric, mse_loss_std= train_accuracies
 
         # compute the validation accuracy on the validation dataset:
         # TODO: here consider a validation set with a batch_size equal to the number of samples.
@@ -593,9 +640,44 @@ if __name__ == "__main__":
 
         #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 
-        mse_metric, mse_loss_std = train_accuracies
-        template = 'train loss {} -  train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
-        logger.info(template.format(avg_loss_batch.numpy(),
+        if task_type == 'classification':
+          train_inf_acc_batch, train_avg_acc_batch, train_max_acc_batch = train_accuracies
+          # computing the validation accuracy for each batch...
+          val_inf_pred_batch, val_avg_pred_batch, val_max_pred_batch = predictions_metric
+          val_inf_acc_batch = val_accuracy(tar, val_inf_pred_batch)
+          val_avg_acc_batch = val_accuracy(tar, val_avg_pred_batch)
+          val_max_acc_batch = val_accuracy(tar, val_max_pred_batch)
+          # computing the variance in accuracy for each 'prediction particle':
+          val_acc_variance=compute_accuracy_variance(predictions_val=predictions_val,
+                                                   tar=tar,
+                                                   accuracy_metric=val_accuracy)
+
+          template='train loss {} - train acc, inf: {} - train acc, avg: {} - train_acc, max: {},' \
+                 ' - val acc, inf: {} - val acc, avg: {} - val acc, max: {}'
+          logger.info(template.format(avg_loss_batch.numpy(),
+                                    train_inf_acc_batch.numpy(),
+                                    train_avg_acc_batch.numpy(),
+                                    train_max_acc_batch.numpy(),
+                                    val_inf_acc_batch.numpy(),
+                                    val_avg_acc_batch.numpy(),
+                                    val_max_acc_batch.numpy()))
+
+          # saving loss and metrics information:
+          train_loss_history.append(avg_loss_batch.numpy())
+          train_inf_acc_history.append(train_inf_acc_batch.numpy())
+          train_avg_acc_history.append(train_avg_acc_batch.numpy())
+          train_max_acc_history.append(train_max_acc_batch.numpy())
+
+          val_inf_acc_history.append(val_inf_acc_batch.numpy())
+          val_avg_acc_history.append(val_avg_acc_batch.numpy())
+          val_max_acc_history.append(val_max_acc_batch.numpy())
+
+          val_acc_variance_history.append(val_acc_variance)
+
+        elif task_type == 'regression':
+          mse_metric, mse_loss_std = train_accuracies
+          template = 'train loss {} -  train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
+          logger.info(template.format(avg_loss_batch.numpy(),
                                       mse_metric.numpy(),
                                       mse_loss_std.numpy(),
                                       val_loss.numpy(),
@@ -609,7 +691,7 @@ if __name__ == "__main__":
           val_loss_history.append(val_loss.numpy())
           val_loss_mse_history.append(val_loss_mse.numpy())
 
-        #------------- end of saving metrics information -------------------------------------------------------------------------------
+          #------------- end of saving metrics information -------------------------------------------------------------------------------
 
         ckpt_save_path = ckpt_manager.save()
 
@@ -617,9 +699,24 @@ if __name__ == "__main__":
 
       logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
-      keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
-      values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
-      saving_training_history(keys=keys, values=values,
+      if task_type == 'classification':
+        # storing history of losses and accuracies in a csv file
+        keys = ['train loss', 'train accuracy, inference', 'train accuracy, from avg', 'train accuracy, from max',
+                'val accuracy - inference', 'val accuracy, from avg', 'val accuracy, from max',
+                'variance of validation accuracy']
+        values = [train_loss_history, train_inf_acc_history, train_avg_acc_history, train_max_acc_history,
+                  val_inf_acc_history, val_avg_acc_history, val_max_acc_history, val_acc_variance_history]
+
+        saving_training_history(keys=keys, values=values,
+                                output_path=output_path,
+                                csv_fname='smc_transformer_history.csv',
+                                logger=logger,
+                                start_epoch=start_epoch)
+
+      elif task_type == 'regression':
+        keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
+        values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
+        saving_training_history(keys=keys, values=values,
                                   output_path=output_path,
                                   csv_fname='smc_transformer_history.csv',
                                   logger=logger,
@@ -765,8 +862,7 @@ if __name__ == "__main__":
       mean_val_loss_mse,
       mean_val_loss_std))
 
-    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------------#
-
+    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
     logger.info("unistep evaluation with N=1...")
     for (test_data, y_test) in test_dataset:
       (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(

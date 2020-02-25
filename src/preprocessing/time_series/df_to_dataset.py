@@ -18,7 +18,7 @@ def split_dataset_into_seq(dataset, start_index, end_index, history_size, step):
 
   return np.array(data)
 
-def df_to_data_regression(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT, VAL_SPLIT=0.5, CV=False):
+def df_to_data_regression(file_path, fname, col_name, index_name, history, step, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, CV=False):
   #TODO: col_name is now a list of selected features.
   zip_path = tf.keras.utils.get_file(
       origin=file_path,
@@ -46,8 +46,6 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
 
   data_in_seq = split_dataset_into_seq(uni_data, 0, None, history, step)
   if not CV:
-    #train_data = split_dataset_into_seq(uni_data, 0, TRAIN_SPLIT, history, step)
-    #val_data = split_dataset_into_seq(uni_data, TRAIN_SPLIT, None, history,step)
 
     # split between validation dataset and test set:
     train_data, val_data = train_test_split(data_in_seq, train_size=TRAIN_SPLIT, shuffle=True)
@@ -62,7 +60,7 @@ def df_to_data_regression(file_path, fname, col_name, index_name, history, step,
     return (train_data, val_data, test_data), uni_data_df, stats
 
   else:
-    train_val_data, test_data = train_test_split(data_in_seq, train_size=VAL_SPLIT)
+    train_val_data, test_data = train_test_split(data_in_seq, train_size=VAL_SPLIT_cv)
     kf = KFold(n_splits=5)
     list_train_data, list_val_data = [], []
     for train_index, val_index in kf.split(train_val_data):
@@ -87,13 +85,25 @@ def split_input_target_uni_step(chunk):
     target_text = chunk[:,1:]
   return input_text, target_text
 
-def split_synthetic_dataset(x_data, TRAIN_SPLIT):
-  num_samples = tf.shape(x_data)[0].numpy()
-  TRAIN_SPLIT = int(TRAIN_SPLIT*num_samples)
-  train_data = x_data[:TRAIN_SPLIT,:,:]
-  val_data = x_data[TRAIN_SPLIT:,:,:]
+def split_synthetic_dataset(x_data, TRAIN_SPLIT, VAL_SPLIT=0.5, VAL_SPLIT_cv=0.9, cv=False):
+  if not cv:
+    train_data, val_test_data = train_test_split(x_data, train_size=TRAIN_SPLIT)
+    val_data, test_data = train_test_split(val_test_data, train_size=VAL_SPLIT)
 
-  return train_data, val_data
+    return train_data, val_data, test_data
+  
+  else:
+    train_val_data, test_data = train_test_split(x_data, train_size=VAL_SPLIT_cv)
+    kf = KFold(n_splits=5)
+    list_train_data, list_val_data = [], []
+    for train_index, val_index in kf.split(train_val_data):
+      train_data = train_val_data[train_index, :, :]
+      val_data = train_val_data[val_index, :, :]
+      list_train_data.append(train_data)
+      list_val_data.append(val_data)
+
+    return list_train_data, list_val_data, test_data
+
 
 def data_to_dataset_uni_step(train_data, val_data, test_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
   '''
@@ -183,7 +193,6 @@ def df_to_data_uni_step(file_path, fname, col_name, index_name, q_cut, history, 
   return (train_data, val_data, test_data), uni_data_merged, uni_data_df
 
 
-
 if __name__ == "__main__":
 
   #------------ REGRESSION CASE -------------------------------------------------------------------------------------
@@ -207,13 +216,14 @@ if __name__ == "__main__":
                                                                          history=history,
                                                                          step=step)
 
-  print(train_data[:10])
+  print(train_data[:5])
 
   BUFFER_SIZE = 10000
   BATCH_SIZE = 64
 
   train_dataset, val_dataset, test_dataset, _, _, _ = data_to_dataset_uni_step(train_data=train_data,
                                                       val_data=val_data,
+                                                      test_data = test_data,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=BUFFER_SIZE,
                                                       BATCH_SIZE=BATCH_SIZE,
@@ -227,20 +237,24 @@ if __name__ == "__main__":
     print('validation inputs', inp[0])
     print('validation targets', tar[0])
 
-  # for (inp, tar) in train_dataset.take(1):
-  #   print('input data', inp)
-  #   print('target data', tar)
+  for (test_data, y_test) in test_dataset:
+    print('test data', test_data[0])
+    print('targets test', y_test[0])
+
 
   # ----- load and prepare synthetic dataset -------------------------------------------------------------------
 
   file_path="/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/synthetic_dataset.npy"
   X_data = np.load(file_path)
-  train_data_synt, val_data_synt = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=0.8)
+  train_data_synt, val_data_synt, test_data_synt = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=0.7)
 
   print('train data', train_data_synt.shape)
+  print('val_data', val_data_synt.shape)
+  print('test data', test_data_synt.shape)
 
-  train_dataset_synt, val_dataset_synt, _, _ = data_to_dataset_uni_step(train_data=train_data_synt,
+  train_dataset_synt, val_dataset_synt, test_dataset_synt, _, _, _ = data_to_dataset_uni_step(train_data=train_data_synt,
                                                       val_data=val_data_synt,
+                                                      test_data = test_data_synt,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=2000,
                                                       BATCH_SIZE=64,
@@ -248,6 +262,7 @@ if __name__ == "__main__":
 
   print('train synthetic dataset', train_dataset_synt)
   print('val dataset synthetic', val_dataset_synt)
+  print('test dataset synthetic', test_dataset_synt)
 
 
   #TODO save datasets in .npy files.
