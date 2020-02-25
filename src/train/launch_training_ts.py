@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
   # -------- parsing arguments ---------------------------------------------------------------------------------------------------------------------------------------
 
-  #out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
+  out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
   config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
   config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config.json'
   out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
@@ -202,8 +202,9 @@ if __name__ == "__main__":
   print('val_data', val_data.shape)
 
 
-  train_dataset, val_dataset, train_dataset_for_RNN, val_dataset_for_RNN = data_to_dataset_uni_step(train_data=train_data,
+  train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN = data_to_dataset_uni_step(train_data=train_data,
                                                         val_data=val_data,
+                                                        test_data=test_data,
                                                         split_fn=split_input_target_uni_step,
                                                         BUFFER_SIZE=BUFFER_SIZE,
                                                         BATCH_SIZE=BATCH_SIZE,
@@ -861,40 +862,14 @@ if __name__ == "__main__":
       mean_val_loss_mse,
       mean_val_loss_std))
 
-
-    # # test loss value
-    # for (inp, tar) in val_dataset.take(1):
-    #   (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(
-    #     inputs=inp,
-    #     training=False,
-    #     mask=create_look_ahead_mask(seq_len))
-    #   val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real=tar,
-    #                                                                       predictions=predictions_val,
-    #                                                                       weights=weights_val,
-    #                                                                       transformer=smc_transformer)
-    # logger.info('testing loss... val mse loss: {}'.format(val_loss_mse))
-
-    # ------------------------------------------------- preparing test dataset ------------------------------------------------------------------
-
-    #transform test data (numpy array) into a tensor (use a tf.dataset instead.)
-    #test_data = test_data[:100,:,:]
-    #TODO: do this in the preprocessing function.
-    x_test, y_test = split_input_target_uni_step(test_data)
-    if target_feature is not None:
-      y_test = y_test[:, :, target_feature]
-      y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
-    BATCH_SIZE_test = test_data.shape[0]
-    test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
-    test_dataset = test_dataset.batch(BATCH_SIZE_test)
-
     # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------
     logger.info("unistep evaluation with N=1...")
-    for (inp,tar) in test_dataset:
+    for (test_data, y_test) in test_dataset:
       (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-        inputs=inp,
+        inputs=test_data,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=tar,
+      _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=y_test,
                                                                       predictions=predictions_test,
                                                                       weights=weights_test,
                                                                       transformer=smc_transformer)

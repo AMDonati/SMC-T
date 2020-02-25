@@ -90,13 +90,12 @@ def split_input_target_uni_step(chunk):
 def split_synthetic_dataset(x_data, TRAIN_SPLIT):
   num_samples = tf.shape(x_data)[0].numpy()
   TRAIN_SPLIT = int(TRAIN_SPLIT*num_samples)
-  #VAL_SPLIT = int((num_samples-TRAIN_SPLIT)/2)
   train_data = x_data[:TRAIN_SPLIT,:,:]
   val_data = x_data[TRAIN_SPLIT:,:,:]
 
   return train_data, val_data
 
-def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
+def data_to_dataset_uni_step(train_data, val_data, test_data, split_fn, BUFFER_SIZE, BATCH_SIZE, target_feature=None):
   '''
   :param train_data: input data for training > shape (N_train, S+1, F) ; N_train = number of samples in training dataset.
   :param val_data: input data used for validation set > shape (N_val, S+1, F)
@@ -111,12 +110,15 @@ def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_
   '''
   x_train, y_train = split_fn(train_data)
   x_val, y_val = split_fn(val_data)
+  x_test, y_test = split_fn(test_data)
 
   if target_feature is not None:
     y_train = y_train[:, :, target_feature]
     y_train = np.reshape(y_train, newshape=(y_train.shape[0], y_train.shape[1], 1))
     y_val = y_val[:, :, target_feature]
     y_val = np.reshape(y_val, newshape=(y_val.shape[0], y_val.shape[1], 1))
+    y_test = y_test[:, :, target_feature]
+    y_test = np.reshape(y_test, newshape=(y_test.shape[0], y_test.shape[1], 1))
     print('univariate timeseries forecasting...')
   else:
     print('multivariate timeseries forecasting with {} features'.format(y_train.shape[-1]))
@@ -130,14 +132,20 @@ def data_to_dataset_uni_step(train_data, val_data, split_fn, BUFFER_SIZE, BATCH_
   val_dataset = tf.data.Dataset.from_tensor_slices((val_data, y_val))
   val_dataset = val_dataset.batch(BATCH_SIZE, drop_remainder=True)
 
+  BATCH_SIZE_test = test_data.shape[0]
+  test_dataset = tf.data.Dataset.from_tensor_slices((test_data, y_test))
+  test_dataset = test_dataset.batch(BATCH_SIZE_test)
+
   train_dataset_for_RNN = tf.data.Dataset.from_tensor_slices((x_train, y_train))
   train_dataset_for_RNN = train_dataset_for_RNN.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
 
   val_dataset_for_RNN = tf.data.Dataset.from_tensor_slices((x_val, y_val))
   val_dataset_for_RNN = val_dataset_for_RNN.batch(BATCH_SIZE, drop_remainder=True)
 
+  test_dataset_for_RNN = tf.data.Dataset.from_tensor_slices((x_test, y_test))
+  test_dataset_for_RNN = test_dataset_for_RNN.batch(BATCH_SIZE_test)
 
-  return train_dataset, val_dataset, train_dataset_for_RNN, val_dataset_for_RNN
+  return train_dataset, val_dataset, test_dataset, train_dataset_for_RNN, val_dataset_for_RNN, test_dataset_for_RNN
 
 ### ----- for classification case (categorized time_series... ----------------------------------------------------------------
 
@@ -204,7 +212,7 @@ if __name__ == "__main__":
   BUFFER_SIZE = 10000
   BATCH_SIZE = 64
 
-  train_dataset, val_dataset, _, _ = data_to_dataset_uni_step(train_data=train_data,
+  train_dataset, val_dataset, test_dataset, _, _, _ = data_to_dataset_uni_step(train_data=train_data,
                                                       val_data=val_data,
                                                       split_fn=split_input_target_uni_step,
                                                       BUFFER_SIZE=BUFFER_SIZE,
