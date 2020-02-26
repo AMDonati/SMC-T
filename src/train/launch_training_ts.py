@@ -85,7 +85,7 @@ if __name__ == "__main__":
   #TODO: ask Florian why when removing default value, it is not working...
   parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
+  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
@@ -383,9 +383,10 @@ if __name__ == "__main__":
         start = time.time()
         logger.info("Epoch {}/{}".format(epoch+1, EPOCHS))
 
-        train_loss.reset_states()
         train_accuracy.reset_states()
         val_accuracy.reset_states()
+        sum_train_loss = 0
+        sum_val_loss = 0
 
         for (batch, (inp, tar)) in enumerate(dataset):
           inp_model = inp [:,:-1, :]
@@ -396,21 +397,28 @@ if __name__ == "__main__":
                                                                             optimizer=optimizer,
                                                                             data_type=data_type,
                                                                             task_type=task_type)
-          if batch == 0 and epoch==0:
+          sum_train_loss += train_loss_batch
+
+          if batch == 0 and epoch == 0:
             print('baseline transformer summary', transformer.summary())
 
-        for (inp, tar) in val_dataset:
+        avg_train_loss = sum_train_loss / (batch + 1)
+
+        for batch_val, (inp, tar) in enumerate(val_dataset):
           inp_model = inp[:, :-1, :]
           predictions_val, attn_weights_val = transformer(inputs=inp_model,
                                                           training=False,
                                                           mask=create_look_ahead_mask(seq_len))
-          val_loss = tf.keras.losses.MSE(tar, predictions_val)
-          val_loss = tf.reduce_mean(val_loss, axis=-1)
-          val_loss = tf.reduce_mean(val_loss, axis=-1)
+          val_loss_batch = tf.keras.losses.MSE(tar, predictions_val)
+          val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
+          val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
+          sum_val_loss += val_loss_batch
 
-        logger.info('train loss: {} - val loss: {}'.format(train_loss_batch.numpy(), val_loss.numpy()))
-        average_losses_baseline.append(train_loss_batch.numpy())
-        val_losses_baseline.append(val_loss.numpy())
+        avg_val_loss = sum_val_loss / (batch_val + 1)
+
+        logger.info('train loss: {} - val loss: {}'.format(avg_train_loss.numpy(), avg_val_loss.numpy()))
+        average_losses_baseline.append(avg_train_loss.numpy())
+        val_losses_baseline.append(avg_val_loss.numpy())
 
         ckpt_save_path = ckpt_manager.save()
         logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
@@ -513,7 +521,7 @@ if __name__ == "__main__":
       ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
       # if a checkpoint exists, restore the latest checkpoint.
-      start_epoch=restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
       if start_epoch is None:
         start_epoch = 0
 
@@ -543,6 +551,9 @@ if __name__ == "__main__":
         start = time.time()
         logger.info('Epoch {}/{}'.format(epoch+1,EPOCHS))
         train_accuracy.reset_states()
+        sum_total_train_loss, sum_total_val_loss= 0, 0
+        sum_train_loss, sum_val_loss= 0, 0
+        sum_train_loss_std, sum_val_loss_std = 0, 0
 
         if test_loss:
         #TODO: check that the loss is the same for 1 particule, and 5 particules with no noise.
@@ -559,26 +570,39 @@ if __name__ == "__main__":
         # training step:
         for (batch, (inp, tar)) in enumerate(dataset):
           #TODO: add the output of the weights and indices matrix every 100 steps_per_epochs.
-          avg_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
+          total_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
                                                                 targets=tar,
                                                                 smc_transformer=smc_transformer,
                                                                 optimizer=optimizer,
                                                                 train_accuracy=train_accuracy,
                                                                 classic_loss=True,
                                                                 SMC_loss=True)
+          mse_metric_batch, mse_loss_std_batch = train_accuracies
+          sum_total_train_loss += total_loss_batch
+          sum_train_loss += mse_metric_batch
+          sum_train_loss_std += mse_loss_std_batch
 
-          mse_metric, mse_loss_std= train_accuracies
+        avg_total_train_loss = sum_total_train_loss / (batch + 1)
+        avg_train_loss = sum_train_loss / (batch + 1)
+        avg_train_loss_std = sum_train_loss_std / (batch + 1)
 
         # compute the validation accuracy on the validation dataset:
         # TODO: here consider a validation set with a batch_size equal to the number of samples.
-        for batch, (inp, tar) in enumerate(val_dataset):
+        for batch_val, (inp, tar) in enumerate(val_dataset):
           (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
                                                                                                     training=False,
                                                                                                     mask=create_look_ahead_mask(seq_len))
-          val_loss, val_loss_mse, val_loss_mse_std = loss_function_regression(real = tar,
+          total_val_loss_batch, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real = tar,
                                                             predictions = predictions_val,
                                                             weights = weights_val,
                                                             transformer = smc_transformer)
+          sum_total_val_loss += total_val_loss_batch
+          sum_val_loss += val_loss_mse_batch
+          sum_val_loss_std += val_loss_mse_std_batch
+
+        avg_total_val_loss = sum_total_val_loss / (batch_val + 1)
+        avg_val_loss = sum_val_loss / (batch_val + 1)
+        avg_val_loss_std = sum_val_loss_std / (batch_val + 1)
 
 
         logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
@@ -587,13 +611,13 @@ if __name__ == "__main__":
         #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
 
         mse_metric, mse_loss_std = train_accuracies
-        template = 'train loss {} -  train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
-        logger.info(template.format(avg_loss_batch.numpy(),
-                                    mse_metric.numpy(),
-                                    mse_loss_std.numpy(),
-                                    val_loss.numpy(),
-                                    val_loss_mse.numpy(),
-                                    val_loss_mse_std.numpy()))
+        template = 'train loss: {}, train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
+        logger.info(template.format(avg_total_train_loss.numpy(),
+                                    avg_train_loss.numpy(),
+                                    avg_train_loss_std.numpy(),
+                                    avg_total_val_loss.numpy(),
+                                    avg_val_loss.numpy(),
+                                    avg_val_loss_std.numpy()))
 
         # TODO: add a tf.keras.metrics.Mean
         # saving loss and metrics information:

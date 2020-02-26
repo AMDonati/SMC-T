@@ -66,7 +66,7 @@ def train_step_classic_T(inputs, transformer, optimizer, train_accuracy, data_ty
     return loss, train_accuracy_batch, train_perplexity
 
   elif task_type == 'regression':
-    return loss, average_loss, None, None
+    return loss, None, None
 
 # --------------SMC Transformer train_step------------------------------------
 
