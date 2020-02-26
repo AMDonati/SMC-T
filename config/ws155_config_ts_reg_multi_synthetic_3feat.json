@@ -1,6 +1,6 @@
 {
    "data": {
-    "file_path": "/data/synthetic_dataset_3_feat.npy",
+    "file_path": "data/synthetic_dataset_3_feat.npy",
     "TRAIN_SPLIT": 0.8,
      "VAL_SPLIT": 0.5,
      "VAL_SPLIT_cv": 0.9,
