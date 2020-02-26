@@ -1,6 +1,6 @@
 {
    "data": {
-    "file_path": "../../data/synthetic_dataset.npy",
+    "file_path": "../../data/synthetic_dataset_3_feat.npy",
     "TRAIN_SPLIT": 0.8,
      "target_feature": 0
    },
@@ -8,19 +8,19 @@
   "model": {
       "num_layers": 1,
       "num_heads": 1,
-      "d_model": 2,
-      "dff": 8,
-      "rate": 0.1,
-      "maximum_position_encoding_baseline": "None",
+      "d_model": 8,
+      "dff": 16,
+      "rate": 0,
+      "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 10,
+    "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05,
-    "omega" : 0.25
+    "omega" : 0.3
   },
 
   "optim": {
@@ -31,8 +31,8 @@
   },
 
   "RNN_hparams": {
-      "rnn_units": 4
-      "rnn_dropout_rate": 0.1
+      "rnn_units": 10,
+      "rnn_dropout_rate": 0
   },
 
    "task": {

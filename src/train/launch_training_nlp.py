@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-config", type=str, default='../../config/config.json', help="path for the config file with hyperparameters")
+  parser.add_argument("-config", type=str, default='../../config/config_nlp.json', help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", type=str, default='../../output', help="path for the outputs folder")
   parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
@@ -159,7 +159,7 @@ if __name__ == "__main__":
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # copying the config file in the output directory
-  shutil.copyfile(config_path, output_path+'/config.json')
+  shutil.copyfile(config_path, output_path+'/config_nlp.json')
 
   # ------------------ create the logging-----------------------------------------------------------------------------
   out_file_log = output_path + '/' + 'training_log.log'

@@ -9,7 +9,7 @@ from preprocessing.time_series.df_to_dataset import df_to_data_regression
 # -------- load config file and checkpoint --------------------------------------
 out_path='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_reg_162_loss_modified_grad_not0/time_series_multi_unistep-forcst_heads_1_depth_12_dff_48_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_5_noise_True_sigma_0.1_smc-pos-enc_None/'
 ckpt_path = out_path + 'checkpoints/SMC_transformer/ckpt-30'
-config_path = out_path + 'config.json'
+config_path = out_path + 'config_nlp.json'
 
 # get hparams from config file:
 with open(config_path) as f:

@@ -7,16 +7,16 @@
     "TRAIN_SPLIT": 0.8,
      "history": 150,
      "step": 6,
-     "target_feature": 0
+     "target_feature": 1
    },
 
   "model": {
       "num_layers": 1,
-      "num_heads": 1,
+      "num_heads": 4,
       "d_model": 12,
       "dff": 48,
-      "rate": 0.1,
-      "maximum_position_encoding_baseline": "None",
+      "rate": 0,
+      "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
 
@@ -30,12 +30,12 @@
   "optim": {
       "BATCH_SIZE": 1048,
       "learning_rate": 0.001,
-      "EPOCHS": 15,
+      "EPOCHS": 20,
       "custom_schedule": "True"
   },
 
   "RNN_hparams": {
-      "rnn_bs": 256,
+      "rnn_dropout_rate": 0,
       "rnn_emb_dim": 4,
       "rnn_units": 20
   },

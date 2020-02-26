@@ -69,8 +69,8 @@ if __name__ == "__main__":
   # -------- parsing arguments ---------------------------------------------------------------------------------------------------------------------------------------
 
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
-  config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
-  config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config.json'
+  config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config_nlp.json'
+  config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config_nlp.json'
   out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
 
   out_folder_default = '../../output/post_UAI_exp'
@@ -135,7 +135,6 @@ if __name__ == "__main__":
 
   # adding RNN hyper-parameters
   rnn_bs = BATCH_SIZE
-  rnn_emb_dim = hparams["RNN_hparams"]["rnn_emb_dim"]
   rnn_units = hparams["RNN_hparams"]["rnn_units"]
   rnn_dropout_rate = hparams["RNN_hparams"]["rnn_dropout_rate"]
 
@@ -250,8 +249,8 @@ if __name__ == "__main__":
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # copying the config file in the output directory
-  if not os.path.exists(output_path+'/config.json'):
-    shutil.copyfile(config_path, output_path+'/config.json')
+  if not os.path.exists(output_path+'/config_nlp.json'):
+    shutil.copyfile(config_path, output_path+'/config_nlp.json')
   else:
     print("creating a new config file...")
     shutil.copyfile(config_path, output_path + '/config_new.json')
@@ -596,18 +595,18 @@ if __name__ == "__main__":
         mse_metric, mse_loss_std = train_accuracies
         template = 'train loss {} -  train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
         logger.info(template.format(avg_loss_batch.numpy(),
-                                      mse_metric.numpy(),
-                                      mse_loss_std.numpy(),
-                                      val_loss.numpy(),
-                                      val_loss_mse.numpy(),
-                                      val_loss_mse_std.numpy()))
+                                    mse_metric.numpy(),
+                                    mse_loss_std.numpy(),
+                                    val_loss.numpy(),
+                                    val_loss_mse.numpy(),
+                                    val_loss_mse_std.numpy()))
 
-          #TODO: add a tf.keras.metrics.Mean
-          # saving loss and metrics information:
-          train_loss_history.append(avg_loss_batch.numpy())
-          train_loss_mse_history.append(mse_metric.numpy())
-          val_loss_history.append(val_loss.numpy())
-          val_loss_mse_history.append(val_loss_mse.numpy())
+        # TODO: add a tf.keras.metrics.Mean
+        # saving loss and metrics information:
+        train_loss_history.append(avg_loss_batch.numpy())
+        train_loss_mse_history.append(mse_metric.numpy())
+        val_loss_history.append(val_loss.numpy())
+        val_loss_mse_history.append(val_loss_mse.numpy())
 
         #------------- end of saving metrics information -------------------------------------------------------------------------------
 
@@ -625,19 +624,18 @@ if __name__ == "__main__":
                                   logger=logger,
                                   start_epoch=start_epoch)
 
-      # making predictions with the trained model and saving them on .npy files
-      #mask = create_look_ahead_mask(seq_len)
-      saving_model_outputs(output_path=output_path,
-                           predictions=predictions_val,
-                           attn_weights=attn_weights_val,
-                           pred_fname='smc_predictions.npy',
-                           attn_weights_fname='smc_attn_weights.npy',
-                           logger=logger)
-
-      model_output_path = os.path.join(output_path, "model_outputs")
-      # saving weights on top of it.
-      weights_fn = model_output_path + '/' + 'smc_weights.npy'
-      np.save(weights_fn, weights_val)
+      # # making predictions with the trained model and saving them on .npy files
+      # saving_model_outputs(output_path=output_path,
+      #                      predictions=predictions_val,
+      #                      attn_weights=attn_weights_val,
+      #                      pred_fname='smc_predictions.npy',
+      #                      attn_weights_fname='smc_attn_weights.npy',
+      #                      logger=logger)
+      #
+      # model_output_path = os.path.join(output_path, "model_outputs")
+      # # saving weights on top of it.
+      # weights_fn = model_output_path + '/' + 'smc_weights.npy'
+      # np.save(weights_fn, weights_val)
 
       #----------------------  compute statistics at the end of training ----------------------------------------------------------------------------
 
@@ -791,11 +789,13 @@ if __name__ == "__main__":
     eval_output_path = os.path.join(output_path, "eval_outputs")
     if not os.path.isdir(eval_output_path):
       os.makedirs(eval_output_path)
+
     pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
     attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
     targets_test = eval_output_path + '/' + 'targets_test.npy'
     pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
     targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
+
     np.save(pred_unistep_N_1_test, predictions_test)
     np.save(attn_weights_unistep_N_1_test, attn_weights_test)
     np.save(targets_test, y_test)

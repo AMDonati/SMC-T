@@ -71,8 +71,8 @@ if __name__ == "__main__":
   # -------- parsing arguments ---------------------------------------------------------------------------------------------------------------------------------------
 
   out_folder_for_args ='/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/exp_162_grad_not_zero_azure/'
-  config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config.json'
-  config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config.json'
+  config_path_after_training = out_folder_for_args + 'time_series_multi_unistep-forcst_heads_1_depth_3_dff_12_pos-enc_50_pdrop_0.1_b_1048_cs_True__particles_25_noise_True_sigma_0.1_smc-pos-enc_None/config_nlp.json'
+  config_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/time_series_multi_synthetic_heads_1_depth_2_dff_8_pos-enc_None_pdrop_0.1_b_256_cs_True__particles_10_noise_True_sigma_0.05_smc-pos-enc_None/config_nlp.json'
   out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
 
   out_folder_default = '../../output/post_UAI_exp'
@@ -261,8 +261,8 @@ if __name__ == "__main__":
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # copying the config file in the output directory
-  if not os.path.exists(output_path+'/config.json'):
-    shutil.copyfile(config_path, output_path+'/config.json')
+  if not os.path.exists(output_path+'/config_nlp.json'):
+    shutil.copyfile(config_path, output_path+'/config_nlp.json')
   else:
     print("creating a new config file...")
     shutil.copyfile(config_path, output_path + '/config_new.json')
