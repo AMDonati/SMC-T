@@ -83,9 +83,9 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
@@ -619,12 +619,11 @@ if __name__ == "__main__":
                                     avg_val_loss.numpy(),
                                     avg_val_loss_std.numpy()))
 
-        # TODO: add a tf.keras.metrics.Mean
         # saving loss and metrics information:
-        train_loss_history.append(avg_loss_batch.numpy())
-        train_loss_mse_history.append(mse_metric.numpy())
-        val_loss_history.append(val_loss.numpy())
-        val_loss_mse_history.append(val_loss_mse.numpy())
+        train_loss_history.append(avg_total_train_loss.numpy())
+        train_loss_mse_history.append(avg_train_loss.numpy())
+        val_loss_history.append(avg_total_val_loss.numpy())
+        val_loss_mse_history.append(avg_val_loss.numpy())
 
         #------------- end of saving metrics information -------------------------------------------------------------------------------
 
