@@ -21,7 +21,7 @@
   "smc": {
     "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "False",
+    "noise_SMC_layer": "True",
     "sigma" : 0.05,
     "omega" : 0.3
   },
@@ -34,7 +34,7 @@
   },
 
   "RNN_hparams": {
-      "rnn_units": 12,
+      "rnn_units": 10,
       "rnn_dropout_rate": 0
   },
 

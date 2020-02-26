@@ -11,7 +11,7 @@
   "model": {
       "num_layers": 1,
       "num_heads": 2,
-      "d_model": 8,
+      "d_model": 6,
       "dff": 24,
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
@@ -34,7 +34,7 @@
   },
 
   "RNN_hparams": {
-      "rnn_units": 12,
+      "rnn_units": 10,
       "rnn_dropout_rate": 0
   },
 
