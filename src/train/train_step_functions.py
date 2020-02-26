@@ -14,7 +14,7 @@ train_step_signature = [
 ]
 
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accuracy, data_type, task_type, targets=None,
+def train_step_classic_T(inputs, transformer, optimizer, train_accuracy, data_type, task_type, targets=None,
                          perplexity_metric=None):
   '''training step for the classic Transformer model'''
   if targets is None:
@@ -53,7 +53,6 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
   gradients = tape.gradient(loss, transformer.trainable_variables)
   optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
 
-  average_loss = train_loss(loss)
 
   if task_type == 'classification':
     train_accuracy_batch = train_accuracy(tar_real, predictions)
@@ -64,7 +63,7 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
     else:
       train_perplexity = None
 
-    return loss, average_loss, train_accuracy_batch, train_perplexity
+    return loss, train_accuracy_batch, train_perplexity
 
   elif task_type == 'regression':
     return loss, average_loss, None, None
@@ -72,7 +71,7 @@ def train_step_classic_T(inputs, transformer, optimizer, train_loss, train_accur
 # --------------SMC Transformer train_step------------------------------------
 
 @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accuracy, targets=None,
+def train_step_SMC_T(inputs, smc_transformer, optimizer, train_accuracy, targets=None,
                      perplexity_metric=None, SMC_loss=True, classic_loss=True):
   '''
   compute a gradient descent step using categorical crossentropy loss by updating the trainable parameters.
@@ -104,7 +103,6 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
     (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = smc_transformer(inputs=tar_inp,
                                                                                              training=True,
                                                                                              mask=mask_transformer)
-
     # predictions: shape (B,P,S,C) > sequence of log_probas for the classification task.
     # trajectories: shape (B,P,S,D) = [z0,z1,z2,...,zT]
     # weights: shape (B,P,1) = w_T: used in the computation of the loss.
@@ -139,9 +137,6 @@ def train_step_SMC_T(inputs, smc_transformer, optimizer, train_loss, train_accur
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-  #TODO: CAUTION: train_loss does an average 'au fil de l'eau' of the loss over the number of batch processed.
-  #scalar_loss = train_loss(loss)
-  #scalar_mse = train_loss(metric_mse)
   scalar_loss = loss
   scalar_mse = metric_mse
 

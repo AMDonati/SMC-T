@@ -74,7 +74,7 @@ if __name__ == "__main__":
   out_folder_after_training_synthetic = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/azure_synthetic_dataset_exp/'
 
   out_folder_default = '../../output/post_UAI_exp'
-  config_folder_default = '../../config/config_ts_reg_multi.json'
+  config_folder_default = '../../config/config_ts_reg_multi_synthetic_3feat.json'
 
   parser = argparse.ArgumentParser()
 
@@ -83,11 +83,11 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
+  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -179,10 +179,12 @@ if __name__ == "__main__":
   elif task == 'synthetic':
     X_data = np.load(file_path)
     train_data, val_data, test_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
-    val_data_path = 'data/val_data_synthetic.npy'
-    train_data_path = 'data/train_data_synthetic.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
+    np.save(test_data_path, test_data)
 
     BUFFER_SIZE = 2000
 
@@ -249,11 +251,8 @@ if __name__ == "__main__":
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # copying the config file in the output directory
-  if not os.path.exists(output_path+'/config_nlp.json'):
-    shutil.copyfile(config_path, output_path+'/config_nlp.json')
-  else:
-    print("creating a new config file...")
-    shutil.copyfile(config_path, output_path + '/config_new.json')
+  if not os.path.exists(output_path+'/config.json'):
+    shutil.copyfile(config_path, output_path+'/config.json')
 
   # ------------------ create the logging -----------------------------------------------------------------------------
 
@@ -390,10 +389,9 @@ if __name__ == "__main__":
 
         for (batch, (inp, tar)) in enumerate(dataset):
           inp_model = inp [:,:-1, :]
-          train_loss_batch, avg_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp_model,
+          train_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp_model,
                                                                             targets=tar,
                                                                             transformer=transformer,
-                                                                            train_loss=train_loss,
                                                                             train_accuracy=train_accuracy,
                                                                             optimizer=optimizer,
                                                                             data_type=data_type,
@@ -527,7 +525,6 @@ if __name__ == "__main__":
                                                 mask=create_look_ahead_mask(seq_len))
         print("predictions shape: {}".format(example_batch_predictions.shape))
 
-      #print('summary of the SMC Transformer', smc_transformer.summary())
 
       if start_epoch > 0:
         if start_epoch > EPOCHS:
@@ -545,7 +542,6 @@ if __name__ == "__main__":
       for epoch in range(start_epoch, EPOCHS):
         start = time.time()
         logger.info('Epoch {}/{}'.format(epoch+1,EPOCHS))
-        train_loss.reset_states()
         train_accuracy.reset_states()
 
         if test_loss:
@@ -555,7 +551,6 @@ if __name__ == "__main__":
                                                               targets=tar,
                                                               smc_transformer=smc_transformer,
                                                               optimizer=optimizer,
-                                                              train_loss=train_loss,
                                                               train_accuracy=train_accuracy,
                                                               classic_loss=True,
                                                               SMC_loss=True)
@@ -568,7 +563,6 @@ if __name__ == "__main__":
                                                                 targets=tar,
                                                                 smc_transformer=smc_transformer,
                                                                 optimizer=optimizer,
-                                                                train_loss=train_loss,
                                                                 train_accuracy=train_accuracy,
                                                                 classic_loss=True,
                                                                 SMC_loss=True)
@@ -585,7 +579,7 @@ if __name__ == "__main__":
                                                             predictions = predictions_val,
                                                             weights = weights_val,
                                                             transformer = smc_transformer)
-          #TODO: add the classification case
+
 
         logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
 
