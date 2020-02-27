@@ -179,12 +179,12 @@ if __name__ == "__main__":
   elif task == 'synthetic':
     X_data = np.load(file_path)
     train_data, val_data, test_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
-    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
