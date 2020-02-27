@@ -11,8 +11,8 @@
   "model": {
       "num_layers": 1,
       "num_heads": 2,
-      "d_model": 6,
-      "dff": 24,
+      "d_model": 2,
+      "dff": 8,
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
@@ -27,9 +27,9 @@
   },
 
   "optim": {
-      "BATCH_SIZE": 256,
+      "BATCH_SIZE": 2000,
       "learning_rate": 0.001,
-      "EPOCHS": 20,
+      "EPOCHS": 1,
       "custom_schedule": "True"
   },
 
