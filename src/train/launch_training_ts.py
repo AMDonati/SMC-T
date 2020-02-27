@@ -86,7 +86,7 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
+  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -179,12 +179,12 @@ if __name__ == "__main__":
   elif task == 'synthetic':
     X_data = np.load(file_path)
     train_data, val_data, test_data = split_synthetic_dataset(x_data=X_data, TRAIN_SPLIT=TRAIN_SPLIT)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -731,12 +731,12 @@ if __name__ == "__main__":
     # if a checkpoint exists, restore the latest checkpoint.
     num_epochs = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
 
-    # --------------------------------------------- compute latest statistics -----------------------------------------
+    # --------------------------------------------- compute latest statistics ---------------------------------------------------------------------------------------
 
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
     # compute last mse train loss, std loss / val loss
-    train_loss_mse, train_loss_std, val_loss_mse, val_loss_std= [], [], [], []
+    train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
     predictions_validation_set = []
     for batch_train, (inp, tar) in enumerate(train_dataset):
       (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
@@ -785,7 +785,7 @@ if __name__ == "__main__":
 
     # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------------#
 
-    logger.info("unistep evaluation with N=1...")
+    logger.info("starting evaluation on test set...")
     for (test_data, y_test) in test_dataset:
       (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
         inputs=test_data,
@@ -800,9 +800,10 @@ if __name__ == "__main__":
 
     #TODO: unnormalized predictions and targets.
     # unnormalized predictions & target:
-    data_mean, data_std = stats
-    predictions_unnormalized = predictions_test * data_std + data_mean
-    targets_unnormalized = y_test * data_std + data_mean
+    if task == 'unistep-forcst':
+      data_mean, data_std = stats
+      predictions_unnormalized = predictions_test * data_std + data_mean
+      targets_unnormalized = y_test * data_std + data_mean
 
     # save predictions & attention weights:
     logger.info("saving predictions for test set in .npy files...")
@@ -813,14 +814,16 @@ if __name__ == "__main__":
     pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
     attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
     targets_test = eval_output_path + '/' + 'targets_test.npy'
-    pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
-    targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
+    if task == 'unistep-forcst':
+      pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
+      targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
 
     np.save(pred_unistep_N_1_test, predictions_test)
     np.save(attn_weights_unistep_N_1_test, attn_weights_test)
     np.save(targets_test, y_test)
-    np.save(pred_unnorm, predictions_unnormalized)
-    np.save(targets_unnorm, targets_unnormalized)
+    if task == 'unistep-forcst':
+      np.save(pred_unnorm, predictions_unnormalized)
+      np.save(targets_unnorm, targets_unnormalized)
 
     logger.info("predictions shape for test set:{}".format(predictions_test.shape))
     logger.info("unormalized predictions shape for test set:{}".format(predictions_unnormalized.shape))
