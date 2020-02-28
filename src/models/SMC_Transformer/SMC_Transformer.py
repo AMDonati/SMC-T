@@ -145,8 +145,8 @@ class SMC_Transformer(tf.keras.Model):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, omega=1,
-               rate=0.1, target_feature=None, maximum_position_encoding=None, resampling=True):
+               target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, rate, omega=1,
+               target_feature=None, maximum_position_encoding=None, resampling=True):
     super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:
@@ -200,6 +200,7 @@ class SMC_Transformer(tf.keras.Model):
     self.num_heads = num_heads
     self.vocab_size = target_vocab_size
     self.dff = dff
+    self.rate = rate
 
     self.data_type = data_type
     if data_type=='time_series_multi':
@@ -502,6 +503,7 @@ if __name__ == "__main__":
   C = 1 # vocabulary size or number of classes.
   noise_encoder = False
   noise_SMC_layer = True
+  rate = 0.1
 
   ###----------Test of Encoder class-----------------------------------------------------------------------------------
 
@@ -542,7 +544,9 @@ if __name__ == "__main__":
   noise_SMC_layer = noise_SMC_layer,
   data_type = data_type,
   task_type = task_type,
-  target_feature = target_feature)
+  target_feature = target_feature,
+  rate = rate)
+
 
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   mask = create_look_ahead_mask(seq_len)

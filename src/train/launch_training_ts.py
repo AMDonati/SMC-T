@@ -339,371 +339,404 @@ if __name__ == "__main__":
 
     if train_classic_transformer:
 
-      logger.info("training the baseline Transformer on a time-series dataset...")
-      logger.info("number of training samples: {}".format(training_samples))
-      logger.info("steps per epoch:{}".format(steps_per_epochs))
+      def train_baseline_transformer(hparams, optimizer, train_dataset, val_dataset, output_path, logger):
+
+        logger.info("training the baseline Transformer on a time-series dataset...")
+        logger.info("number of training samples: {}".format(training_samples))
+        logger.info("steps per epoch:{}".format(steps_per_epochs))
+
+        # storing the losses & accuracy in a list for each epoch
+        average_losses_baseline = []
+        val_losses_baseline = []
+        #training_accuracies_baseline = []
+        #val_accuracies_baseline = []
+
+        # Transformer - baseline.
+        #TODO: CAUTION: missing rate here as well.
+        # TODO: add hparams here.
+        num_layers = hparams["model"]["num_layers"]
+        num_heads = hparams["model"]["num_heads"]
+        d_model = hparams["model"]["d_model"]
+        dff = hparams["model"]["dff"]
+        # TODO: caution: here missing the dropout rate!!
+        rate = hparams["model"]["rate"]
+        maximum_position_encoding_baseline = hparams["model"]["maximum_position_encoding_baseline"]
+        EPOCHS = hparams["optim"]["EPOCHS"]
+        data_type = hparams["task"]["data_type"]
+        task_type = hparams["task"]["task_type"]
+
+        if maximum_position_encoding_baseline is not None:
+          logger.info('training a baseline transformer with positional encoding...')
+
+        transformer = Transformer(num_layers=num_layers,
+                                  d_model=d_model,
+                                  num_heads=num_heads,
+                                  dff=dff,
+                                  target_vocab_size=target_vocab_size,
+                                  maximum_position_encoding=maximum_position_encoding_baseline,
+                                  data_type=data_type)
 
 
-      # storing the losses & accuracy in a list for each epoch
-      average_losses_baseline = []
-      val_losses_baseline = []
-      training_accuracies_baseline = []
-      val_accuracies_baseline = []
+        # creating checkpoint manager
+        ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
+        baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline")
+        ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
 
-      if maximum_position_encoding_baseline is not None:
-        logger.info('training a baseline transformer with positional encoding...')
-
-      # Transformer - baseline.
-      transformer = Transformer(num_layers=num_layers,
-                                d_model=d_model,
-                                num_heads=num_heads,
-                                dff=dff,
-                                target_vocab_size=target_vocab_size,
-                                maximum_position_encoding=maximum_position_encoding_baseline,
-                                data_type=data_type)
-
-
-      # creating checkpoint manager
-      ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-      baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline")
-      ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
-
-      # if a checkpoint exists, restore the latest checkpoint.
-      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args=args, ckpt=ckpt, logger=logger)
-      if start_epoch is None:
-        start_epoch = 0
-
-      start_training = time.time()
-
-      if start_epoch > 0:
-        if start_epoch >= EPOCHS:
-          print("adding {} more epochs to existing training".format(EPOCHS))
+        # if a checkpoint exists, restore the latest checkpoint.
+        start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args=args, ckpt=ckpt, logger=logger)
+        if start_epoch is None:
           start_epoch = 0
-        else:
-          logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
-      for epoch in range(start_epoch, EPOCHS):
-        start = time.time()
-        logger.info("Epoch {}/{}".format(epoch+1, EPOCHS))
+        start_training = time.time()
 
-        train_accuracy.reset_states()
-        val_accuracy.reset_states()
-        sum_train_loss = 0
-        sum_val_loss = 0
+        if start_epoch > 0:
+          if start_epoch >= EPOCHS:
+            print("adding {} more epochs to existing training".format(EPOCHS))
+            start_epoch = 0
+          else:
+            logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
-        for (batch, (inp, tar)) in enumerate(dataset):
-          inp_model = inp [:,:-1, :]
-          train_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp_model,
-                                                                            targets=tar,
-                                                                            transformer=transformer,
-                                                                            train_accuracy=train_accuracy,
-                                                                            optimizer=optimizer,
-                                                                            data_type=data_type,
-                                                                            task_type=task_type)
-          sum_train_loss += train_loss_batch
+        for epoch in range(start_epoch, EPOCHS):
+          start = time.time()
+          logger.info("Epoch {}/{}".format(epoch+1, EPOCHS))
 
-          if batch == 0 and epoch == 0:
-            print('baseline transformer summary', transformer.summary())
+          train_accuracy.reset_states()
+          val_accuracy.reset_states()
+          sum_train_loss = 0
+          sum_val_loss = 0
 
-        avg_train_loss = sum_train_loss / (batch + 1)
+          for (batch, (inp, tar)) in enumerate(dataset):
+            inp_model = inp [:,:-1, :]
+            train_loss_batch, train_accuracy_batch, _ = train_step_classic_T(inputs=inp_model,
+                                                                              targets=tar,
+                                                                              transformer=transformer,
+                                                                              train_accuracy=train_accuracy,
+                                                                              optimizer=optimizer,
+                                                                              data_type=data_type,
+                                                                              task_type=task_type)
+            sum_train_loss += train_loss_batch
+
+            if batch == 0 and epoch == 0:
+              print('baseline transformer summary', transformer.summary())
+
+          avg_train_loss = sum_train_loss / (batch + 1)
+
+          for batch_val, (inp, tar) in enumerate(val_dataset):
+            inp_model = inp[:, :-1, :]
+            predictions_val, attn_weights_val = transformer(inputs=inp_model,
+                                                            training=False,
+                                                            mask=create_look_ahead_mask(seq_len))
+            val_loss_batch = tf.keras.losses.MSE(tar, predictions_val)
+            val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
+            val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
+            sum_val_loss += val_loss_batch
+
+          avg_val_loss = sum_val_loss / (batch_val + 1)
+
+          logger.info('train loss: {} - val loss: {}'.format(avg_train_loss.numpy(), avg_val_loss.numpy()))
+          average_losses_baseline.append(avg_train_loss.numpy())
+          val_losses_baseline.append(avg_val_loss.numpy())
+
+          ckpt_save_path = ckpt_manager.save()
+          logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+        logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
+
+        # storing history of losses and accuracies in a csv file
+        keys = ['train loss', 'val loss']
+        values = [average_losses_baseline, val_losses_baseline]
+
+        history = dict(zip(keys, values))
+        csv_fname = 'baseline_history.csv'
+
+        saving_training_history(keys=keys,
+                                values=values,
+                                output_path=output_path,
+                                csv_fname=csv_fname,
+                                logger=logger,
+                                start_epoch=start_epoch)
+
+        saving_model_outputs(output_path=output_path,
+                             predictions=predictions_val,
+                             attn_weights=attn_weights_val,
+                             pred_fname='baseline_predictions.npy',
+                             attn_weights_fname='baseline_attn_weights.npy',
+                             logger=logger)
+
+        logger.info('training of a classic Transformer for a time-series dataset done...')
+        logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+
+        #------- computing statistics at the end of training -------------------------------------------------------------------------------------------------------------------
+
+        logger.info("computing metrics at the end of training...")
+        train_loss_mse, val_loss_mse= [], []
+        for batch_train, (inp, tar) in enumerate(train_dataset):
+          inp_model = inp[:, :-1, :]
+          predictions_train, _ = transformer(
+            inputs=inp_model,
+            training=False,
+            mask=create_look_ahead_mask(seq_len))
+          train_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_train)
+          train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
+          train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
+
+          train_loss_mse.append(train_loss_mse_batch.numpy())
 
         for batch_val, (inp, tar) in enumerate(val_dataset):
           inp_model = inp[:, :-1, :]
-          predictions_val, attn_weights_val = transformer(inputs=inp_model,
-                                                          training=False,
-                                                          mask=create_look_ahead_mask(seq_len))
-          val_loss_batch = tf.keras.losses.MSE(tar, predictions_val)
-          val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
-          val_loss_batch = tf.reduce_mean(val_loss_batch, axis=-1)
-          sum_val_loss += val_loss_batch
+          predictions_val, _ = transformer(
+            inputs=inp_model,
+            training=False,
+            mask=create_look_ahead_mask(seq_len))
+          val_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_val)
+          val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
+          val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
 
-        avg_val_loss = sum_val_loss / (batch_val + 1)
+          val_loss_mse.append(val_loss_mse_batch.numpy())
 
-        logger.info('train loss: {} - val loss: {}'.format(avg_train_loss.numpy(), avg_val_loss.numpy()))
-        average_losses_baseline.append(avg_train_loss.numpy())
-        val_losses_baseline.append(avg_val_loss.numpy())
+        # computing as a metric the mean of losses & std losses over the number of batches
+        mean_train_loss_mse = statistics.mean(train_loss_mse)
+        mean_val_loss_mse = statistics.mean(val_loss_mse)
 
-        ckpt_save_path = ckpt_manager.save()
-        logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
-
-      logger.info('total training time for {} epochs:{}'.format(EPOCHS,time.time() - start_training))
-
-      # storing history of losses and accuracies in a csv file
-      keys = ['train loss', 'val loss']
-      values = [average_losses_baseline, val_losses_baseline]
-
-      history = dict(zip(keys, values))
-      csv_fname = 'baseline_history.csv'
-
-      saving_training_history(keys=keys,
-                              values=values,
-                              output_path=output_path,
-                              csv_fname=csv_fname,
-                              logger=logger,
-                              start_epoch=start_epoch)
-
-      saving_model_outputs(output_path=output_path,
-                           predictions=predictions_val,
-                           attn_weights=attn_weights_val,
-                           pred_fname='baseline_predictions.npy',
-                           attn_weights_fname='baseline_attn_weights.npy',
-                           logger=logger)
-
-      logger.info('training of a classic Transformer for a time-series dataset done...')
-      logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
-
-      #------- computing statistics at the end of training -------------------------------------------------------------------------------------------------------------------
-
-      logger.info("computing metrics at the end of training...")
-      train_loss_mse, val_loss_mse= [], []
-      for batch_train, (inp, tar) in enumerate(train_dataset):
-        inp_model = inp[:, :-1, :]
-        predictions_train, _ = transformer(
-          inputs=inp_model,
-          training=False,
-          mask=create_look_ahead_mask(seq_len))
-        train_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_train)
-        train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
-        train_loss_mse_batch = tf.reduce_mean(train_loss_mse_batch, axis=-1)
-
-        train_loss_mse.append(train_loss_mse_batch.numpy())
-
-      for batch_val, (inp, tar) in enumerate(val_dataset):
-        inp_model = inp[:, :-1, :]
-        predictions_val, _ = transformer(
-          inputs=inp_model,
-          training=False,
-          mask=create_look_ahead_mask(seq_len))
-        val_loss_mse_batch = tf.keras.losses.MSE(tar, predictions_val)
-        val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
-        val_loss_mse_batch = tf.reduce_mean(val_loss_mse_batch, axis=-1)
-
-        val_loss_mse.append(val_loss_mse_batch.numpy())
-
-      # computing as a metric the mean of losses & std losses over the number of batches
-      mean_train_loss_mse = statistics.mean(train_loss_mse)
-      mean_val_loss_mse = statistics.mean(val_loss_mse)
-
-      logger.info(
-        "average losses over batches: train mse loss:{}  - val mse loss:{}".format(
-          mean_train_loss_mse,
-          mean_val_loss_mse))
+        logger.info(
+          "average losses over batches: train mse loss:{}  - val mse loss:{}".format(
+            mean_train_loss_mse,
+            mean_val_loss_mse))
 
   #------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
     if train_smc_transformer:
+      def train_SMC_transformer(hparams, optimizer, seq_len, resampling, train_dataset, val_dataset, output_path, logger):
 
-      logger.info('starting the training of the smc transformer...')
-      logger.info("number of training samples: {}".format(training_samples))
-      logger.info("steps per epoch: {}".format(steps_per_epochs))
-      if not resampling:
-        logger.info("no resampling because only one particle is taken...")
+        logger.info('starting the training of the smc transformer...')
+        logger.info("number of training samples: {}".format(training_samples))
+        logger.info("steps per epoch: {}".format(steps_per_epochs))
+        if not resampling:
+          logger.info("no resampling because only one particle is taken...")
 
-      start_epoch = 0
-      smc_transformer = SMC_Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding_smc,
-                            num_particles=num_particles,
-                            sigma=sigma,
-                            omega=omega,
-                            noise_encoder=noise_encoder,
-                            noise_SMC_layer=noise_SMC_layer,
-                            seq_len=seq_len,
-                            data_type=data_type,
-                            task_type=task_type,
-                            resampling=resampling,
-                            target_feature=target_feature)
-
-      # creating checkpoint manager
-      ckpt = tf.train.Checkpoint(transformer=smc_transformer,
-                                 optimizer=optimizer)
-      smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
-      ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
-
-      # if a checkpoint exists, restore the latest checkpoint.
-      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
-      if start_epoch is None:
-        start_epoch = 0
-
-      # check the pass forward.
-      for input_example_batch, target_example_batch in dataset.take(2):
-        #input_model = tf.concat([input_example_batch, target_example_batch[:,-1,:]], axis = 1)
-        (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
-                                                training=True,
-                                                mask=create_look_ahead_mask(seq_len))
-        print("predictions shape: {}".format(example_batch_predictions.shape))
+        #TODO: add hparams here.
+        num_layers = hparams["model"]["num_layers"]
+        num_heads = hparams["model"]["num_heads"]
+        d_model = hparams["model"]["d_model"]
+        dff = hparams["model"]["dff"]
+        #TODO: caution: here missing the dropout rate!!
+        rate = hparams["model"]["rate"]
+        maximum_position_encoding_smc = hparams["model"]["maximum_position_encoding_smc"]
+        num_particles = hparams["smc"]["num_particles"]
+        noise_encoder = hparams["smc"]["noise_encoder"]
+        noise_SMC_layer = hparams["smc"]["noise_SMC_layer"]
+        sigma = hparams["smc"]["sigma"]
+        omega = hparams["smc"]["omega"]
+        EPOCHS = hparams["optim"]["EPOCHS"]
+        data_type = hparams["task"]["data_type"]
+        task_type = hparams["task"]["task_type"]
+        target_feature = hparams["data"]["target_feature"]
 
 
-      if start_epoch > 0:
-        if start_epoch > EPOCHS:
-          print("adding {} more epochs to existing training".format(EPOCHS))
+        smc_transformer = SMC_Transformer(num_layers=num_layers,
+                              d_model=d_model,
+                              num_heads=num_heads,
+                              dff=dff,
+                              target_vocab_size=target_vocab_size,
+                              maximum_position_encoding=maximum_position_encoding_smc,
+                              num_particles=num_particles,
+                              sigma=sigma,
+                              omega=omega,
+                              noise_encoder=noise_encoder,
+                              noise_SMC_layer=noise_SMC_layer,
+                              seq_len=seq_len,
+                              data_type=data_type,
+                              task_type=task_type,
+                              resampling=resampling,
+                              target_feature=target_feature)
+
+        # creating checkpoint manage
+        ckpt = tf.train.Checkpoint(transformer=smc_transformer,
+                                   optimizer=optimizer)
+        smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
+        ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
+
+        # if a checkpoint exists, restore the latest checkpoint.
+        start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+        if start_epoch is None:
           start_epoch = 0
-        else:
-          logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
-      start_training = time.time()
+        # check the pass forward.
+        for input_example_batch, target_example_batch in dataset.take(2):
+          #input_model = tf.concat([input_example_batch, target_example_batch[:,-1,:]], axis = 1)
+          (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
+                                                  training=True,
+                                                  mask=create_look_ahead_mask(seq_len))
+          print("predictions shape: {}".format(example_batch_predictions.shape))
 
-      # preparing recording of loss and metrics information
-      train_loss_history, train_loss_mse_history = [], []
-      val_loss_history, val_loss_mse_history = [], []
 
-      for epoch in range(start_epoch, EPOCHS):
-        start = time.time()
-        logger.info('Epoch {}/{}'.format(epoch+1,EPOCHS))
-        train_accuracy.reset_states()
-        sum_total_train_loss, sum_total_val_loss= 0, 0
-        sum_train_loss, sum_val_loss= 0, 0
-        sum_train_loss_std, sum_val_loss_std = 0, 0
+        if start_epoch > 0:
+          if start_epoch > EPOCHS:
+            print("adding {} more epochs to existing training".format(EPOCHS))
+            start_epoch = 0
+          else:
+            logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
 
-        if test_loss:
-        #TODO: check that the loss is the same for 1 particule, and 5 particules with no noise.
-          for (inp_ex_batch, target_ex_batch) in dataset.take(1):
-            loss_temp, accuracies_temp, _ = train_step_SMC_T(inputs=inp,
-                                                              targets=tar,
-                                                              smc_transformer=smc_transformer,
-                                                              optimizer=optimizer,
-                                                              train_accuracy=train_accuracy,
-                                                              classic_loss=True,
-                                                              SMC_loss=True)
-            logger.info('testing the loss on a batch...{}'.format(loss_temp.numpy()))
+        start_training = time.time()
 
-        # training step:
-        for (batch, (inp, tar)) in enumerate(dataset):
-          #TODO: add the output of the weights and indices matrix every 100 steps_per_epochs.
-          total_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
+        # preparing recording of loss and metrics information
+        train_loss_history, train_loss_mse_history = [], []
+        val_loss_history, val_loss_mse_history = [], []
+
+        for epoch in range(start_epoch, EPOCHS):
+          start = time.time()
+          logger.info('Epoch {}/{}'.format(epoch+1,EPOCHS))
+          train_accuracy.reset_states()
+          sum_total_train_loss, sum_total_val_loss= 0, 0
+          sum_train_loss, sum_val_loss= 0, 0
+          sum_train_loss_std, sum_val_loss_std = 0, 0
+
+          if test_loss:
+          #TODO: check that the loss is the same for 1 particule, and 5 particules with no noise.
+            for (inp_ex_batch, target_ex_batch) in dataset.take(1):
+              loss_temp, accuracies_temp, _ = train_step_SMC_T(inputs=inp,
                                                                 targets=tar,
                                                                 smc_transformer=smc_transformer,
                                                                 optimizer=optimizer,
                                                                 train_accuracy=train_accuracy,
                                                                 classic_loss=True,
                                                                 SMC_loss=True)
-          mse_metric_batch, mse_loss_std_batch = train_accuracies
-          sum_total_train_loss += total_loss_batch
-          sum_train_loss += mse_metric_batch
-          sum_train_loss_std += mse_loss_std_batch
+              logger.info('testing the loss on a batch...{}'.format(loss_temp.numpy()))
 
-        avg_total_train_loss = sum_total_train_loss / (batch + 1)
-        avg_train_loss = sum_train_loss / (batch + 1)
-        avg_train_loss_std = sum_train_loss_std / (batch + 1)
+          # training step:
+          for (batch, (inp, tar)) in enumerate(dataset):
+            total_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
+                                                                  targets=tar,
+                                                                  smc_transformer=smc_transformer,
+                                                                  optimizer=optimizer,
+                                                                  train_accuracy=train_accuracy,
+                                                                  classic_loss=True,
+                                                                  SMC_loss=True)
+            mse_metric_batch, mse_loss_std_batch = train_accuracies
+            sum_total_train_loss += total_loss_batch
+            sum_train_loss += mse_metric_batch
+            sum_train_loss_std += mse_loss_std_batch
 
-        # compute the validation accuracy on the validation dataset:
-        # TODO: here consider a validation set with a batch_size equal to the number of samples.
+          avg_total_train_loss = sum_total_train_loss / (batch + 1)
+          avg_train_loss = sum_train_loss / (batch + 1)
+          avg_train_loss_std = sum_train_loss_std / (batch + 1)
+
+          # compute the validation accuracy on the validation dataset:
+          # TODO: here consider a validation set with a batch_size equal to the number of samples.
+          for batch_val, (inp, tar) in enumerate(val_dataset):
+            (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
+                                                                                                      training=False,
+                                                                                                      mask=create_look_ahead_mask(seq_len))
+            total_val_loss_batch, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real = tar,
+                                                              predictions = predictions_val,
+                                                              weights = weights_val,
+                                                              transformer = smc_transformer)
+            sum_total_val_loss += total_val_loss_batch
+            sum_val_loss += val_loss_mse_batch
+            sum_val_loss_std += val_loss_mse_std_batch
+
+          avg_total_val_loss = sum_total_val_loss / (batch_val + 1)
+          avg_val_loss = sum_val_loss / (batch_val + 1)
+          avg_val_loss_std = sum_val_loss_std / (batch_val + 1)
+
+
+          logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
+
+
+          #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
+
+          mse_metric, mse_loss_std = train_accuracies
+          template = 'train loss: {}, train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
+          logger.info(template.format(avg_total_train_loss.numpy(),
+                                      avg_train_loss.numpy(),
+                                      avg_train_loss_std.numpy(),
+                                      avg_total_val_loss.numpy(),
+                                      avg_val_loss.numpy(),
+                                      avg_val_loss_std.numpy()))
+
+          # saving loss and metrics information:
+          train_loss_history.append(avg_total_train_loss.numpy())
+          train_loss_mse_history.append(avg_train_loss.numpy())
+          val_loss_history.append(avg_total_val_loss.numpy())
+          val_loss_mse_history.append(avg_val_loss.numpy())
+
+          #------------- end of saving metrics information -------------------------------------------------------------------------------
+
+          ckpt_save_path = ckpt_manager.save()
+
+          logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+        logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
+
+        keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
+        values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
+        saving_training_history(keys=keys, values=values,
+                                    output_path=output_path,
+                                    csv_fname='smc_transformer_history.csv',
+                                    logger=logger,
+                                    start_epoch=start_epoch)
+
+        # # making predictions with the trained model and saving them on .npy files
+        # saving_model_outputs(output_path=output_path,
+        #                      predictions=predictions_val,
+        #                      attn_weights=attn_weights_val,
+        #                      pred_fname='smc_predictions.npy',
+        #                      attn_weights_fname='smc_attn_weights.npy',
+        #                      logger=logger)
+        #
+        # model_output_path = os.path.join(output_path, "model_outputs")
+        # # saving weights on top of it.
+        # weights_fn = model_output_path + '/' + 'smc_weights.npy'
+        # np.save(weights_fn, weights_val)
+
+        #----------------------  compute statistics at the end of training ----------------------------------------------------------------------------
+
+        logger.info("computing metrics at the end of training...")
+        train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
+        for batch_train, (inp, tar) in enumerate(train_dataset):
+          (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+            inputs=inp,
+            training=False,
+            mask=create_look_ahead_mask(seq_len))
+          _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
+                                                                                       predictions=predictions_train,
+                                                                                       weights=weights_train,
+                                                                                       transformer=smc_transformer)
+          train_loss_mse.append(train_loss_mse_batch.numpy())
+          train_loss_std.append(train_loss_mse_std_batch.numpy())
+
         for batch_val, (inp, tar) in enumerate(val_dataset):
-          (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(inputs=inp,
-                                                                                                    training=False,
-                                                                                                    mask=create_look_ahead_mask(seq_len))
-          total_val_loss_batch, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real = tar,
-                                                            predictions = predictions_val,
-                                                            weights = weights_val,
-                                                            transformer = smc_transformer)
-          sum_total_val_loss += total_val_loss_batch
-          sum_val_loss += val_loss_mse_batch
-          sum_val_loss_std += val_loss_mse_std_batch
+          (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+            inputs=inp,
+            training=False,
+            mask=create_look_ahead_mask(seq_len))
+          _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
+                                                                                   predictions=predictions_val,
+                                                                                   weights=weights_val,
+                                                                                   transformer=smc_transformer)
 
-        avg_total_val_loss = sum_total_val_loss / (batch_val + 1)
-        avg_val_loss = sum_val_loss / (batch_val + 1)
-        avg_val_loss_std = sum_val_loss_std / (batch_val + 1)
+          val_loss_mse.append(val_loss_mse_batch.numpy())
+          val_loss_std.append(val_loss_mse_std_batch.numpy())
 
+        # computing as a metric the mean of losses & std losses over the number of batches
+        mean_train_loss_mse = statistics.mean(train_loss_mse)
+        mean_train_loss_std = statistics.mean(train_loss_std)
+        mean_val_loss_mse = statistics.mean(val_loss_mse)
+        mean_val_loss_std = statistics.mean(val_loss_std)
 
-        logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0,:], weights_val[1,:], weights_val[2,:]))
+        logger.info("average losses over batches: train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
+          mean_train_loss_mse,
+          mean_train_loss_std,
+          mean_val_loss_mse,
+          mean_val_loss_std))
 
+        logger.info('training of SMC Transformer for a time-series dataset done...')
 
-        #------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
-
-        mse_metric, mse_loss_std = train_accuracies
-        template = 'train loss: {}, train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
-        logger.info(template.format(avg_total_train_loss.numpy(),
-                                    avg_train_loss.numpy(),
-                                    avg_train_loss_std.numpy(),
-                                    avg_total_val_loss.numpy(),
-                                    avg_val_loss.numpy(),
-                                    avg_val_loss_std.numpy()))
-
-        # saving loss and metrics information:
-        train_loss_history.append(avg_total_train_loss.numpy())
-        train_loss_mse_history.append(avg_train_loss.numpy())
-        val_loss_history.append(avg_total_val_loss.numpy())
-        val_loss_mse_history.append(avg_val_loss.numpy())
-
-        #------------- end of saving metrics information -------------------------------------------------------------------------------
-
-        ckpt_save_path = ckpt_manager.save()
-
-        logger.info('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
-
-      logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
-
-      keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
-      values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
-      saving_training_history(keys=keys, values=values,
-                                  output_path=output_path,
-                                  csv_fname='smc_transformer_history.csv',
-                                  logger=logger,
-                                  start_epoch=start_epoch)
-
-      # # making predictions with the trained model and saving them on .npy files
-      # saving_model_outputs(output_path=output_path,
-      #                      predictions=predictions_val,
-      #                      attn_weights=attn_weights_val,
-      #                      pred_fname='smc_predictions.npy',
-      #                      attn_weights_fname='smc_attn_weights.npy',
-      #                      logger=logger)
-      #
-      # model_output_path = os.path.join(output_path, "model_outputs")
-      # # saving weights on top of it.
-      # weights_fn = model_output_path + '/' + 'smc_weights.npy'
-      # np.save(weights_fn, weights_val)
-
-      #----------------------  compute statistics at the end of training ----------------------------------------------------------------------------
-
-      logger.info("computing metrics at the end of training...")
-      train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
-      for batch_train, (inp, tar) in enumerate(train_dataset):
-        (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
-          inputs=inp,
-          training=False,
-          mask=create_look_ahead_mask(seq_len))
-        _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
-                                                                                     predictions=predictions_train,
-                                                                                     weights=weights_train,
-                                                                                     transformer=smc_transformer)
-        train_loss_mse.append(train_loss_mse_batch.numpy())
-        train_loss_std.append(train_loss_mse_std_batch.numpy())
-
-      for batch_val, (inp, tar) in enumerate(val_dataset):
-        (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
-          inputs=inp,
-          training=False,
-          mask=create_look_ahead_mask(seq_len))
-        _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
-                                                                                 predictions=predictions_val,
-                                                                                 weights=weights_val,
-                                                                                 transformer=smc_transformer)
-
-        val_loss_mse.append(val_loss_mse_batch.numpy())
-        val_loss_std.append(val_loss_mse_std_batch.numpy())
-
-      # computing as a metric the mean of losses & std losses over the number of batches
-      mean_train_loss_mse = statistics.mean(train_loss_mse)
-      mean_train_loss_std = statistics.mean(train_loss_std)
-      mean_val_loss_mse = statistics.mean(val_loss_mse)
-      mean_val_loss_std = statistics.mean(val_loss_std)
-
-      logger.info("average losses over batches: train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
-        mean_train_loss_mse,
-        mean_train_loss_std,
-        mean_val_loss_mse,
-        mean_val_loss_std))
-
-      logger.info('training of SMC Transformer for a time-series dataset done...')
-
-      logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+        logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 # ----------------------------------- EVALUATION -------------------------------------------------------------------------------------------------------------------------------
   if args.eval:
+
     logger.info("start evaluation...")
     # restoring latest checkpoint
     smc_transformer = SMC_Transformer(num_layers=num_layers,
@@ -798,7 +831,6 @@ if __name__ == "__main__":
 
     logger.info('test mse loss: {} - test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_std))
 
-    #TODO: unnormalized predictions and targets.
     # unnormalized predictions & target:
     if task == 'unistep-forcst':
       data_mean, data_std = stats

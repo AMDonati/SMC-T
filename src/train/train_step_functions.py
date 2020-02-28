@@ -14,7 +14,13 @@ train_step_signature = [
 ]
 
 @tf.function(input_signature=train_step_signature)
-def train_step_classic_T(inputs, transformer, optimizer, train_accuracy, data_type, task_type, targets=None,
+def train_step_classic_T(inputs,
+                         transformer,
+                         optimizer,
+                         train_accuracy,
+                         data_type,
+                         task_type,
+                         targets=None,
                          perplexity_metric=None):
   '''training step for the classic Transformer model'''
   if targets is None:
@@ -71,8 +77,14 @@ def train_step_classic_T(inputs, transformer, optimizer, train_accuracy, data_ty
 # --------------SMC Transformer train_step------------------------------------
 
 @tf.function(input_signature=train_step_signature)
-def train_step_SMC_T(inputs, smc_transformer, optimizer, train_accuracy, targets=None,
-                     perplexity_metric=None, SMC_loss=True, classic_loss=True):
+def train_step_SMC_T(inputs,
+                     smc_transformer,
+                     optimizer,
+                     train_accuracy,
+                     targets=None,
+                     perplexity_metric=None,
+                     SMC_loss=True,
+                     classic_loss=True):
   '''
   compute a gradient descent step using categorical crossentropy loss by updating the trainable parameters.
   :param input: input data > shape (B,S) for nlp and univariate time_series.

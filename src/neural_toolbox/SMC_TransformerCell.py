@@ -20,8 +20,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
-               rate=0.1, **kwargs):
+              num_layers, sigma, noise, task_type, rate, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
+      **kwargs):
     #TODO: remove default Value for maximum_position_encoding.
     '''
     -Args:
@@ -356,6 +356,7 @@ if __name__ == "__main__":
   noise = False
   data_type = 'time_series_multi'
   task_type = 'regression'
+  rate = 0.1
 
   cell = SMC_Transf_Cell(d_model=d_model, num_heads=num_heads, dff=dff, target_vocab_size=target_vocab_size,
                          num_particles=num_particles,
@@ -364,7 +365,8 @@ if __name__ == "__main__":
                          resampling=True,
                          sigma=sigma,
                          noise=noise,
-                         task_type=task_type)
+                         task_type=task_type,
+                         rate = rate)
 
   sample_transformer = SMC_Transformer(
     num_layers=layer_num, d_model=d_model, num_heads=num_heads,
@@ -377,7 +379,8 @@ if __name__ == "__main__":
   noise_SMC_layer=noise,
   data_type=data_type,
   task_type=task_type,
-  target_feature=0)
+  target_feature=0,
+  rate = rate)
 
   initial_word_tensor = tf.ones(shape=(batch_size, 1), dtype=tf.int32) # (B,1)
 

@@ -136,7 +136,7 @@ class Decoder(tf.keras.layers.Layer):
     '''
 
   def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-               maximum_position_encoding, data_type, rate=0.1):
+               maximum_position_encoding, data_type, rate):
     super(Decoder, self).__init__()
     self.d_model = d_model
     self.num_layers = num_layers
@@ -185,7 +185,7 @@ The output of the decoder is the input to the linear layer and its output is ret
 
 class Transformer(tf.keras.Model):
   def __init__(self, num_layers, d_model, num_heads, dff,
-               target_vocab_size, maximum_position_encoding, data_type, rate=0.1):
+               target_vocab_size, maximum_position_encoding, data_type, rate):
     super(Transformer, self).__init__()
     self.decoder = Decoder(num_layers=num_layers,
                            d_model=d_model, num_heads=num_heads,
@@ -221,12 +221,17 @@ if __name__ == "__main__":
   data_type = 'time_series_multi'
   C = 300
   S = 20
+  rate = 0.1
 
   sample_transformer = Transformer(
-    num_layers=num_layers, d_model=d_model, num_heads=num_heads, dff=dff,
+    num_layers=num_layers,
+    d_model=d_model,
+    num_heads=num_heads,
+    dff=dff,
     target_vocab_size=C,
     maximum_position_encoding=maximum_position_encoding,
-    data_type=data_type)
+    data_type=data_type,
+    rate=rate)
 
   temp_input = tf.random.uniform((B, S, F), dtype=tf.float32, minval=0, maxval=200)
 
