@@ -4,7 +4,7 @@
     "TRAIN_SPLIT": 0.8,
      "VAL_SPLIT": 0.5,
      "VAL_SPLIT_cv": 0.9,
-     "cv": "False",
+     "cv": "True",
      "target_feature": 0
    },
 
