@@ -366,7 +366,6 @@ class SMC_Transformer(tf.keras.Model):
       -final_output: Y0:S > shape (?, P, S, V)
       -decoder output (before output layer): Z0:S > shape (B,P,S,D)
     '''
-
     # if necessary
     self.cell.training = training
 

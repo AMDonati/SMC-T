@@ -22,7 +22,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
               num_particles, seq_len,
               num_layers, sigma, noise, task_type, rate, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
       **kwargs):
-    #TODO: remove default Value for maximum_position_encoding.
+    #TODO: remove default Value for omega and target feature.
     '''
     -Args:
       -d_model: model depth
@@ -162,7 +162,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     :param inference_decoding_timestep:
     :return:
     '''
-
     #TODO: add the resampling part on this one.
     sampled_z, sampled_K, sampled_V = [], [], []
     N = num_samples
