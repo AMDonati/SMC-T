@@ -17,7 +17,7 @@ from utils.utils_train import saving_training_history
 from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
-def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, logger):
+def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, logger, num_train):
 
   start_epoch = 0
   model.compile(optimizer=optimizer,
@@ -32,7 +32,7 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
   val_loss_history_rnn = rnn_history.history['val_loss']
   keys = ['train_loss', 'val_loss']
   values = [train_loss_history_rnn, val_loss_history_rnn]
-  csv_fname = 'rnn_history.csv'
+  csv_fname = 'rnn_history_{}.csv'.format(num_train)
 
   saving_training_history(keys=keys,
                           values=values,
@@ -47,7 +47,7 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
     ">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
-def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, train_dataset, val_dataset, train_accuracy, val_accuracy, output_path, checkpoint_path, args, logger):
+def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, train_dataset, val_dataset, train_accuracy, val_accuracy, output_path, checkpoint_path, args, logger, num_train):
 
   # storing the losses & accuracy in a list for each epoch
   average_losses_baseline = []
@@ -55,6 +55,7 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
   # training_accuracies_baseline = []
   # val_accuracies_baseline = []
 
+  # getting the hyperparameters.
   num_layers = hparams["model"]["num_layers"]
   num_heads = hparams["model"]["num_heads"]
   d_model = hparams["model"]["d_model"]
@@ -80,7 +81,7 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
 
   # creating checkpoint manager
   ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-  baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline")
+  baseline_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_{}".format(num_train))
   ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
 
   # if a checkpoint exists, restore the latest checkpoint.
@@ -147,7 +148,7 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
   keys = ['train loss', 'val loss']
   values = [average_losses_baseline, val_losses_baseline]
 
-  csv_fname = 'baseline_history.csv'
+  csv_fname = 'baseline_history_{}.csv'.format(num_train)
 
   saving_training_history(keys=keys,
                           values=values,
@@ -164,8 +165,7 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
                        logger=logger)
 
   logger.info('training of a classic Transformer for a time-series dataset done...')
-  logger.info(
-    ">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
+  logger.info(">>>-------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
   # ------- computing statistics at the end of training -------------------------------------------------------------------------------------------------------------------
 
@@ -204,8 +204,7 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
       mean_train_loss_mse,
       mean_val_loss_mse))
 
-
-def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resampling, train_dataset, val_dataset, train_accuracy, output_path, checkpoint_path, args, logger):
+def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resampling, train_dataset, val_dataset, train_accuracy, output_path, checkpoint_path, args, logger, num_train):
 
   num_layers = hparams["model"]["num_layers"]
   num_heads = hparams["model"]["num_heads"]
@@ -247,7 +246,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   # creating checkpoint manage
   ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                              optimizer=optimizer)
-  smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
+  smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_{}".format(num_train))
   ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
   # if a checkpoint exists, restore the latest checkpoint.
@@ -350,9 +349,10 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
 
   keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
   values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
+  csv_fname='smc_transformer_history_{}.csv'.format(num_train)
   saving_training_history(keys=keys, values=values,
                           output_path=output_path,
-                          csv_fname='smc_transformer_history.csv',
+                          csv_fname=csv_fname,
                           logger=logger,
                           start_epoch=start_epoch)
 

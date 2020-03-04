@@ -183,12 +183,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -322,7 +322,8 @@ if __name__ == "__main__":
                  train_dataset_for_RNN=train_dataset_for_RNN,
                  val_dataset_for_RNN=val_dataset_for_RNN,
                  output_path=output_path,
-                 logger=logger)
+                 logger=logger,
+                 num_train=1)
       else:
         for train_num, (train_dataset_for_RNN, val_dataset_for_RNN) in enumerate(zip(list_train_dataset_for_RNN, list_val_dataset_for_RNN)):
           if train_num == 0:
@@ -337,7 +338,8 @@ if __name__ == "__main__":
                    train_dataset_for_RNN=train_dataset_for_RNN,
                    val_dataset_for_RNN=val_dataset_for_RNN,
                    output_path=output_path,
-                   logger=logger)
+                   logger=logger,
+                   num_train=train_num+1)
           logger.info("training of a LSTM for train/val split number {} done...".format(train_num + 1))
           logger.info(
           "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
@@ -381,7 +383,8 @@ if __name__ == "__main__":
                                  output_path=output_path,
                                  checkpoint_path=checkpoint_path,
                                  args=args,
-                                 logger=logger)
+                                 logger=logger,
+                                 num_train=1)
 
       else:
         for train_num, (train_dataset, val_dataset) in enumerate(zip(list_train_dataset, list_val_dataset)):
@@ -396,7 +399,8 @@ if __name__ == "__main__":
                                      output_path=output_path,
                                      checkpoint_path=checkpoint_path,
                                      args=args,
-                                     logger=logger)
+                                     logger=logger,
+                                     num_train=train_num+1)
           logger.info("training of a Baseline Transformer for train/val split number {} done...".format(train_num + 1))
           logger.info(
             "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
@@ -426,7 +430,8 @@ if __name__ == "__main__":
                             output_path=output_path,
                             checkpoint_path=checkpoint_path,
                             args=args,
-                            logger=logger)
+                            logger=logger,
+                            num_train=1)
       else:
         for train_num, (train_dataset, val_dataset) in enumerate(zip(list_train_dataset, list_val_dataset)):
           train_SMC_transformer(hparams=hparams,
@@ -440,7 +445,8 @@ if __name__ == "__main__":
                                 output_path=output_path,
                                 checkpoint_path=checkpoint_path,
                                 args=args,
-                                logger=logger)
+                                logger=logger,
+                                num_train=train_num+1)
           logger.info("training of a SMC Transformer for train/val split number {} done...".format(train_num + 1))
           logger.info(
             "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
@@ -557,6 +563,7 @@ if __name__ == "__main__":
     pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
     attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
     targets_test = eval_output_path + '/' + 'targets_test.npy'
+    weights_test_path = eval_output_path + '/' + 'weights_test.npy'
     if task == 'unistep-forcst':
       pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
       targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
@@ -564,6 +571,8 @@ if __name__ == "__main__":
     np.save(pred_unistep_N_1_test, predictions_test)
     np.save(attn_weights_unistep_N_1_test, attn_weights_test)
     np.save(targets_test, y_test)
+    np.save(weights_test_path, weights_test)
+    
     if task == 'unistep-forcst':
       np.save(pred_unnorm, predictions_unnormalized)
       np.save(targets_unnorm, targets_unnormalized)
