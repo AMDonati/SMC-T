@@ -183,12 +183,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -572,7 +572,7 @@ if __name__ == "__main__":
     np.save(attn_weights_unistep_N_1_test, attn_weights_test)
     np.save(targets_test, y_test)
     np.save(weights_test_path, weights_test)
-    
+
     if task == 'unistep-forcst':
       np.save(pred_unnorm, predictions_unnormalized)
       np.save(targets_unnorm, targets_unnormalized)
