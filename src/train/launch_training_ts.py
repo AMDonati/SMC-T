@@ -475,7 +475,7 @@ if __name__ == "__main__":
     # creating checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                optimizer=optimizer)
-    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
+    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
     ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
