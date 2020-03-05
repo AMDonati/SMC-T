@@ -20,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, rate, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True,
+              num_layers, sigma, noise, task_type, rate, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True, test=False,
       **kwargs):
     #TODO: remove default Value for omega and target feature.
     '''
@@ -69,6 +69,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     self.layer_num = num_layers
     self.task_type=task_type
+
+    # for unit tests of SMC_Transformer_cell & SMC_transformer
+    self.test = test
 
     # output layer for computing the weights
     self.output_layer = tf.keras.layers.Dense(target_vocab_size, name='output_layer')
@@ -233,7 +236,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       - states for the last time-step: tuple (K,V,w,I)
     '''
 
-    #print('decoding timestep', self.dec_timestep)
+    if self.test:
+      print('decoding timestep', self.dec_timestep)
 
     # unnesting inputs
     x, y = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
@@ -241,6 +245,11 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
+
+    if self.test:
+      print('x', x[:,:,0])
+      print('y', y)
+      print('K before propagation', K[:,:,:,0])
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
@@ -256,6 +265,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       # otherwise K,V is not updated.
       (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
+    if self.test:
+      print('K after propagation', K[:,:,:,0])
+      print('z', z[:,:,:,0])
+
     # TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
     z = self.dropout1(z, training=self.training)
@@ -269,6 +282,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(y)) == 1:
       y = tf.expand_dims(y, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
+
+    if self.test:
+      print('predictions', predictions)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -310,10 +326,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # resample K, V, and z:
     if self.resampling:
-      #if self.dec_timestep < self.seq_len:
       K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
+
+    if self.test:
+      print('current indices', i_t)
+      print('K resampled', K[:,:,:,0])
+      print('z resampled', z[:,:,:,0])
 
     # get the normalized mean of z,k,q,v for the SMC loss.
     mean_z = self.mha_smc.stddev # shape (B,P,1,D)
@@ -335,6 +355,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     new_states = NestedState(K=K, V=V, w=w, I=I)
 
     self.dec_timestep += 1
+
+    if self.test:
+      print('end of decoding timestep')
+      print('<---------------------------------------------------------------------------------------------------------------------------------------------->')
 
     return output, new_states
 

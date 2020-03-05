@@ -67,7 +67,6 @@ from eval.inference_SMC_Transformer import evaluate_one_timestep
 if __name__ == "__main__":
 
   warnings.simplefilter("ignore")
-  #if type(tf.contrib) != type(tf): tf.contrib._warning = None
 
   # -------- parsing arguments ----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -86,11 +85,11 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
+  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -183,12 +182,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -311,6 +310,7 @@ if __name__ == "__main__":
     logger.info("skipping training...")
   else:
     if args.train_rnn:
+      #TODO: add the checkpoints for the training of the LSTM.
       if not cv:
         for (inp, _) in train_dataset_for_RNN.take(1):
           pred_temp = model(inp)
@@ -406,7 +406,6 @@ if __name__ == "__main__":
             "<---------------------------------------------------------------------------------------------------------------------------------------------------------->")
 
 
-
     #------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
     if train_smc_transformer:
@@ -453,7 +452,8 @@ if __name__ == "__main__":
 
   # ----------------------------------- EVALUATION -------------------------------------------------------------------------------------------------------------------------------
   if args.eval:
-    logger.info("start evaluation...")
+    logger.info("start evaluation for SMC Transformer...")
+    #TODO: add evaluation for LSTM & Baseline Transformer.
     # restoring latest checkpoint
     smc_transformer = SMC_Transformer(num_layers=num_layers,
                                       d_model=d_model,
@@ -486,18 +486,19 @@ if __name__ == "__main__":
     logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
 
     # compute last mse train loss, std loss / val loss
-    train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
+    train_loss_mse, train_loss_mse_avg_pred, train_loss_std, val_loss_mse, val_loss_mse_avg_pred, val_loss_std = [], [], [], [], [], []
     predictions_validation_set = []
     for batch_train, (inp, tar) in enumerate(train_dataset):
       (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
+      _, train_loss_mse_batch, train_loss_mse_avg_pred_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                           predictions=predictions_train,
                                                                           weights=weights_train,
                                                                           transformer=smc_transformer)
       train_loss_mse.append(train_loss_mse_batch.numpy())
+      train_loss_mse_avg_pred.append(train_loss_mse_avg_pred_batch.numpy())
       train_loss_std.append(train_loss_mse_std_batch.numpy())
 
     for batch_val, (inp, tar) in enumerate(val_dataset):
@@ -505,12 +506,13 @@ if __name__ == "__main__":
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
+      _, val_loss_mse_batch, val_loss_mse_avg_pred_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                           predictions=predictions_val,
                                                                           weights=weights_val,
                                                                           transformer=smc_transformer)
       predictions_validation_set.append(predictions_val)
       val_loss_mse.append(val_loss_mse_batch.numpy())
+      val_loss_mse_avg_pred.append(val_loss_mse_avg_pred_batch.numpy())
       val_loss_std.append(val_loss_mse_std_batch.numpy())
 
     # saving predictions for all validation set:
@@ -524,13 +526,17 @@ if __name__ == "__main__":
     # computing as a metric the mean of losses & std losses over the number of batches
     mean_train_loss_mse = statistics.mean(train_loss_mse)
     mean_train_loss_std = statistics.mean(train_loss_std)
+    mean_train_loss_mse_avg_pred = statistics.mean(train_loss_mse_avg_pred)
     mean_val_loss_mse = statistics.mean(val_loss_mse)
+    mean_val_loss_mse_avg_pred = statistics.mean(val_loss_mse_avg_pred)
     mean_val_loss_std = statistics.mean(val_loss_std)
 
-    logger.info("train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
+    logger.info("train mse loss:{} - train mse loss (avg pred): {} - train loss std (mse):{} - val mse loss:{} - val mse loss (avg pred): {} - val loss (mse) std: {}".format(
       mean_train_loss_mse,
+      mean_train_loss_mse_avg_pred,
       mean_train_loss_std,
       mean_val_loss_mse,
+      mean_val_loss_mse_avg_pred,
       mean_val_loss_std))
 
     # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------------#
@@ -541,12 +547,12 @@ if __name__ == "__main__":
         inputs=test_data,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      _, test_loss_mse, test_loss_mse_std = loss_function_regression(real=y_test,
+      _, test_loss_mse, test_loss_mse_avg_pred, test_loss_mse_std = loss_function_regression(real=y_test,
                                                                       predictions=predictions_test,
                                                                       weights=weights_test,
                                                                       transformer=smc_transformer)
 
-    logger.info('test mse loss: {} - test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_std))
+    logger.info('test mse loss: {} - test mse loss (avg pred): {}, test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_avg_pred, test_loss_mse_std))
 
     # unnormalized predictions & target:
     if task == 'unistep-forcst':

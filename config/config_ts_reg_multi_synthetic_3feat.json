@@ -4,22 +4,22 @@
     "TRAIN_SPLIT": 0.8,
      "VAL_SPLIT": 0.5,
      "VAL_SPLIT_cv": 0.9,
-     "cv": "True",
+     "cv": "False",
      "target_feature": 0
    },
 
   "model": {
       "num_layers": 1,
       "num_heads": 2,
-      "d_model": 6,
-      "dff": 24,
+      "d_model": 2,
+      "dff": 8,
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None"
   },
 
   "smc": {
-    "num_particles": 1,
+    "num_particles": 10,
     "noise_encoder": "False",
     "noise_SMC_layer": "False",
     "sigma" : 0.05,
@@ -27,7 +27,7 @@
   },
 
   "optim": {
-      "BATCH_SIZE": 256,
+      "BATCH_SIZE": 2000,
       "learning_rate": 0.001,
       "EPOCHS": 20,
       "custom_schedule": "True"

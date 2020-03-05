@@ -18,7 +18,7 @@ from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
 def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, logger, num_train):
-
+  #TODO: add the building of the LSTM here.
   start_epoch = 0
   model.compile(optimizer=optimizer,
                 loss='mse')
@@ -273,8 +273,8 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   start_training = time.time()
 
   # preparing recording of loss and metrics information
-  train_loss_history, train_loss_mse_history = [], []
-  val_loss_history, val_loss_mse_history = [], []
+  train_loss_history, train_loss_mse_history, train_loss_mse_avg_pred_history = [], [], []
+  val_loss_history, val_loss_mse_history, val_loss_mse_avg_pred_history = [], [], []
 
   for epoch in range(start_epoch, EPOCHS):
     start = time.time()
@@ -282,24 +282,27 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
     train_accuracy.reset_states()
     sum_total_train_loss, sum_total_val_loss = 0, 0
     sum_train_loss, sum_val_loss = 0, 0
+    sum_train_loss_avg_pred, sum_val_loss_avg_pred = 0, 0
     sum_train_loss_std, sum_val_loss_std = 0, 0
 
     # training step:
     for (batch, (inp, tar)) in enumerate(train_dataset):
-      total_loss_batch, train_accuracies, _ = train_step_SMC_T(inputs=inp,
+      total_loss_batch, train_metrics, _ = train_step_SMC_T(inputs=inp,
                                                                targets=tar,
                                                                smc_transformer=smc_transformer,
                                                                optimizer=optimizer,
                                                                train_accuracy=train_accuracy,
                                                                classic_loss=True,
                                                                SMC_loss=True)
-      mse_metric_batch, mse_loss_std_batch = train_accuracies
+      mse_metric_batch, mse_loss_avg_pred_batch, mse_loss_std_batch = train_metrics
       sum_total_train_loss += total_loss_batch
       sum_train_loss += mse_metric_batch
+      sum_train_loss_avg_pred += mse_loss_avg_pred_batch
       sum_train_loss_std += mse_loss_std_batch
 
     avg_total_train_loss = sum_total_train_loss / (batch + 1)
     avg_train_loss = sum_train_loss / (batch + 1)
+    avg_train_loss_avg_pred = sum_train_loss_avg_pred / (batch + 1)
     avg_train_loss_std = sum_train_loss_std / (batch + 1)
 
     # compute the validation accuracy on the validation dataset:
@@ -309,35 +312,41 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
-      total_val_loss_batch, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
+      total_val_loss_batch, val_loss_mse_batch, val_loss_mse_avg_pred_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                                                   predictions=predictions_val,
                                                                                                   weights=weights_val,
                                                                                                   transformer=smc_transformer)
       sum_total_val_loss += total_val_loss_batch
       sum_val_loss += val_loss_mse_batch
+      sum_val_loss_avg_pred += val_loss_mse_avg_pred_batch
       sum_val_loss_std += val_loss_mse_std_batch
 
     avg_total_val_loss = sum_total_val_loss / (batch_val + 1)
     avg_val_loss = sum_val_loss / (batch_val + 1)
+    avg_val_loss_avg_pred = sum_val_loss_avg_pred / (batch + 1)
     avg_val_loss_std = sum_val_loss_std / (batch_val + 1)
 
     logger.info('final weights of first 3 elements of batch: {}, {}, {}'.format(weights_val[0, :], weights_val[1, :],
                                                                                 weights_val[2, :]))
 
     # ------------------------- computing and saving metrics (train set and validation set)----------------------------------------------------
-    template = 'train loss: {}, train mse loss: {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val loss std (mse): {}'
+    template = 'train loss: {}, train mse loss: {} - train mse loss (from avg pred): {} - train loss std (mse): {} - val loss: {} - val mse loss: {} - val mse loss (from avg pred): {}, val loss std (mse): {}'
     logger.info(template.format(avg_total_train_loss.numpy(),
                                 avg_train_loss.numpy(),
+                                avg_train_loss_avg_pred.numpy(),
                                 avg_train_loss_std.numpy(),
                                 avg_total_val_loss.numpy(),
                                 avg_val_loss.numpy(),
+                                avg_val_loss_avg_pred.numpy(),
                                 avg_val_loss_std.numpy()))
 
     # saving loss and metrics information:
     train_loss_history.append(avg_total_train_loss.numpy())
     train_loss_mse_history.append(avg_train_loss.numpy())
+    train_loss_mse_avg_pred_history.append(avg_train_loss_avg_pred.numpy())
     val_loss_history.append(avg_total_val_loss.numpy())
     val_loss_mse_history.append(avg_val_loss.numpy())
+    val_loss_mse_avg_pred_history.append(avg_val_loss_avg_pred.numpy())
 
     # ------------- end of saving metrics information -------------------------------------------------------------------------------
 
@@ -347,8 +356,8 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
 
   logger.info('total training time for {} epochs:{}'.format(EPOCHS, time.time() - start_training))
 
-  keys = ['train loss', 'train mse loss', 'val loss', 'val mse loss']
-  values = [train_loss_history, train_loss_mse_history, val_loss_history, val_loss_mse_history]
+  keys = ['train loss', 'train mse loss', 'train mse loss (avg pred)' 'val loss', 'val mse loss', 'val mse loss (avg pred)']
+  values = [train_loss_history, train_loss_mse_history, train_loss_mse_avg_pred_history, val_loss_history, val_loss_mse_history, val_loss_mse_avg_pred_history]
   csv_fname='smc_transformer_history_{}.csv'.format(num_train)
   saving_training_history(keys=keys, values=values,
                           output_path=output_path,
@@ -372,17 +381,18 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   # ----------------------  compute statistics at the end of training ----------------------------------------------------------------------------
 
   logger.info("computing metrics at the end of training...")
-  train_loss_mse, train_loss_std, val_loss_mse, val_loss_std = [], [], [], []
+  train_loss_mse, train_loss_mse_avg_pred, train_loss_std, val_loss_mse, val_loss_mse_avg_pred, val_loss_std = [], [], [], [], [], []
   for batch_train, (inp, tar) in enumerate(train_dataset):
     (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))
-    _, train_loss_mse_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
+    _, train_loss_mse_batch, train_loss_mse_avg_pred_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                                  predictions=predictions_train,
                                                                                  weights=weights_train,
                                                                                  transformer=smc_transformer)
     train_loss_mse.append(train_loss_mse_batch.numpy())
+    train_loss_mse_avg_pred.append(train_loss_mse_avg_pred_batch.numpy())
     train_loss_std.append(train_loss_mse_std_batch.numpy())
 
   for batch_val, (inp, tar) in enumerate(val_dataset):
@@ -390,25 +400,30 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))
-    _, val_loss_mse_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
+    _, val_loss_mse_batch, val_loss_mse_avg_pred_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
                                                                              predictions=predictions_val,
                                                                              weights=weights_val,
                                                                              transformer=smc_transformer)
 
     val_loss_mse.append(val_loss_mse_batch.numpy())
+    val_loss_mse_avg_pred.append(val_loss_mse_avg_pred_batch.numpy())
     val_loss_std.append(val_loss_mse_std_batch.numpy())
 
   # computing as a metric the mean of losses & std losses over the number of batches
   mean_train_loss_mse = statistics.mean(train_loss_mse)
+  mean_train_loss_mse_avg_pred = statistics.mean(train_loss_mse_avg_pred)
   mean_train_loss_std = statistics.mean(train_loss_std)
   mean_val_loss_mse = statistics.mean(val_loss_mse)
+  mean_val_loss_mse_avg_pred = statistics.mean(val_loss_mse_avg_pred)
   mean_val_loss_std = statistics.mean(val_loss_std)
 
   logger.info(
-    "average losses over batches: train mse loss:{} - train loss std (mse):{} - val mse loss:{} - val loss (mse) std: {}".format(
+    "average losses over batches: train mse loss:{} - train mse loss (avg pred): {}, train loss std (mse):{} - val mse loss:{} - val mse loss (avg pred): {} - val loss (mse) std: {}".format(
       mean_train_loss_mse,
+      mean_train_loss_mse_avg_pred,
       mean_train_loss_std,
       mean_val_loss_mse,
+      mean_val_loss_mse_avg_pred,
       mean_val_loss_std))
 
   logger.info('training of SMC Transformer for a time-series dataset done...')

@@ -192,8 +192,14 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
     loss_smc = 0
   loss = loss_mse + loss_smc
 
+  # compute mse from average prediction.
+  avg_prediction = tf.reduce_mean(predictions, axis=1) # (B,S,1)
+  loss_mse_from_avg_pred = tf.keras.losses.MSE(real, avg_prediction) # (B,S)
+  loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1) # (B)
+  loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1)
+
   #TODO: add as return the loss_mse that will be used as a metric for the regression case.
-  return loss, loss_mse, loss_mse_std
+  return loss, loss_mse, loss_mse_from_avg_pred,  loss_mse_std
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):

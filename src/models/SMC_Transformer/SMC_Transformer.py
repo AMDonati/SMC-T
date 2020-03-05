@@ -146,7 +146,7 @@ class SMC_Transformer(tf.keras.Model):
 
   def __init__(self, num_layers, d_model, num_heads, dff,
                target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, rate, omega=1,
-               target_feature=None, maximum_position_encoding=None, resampling=True):
+               target_feature=None, maximum_position_encoding=None, resampling=True, test=False):
     super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:
@@ -182,7 +182,8 @@ class SMC_Transformer(tf.keras.Model):
                                 task_type=task_type,
                                 resampling=resampling,
                                 rate=rate,
-                                target_feature=target_feature)  # put here the Transformer cell.
+                                target_feature=target_feature,
+                                test=test)  # put here the Transformer cell.
 
     # for pre_processing words in the one_layer case.
     #TODO: add a one tf.keras.layers.Dense() for the regression / time_series case.
@@ -213,6 +214,9 @@ class SMC_Transformer(tf.keras.Model):
     self.noise_SMC_layer = noise_SMC_layer
     self.maximum_position_encoding = maximum_position_encoding
     self.target_feature = target_feature
+
+    # to test the class SMC_Transformer.
+    self.test = test
 
     self.initialize = False
     self.pass_forward = False
@@ -415,8 +419,9 @@ class SMC_Transformer(tf.keras.Model):
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
                                                            seq_length=seq_len,
                                                            initial_word_id=initial_word_id)
-
-    #print('K0 from init function', K0[:,:,:,0])
+    if self.test:
+      print('inputs(x)', inputs)
+      print('K0 from init function', K0[:,:,:,0])
     initial_state = NestedState(K=K0,
                                 V=V0,
                                 w=w0,
@@ -429,6 +434,9 @@ class SMC_Transformer(tf.keras.Model):
     x = x[:,:seq_len-1,:,:]
     y = tf.expand_dims(inputs[:,1:,:], axis=-1)
     inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #r > (B,S,P,D)
+
+    if self.test:
+      print('y', y)
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
                                                             inputs=inputs_for_rnn,
@@ -447,9 +455,9 @@ class SMC_Transformer(tf.keras.Model):
     r0_T = outputs[0] # (B,S,P,D)
     Z0_T = outputs[1] # (B,S,P,D)
 
-    inference_pred = outputs[2]
-    good_avg_predictions = outputs[3]
-    max_predictions = outputs[4] # (B,S,V)
+    avg_prediction_after_softmax = outputs[2]
+    avg_prediction = outputs[3]
+    max_prediction = outputs[4] # (B,S,V)
 
     list_means_0_T = outputs[5] # (B,S,P,D) > for computing the loss function.
 
@@ -483,7 +491,8 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, (K,V)), (inference_pred, good_avg_predictions, max_predictions), attn_weights
+
+    return (Y0_T, Z0_T, w_T, (K,V)), (avg_prediction_after_softmax, avg_prediction, max_prediction), attn_weights
 
 if __name__ == "__main__":
   num_particles = 10
@@ -503,7 +512,7 @@ if __name__ == "__main__":
   noise_encoder = False
   noise_SMC_layer = True
   rate = 0.1
-
+  test = True
   ###----------Test of Encoder class-----------------------------------------------------------------------------------
 
   #TODO: debug the multivariate case for the case where num_layers > 1.
@@ -544,7 +553,8 @@ if __name__ == "__main__":
   data_type = data_type,
   task_type = task_type,
   target_feature = target_feature,
-  rate = rate)
+  rate = rate,
+  test = test)
 
 
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
@@ -554,8 +564,8 @@ if __name__ == "__main__":
                                                                                               training=True,
                                                                                               mask=mask)
   print('final predictions', predictions)
-  print('final K', K)
-  print('final V', V)
+  print('final K', K[:,:,:,0])
+  print('w_T', weights)
 
   inference_pred, good_avg_pred, max_pred = predictions_metric
   #print('Transformer output', predictions.shape)  # (B,P,S,C)
