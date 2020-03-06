@@ -19,7 +19,7 @@
   },
 
   "smc": {
-    "num_particles": 5,
+    "num_particles": 10,
     "noise_encoder": "False",
     "noise_SMC_layer": "True",
     "sigma" : 0.05,
@@ -43,5 +43,5 @@
       "task_type": "regression",
       "task": "synthetic"
   }
-
+got
 }
