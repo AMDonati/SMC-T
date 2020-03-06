@@ -238,7 +238,6 @@ def compute_accuracy_variance(predictions_val, tar, accuracy_metric):
   return variance_acc
 
 if __name__ == "__main__":
-
   #------------------------ testing of categorical ce with particules function......-----------------------------------------------------
   B = 8
   P = 5

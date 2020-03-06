@@ -62,6 +62,9 @@ from utils.utils_train import saving_training_history
 from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
+from eval.evaluation_functions import compute_latest_statistics
+from eval.evaluation_functions import evaluate_SMC_Transformer
+
 from eval.inference_SMC_Transformer import evaluate_one_timestep
 
 if __name__ == "__main__":
@@ -454,7 +457,7 @@ if __name__ == "__main__":
   if args.eval:
     logger.info("start evaluation for SMC Transformer...")
     #TODO: add evaluation for LSTM & Baseline Transformer.
-    # restoring latest checkpoint
+    # restoring latest checkpoint for SMC Transformer
     smc_transformer = SMC_Transformer(num_layers=num_layers,
                                       d_model=d_model,
                                       num_heads=num_heads,
@@ -473,119 +476,53 @@ if __name__ == "__main__":
                                       target_feature=target_feature)
 
     # creating checkpoint manager
-    ckpt = tf.train.Checkpoint(transformer=smc_transformer,
-                               optimizer=optimizer)
+    smc_T_ckpt = tf.train.Checkpoint(transformer=smc_transformer,
+                                     optimizer=optimizer)
     smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
-    ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
+    smc_T_ckpt_manager = tf.train.CheckpointManager(smc_T_ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
-    num_epochs = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+    num_epochs_smc_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args=args, logger=logger)
+
+    #TODO: restore checkpoint for Baseline Transformer
+    # restoring latest checkpoint from Baseline Transformer
+    if args.train_baseline:
+      transformer = Transformer(num_layers=num_layers,
+                                d_model=d_model,
+                                num_heads=num_heads,
+                                dff=dff,
+                                target_vocab_size=target_vocab_size,
+                                maximum_position_encoding=maximum_position_encoding_baseline,
+                                data_type=data_type,
+                                rate=rate)
+
+      baseline_T_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_1")
+      baseline_T_ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
+      baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
+      num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args=args, logger=logger)
 
     # --------------------------------------------- compute latest statistics ---------------------------------------------------------------------------------------
 
-    logger.info("<------------------------computing latest statistics----------------------------------------------------------------------------------------->")
-
-    # compute last mse train loss, std loss / val loss
-    train_loss_mse, train_loss_mse_avg_pred, train_loss_std, val_loss_mse, val_loss_mse_avg_pred, val_loss_std = [], [], [], [], [], []
-    predictions_validation_set = []
-    for batch_train, (inp, tar) in enumerate(train_dataset):
-      (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-      _, train_loss_mse_batch, train_loss_mse_avg_pred_batch, train_loss_mse_std_batch = loss_function_regression(real=tar,
-                                                                          predictions=predictions_train,
-                                                                          weights=weights_train,
-                                                                          transformer=smc_transformer)
-      train_loss_mse.append(train_loss_mse_batch.numpy())
-      train_loss_mse_avg_pred.append(train_loss_mse_avg_pred_batch.numpy())
-      train_loss_std.append(train_loss_mse_std_batch.numpy())
-
-    for batch_val, (inp, tar) in enumerate(val_dataset):
-      (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
-        inputs=inp,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-      _, val_loss_mse_batch, val_loss_mse_avg_pred_batch, val_loss_mse_std_batch = loss_function_regression(real=tar,
-                                                                          predictions=predictions_val,
-                                                                          weights=weights_val,
-                                                                          transformer=smc_transformer)
-      predictions_validation_set.append(predictions_val)
-      val_loss_mse.append(val_loss_mse_batch.numpy())
-      val_loss_mse_avg_pred.append(val_loss_mse_avg_pred_batch.numpy())
-      val_loss_std.append(val_loss_mse_std_batch.numpy())
-
-    # saving predictions for all validation set:
-    predictions_validation_set= tf.stack(predictions_validation_set, axis=0)
-    predictions_val_path = output_path + "/" + "predictions_val_end_of_training.npy"
-    np.save(predictions_val_path, predictions_validation_set)
-
-    logger.info("saving predictions on validation set...")
-    logger.info("predictions shape: {}".format(predictions_validation_set.shape))
-
-    # computing as a metric the mean of losses & std losses over the number of batches
-    mean_train_loss_mse = statistics.mean(train_loss_mse)
-    mean_train_loss_std = statistics.mean(train_loss_std)
-    mean_train_loss_mse_avg_pred = statistics.mean(train_loss_mse_avg_pred)
-    mean_val_loss_mse = statistics.mean(val_loss_mse)
-    mean_val_loss_mse_avg_pred = statistics.mean(val_loss_mse_avg_pred)
-    mean_val_loss_std = statistics.mean(val_loss_std)
-
-    logger.info("train mse loss:{} - train mse loss (avg pred): {} - train loss std (mse):{} - val mse loss:{} - val mse loss (avg pred): {} - val loss (mse) std: {}".format(
-      mean_train_loss_mse,
-      mean_train_loss_mse_avg_pred,
-      mean_train_loss_std,
-      mean_val_loss_mse,
-      mean_val_loss_mse_avg_pred,
-      mean_val_loss_std))
+    logger.info("<------------------------computing latest statistics on SMC Transformer----------------------------------------------------------------------------------------->")
+    compute_latest_statistics(smc_transformer=smc_transformer,
+                              train_dataset=train_dataset,
+                              val_dataset=val_dataset,
+                              seq_len=seq_len,
+                              output_path=output_path,
+                              logger=logger)
 
     # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------------#
 
-    logger.info("starting evaluation on test set...")
-    for (test_data, y_test) in test_dataset:
-      (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
-        inputs=test_data,
-        training=False,
-        mask=create_look_ahead_mask(seq_len))
-      _, test_loss_mse, test_loss_mse_avg_pred, test_loss_mse_std = loss_function_regression(real=y_test,
-                                                                      predictions=predictions_test,
-                                                                      weights=weights_test,
-                                                                      transformer=smc_transformer)
-
-    logger.info('test mse loss: {} - test mse loss (avg pred): {}, test loss std(mse) - {}'.format(test_loss_mse, test_loss_mse_avg_pred, test_loss_mse_std))
-
-    # unnormalized predictions & target:
-    if task == 'unistep-forcst':
-      data_mean, data_std = stats
-      predictions_unnormalized = predictions_test * data_std + data_mean
-      targets_unnormalized = y_test * data_std + data_mean
-
-    # save predictions & attention weights:
-    logger.info("saving predictions for test set in .npy files...")
-    eval_output_path = os.path.join(output_path, "eval_outputs")
-    if not os.path.isdir(eval_output_path):
-      os.makedirs(eval_output_path)
-
-    pred_unistep_N_1_test = eval_output_path + '/' + 'pred_unistep_N_1_test.npy'
-    attn_weights_unistep_N_1_test = eval_output_path + '/' + 'attn_weights_unistep_N_1_test.npy'
-    targets_test = eval_output_path + '/' + 'targets_test.npy'
-    weights_test_path = eval_output_path + '/' + 'weights_test.npy'
-    if task == 'unistep-forcst':
-      pred_unnorm = eval_output_path + '/' + 'pred_unistep_N_1_test_unnorm.npy'
-      targets_unnorm = eval_output_path + '/' + 'targets_test_unnorm.npy'
-
-    np.save(pred_unistep_N_1_test, predictions_test)
-    np.save(attn_weights_unistep_N_1_test, attn_weights_test)
-    np.save(targets_test, y_test)
-    np.save(weights_test_path, weights_test)
-
-    if task == 'unistep-forcst':
-      np.save(pred_unnorm, predictions_unnormalized)
-      np.save(targets_unnorm, targets_unnormalized)
-
-    logger.info("predictions shape for test set:{}".format(predictions_test.shape))
-    if task == 'unistep-forcst':
-      logger.info("unormalized predictions shape for test set:{}".format(predictions_unnormalized.shape))
+    logger.info("starting evaluation of the SMC Transformer on the test set...")
+    if task == 'synthetic':
+      stats = None
+    evaluate_SMC_Transformer(smc_transformer=smc_transformer,
+                             test_dataset=test_dataset,
+                             seq_len=seq_len,
+                             task=task,
+                             stats=stats,
+                             output_path=output_path,
+                             logger=logger)
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
