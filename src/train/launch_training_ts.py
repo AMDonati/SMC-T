@@ -91,7 +91,7 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
+  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -478,7 +478,8 @@ if __name__ == "__main__":
     # creating checkpoint manager
     smc_T_ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                      optimizer=optimizer)
-    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
+    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
+    #smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
     smc_T_ckpt_manager = tf.train.CheckpointManager(smc_T_ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
