@@ -15,7 +15,8 @@
       "dff": 24,
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
-      "maximum_position_encoding_smc": "None"
+      "maximum_position_encoding_smc": "None",
+      "mc_dropout_samples": 25
   },
 
   "smc": {

@@ -27,13 +27,8 @@ ALL INPUTS CAN BE OF SHAPE (B,S,F) (F=1 for NLP / univariate time_series case, F
 
 import tensorflow as tf
 from models.Baselines.Transformer_without_enc import Transformer
-from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
-
-from train.train_step_functions import train_step_classic_T
-from train.train_step_functions import train_step_SMC_T
 
 from train.loss_functions import CustomSchedule
-from train.loss_functions import loss_function_regression
 from train.train_functions import train_baseline_transformer
 from train.train_functions import train_SMC_transformer
 from train.train_functions import train_LSTM
@@ -41,7 +36,6 @@ from train.train_functions import train_LSTM
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.LSTMs import build_LSTM_for_regression
 
-import time
 import sys
 import os
 import numpy as np
@@ -49,7 +43,6 @@ import shutil
 import json
 import argparse
 import warnings
-import statistics
 
 from preprocessing.time_series.df_to_dataset import df_to_data_regression
 from preprocessing.time_series.df_to_dataset import data_to_dataset_uni_step
@@ -58,14 +51,12 @@ from preprocessing.time_series.df_to_dataset import split_synthetic_dataset
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger
-from utils.utils_train import saving_training_history
-from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
 from eval.evaluation_functions import compute_latest_statistics
 from eval.evaluation_functions import evaluate_SMC_Transformer
+from eval.Transformer_dropout import MC_Dropout_Transformer
 
-from eval.inference_SMC_Transformer import evaluate_one_timestep
 
 if __name__ == "__main__":
 
@@ -113,6 +104,7 @@ if __name__ == "__main__":
   maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
   max_pos_enc_smc_str = hparams["model"]["maximum_position_encoding_smc"]
   maximum_position_encoding_smc = None if max_pos_enc_smc_str == "None" else max_pos_enc_smc_str
+  mc_dropout_samples = hparams["model"]["mc_dropout_samples"]
 
   # task params
   data_type = hparams["task"]["data_type"]
@@ -502,6 +494,16 @@ if __name__ == "__main__":
       baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
       num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args=args, logger=logger)
 
+      logger.info("starting evaluation of MC Dropout on the Baseline Transformer on the test set...")
+      MC_Dropout_Transformer(transformer=transformer,
+                             test_dataset=test_dataset,
+                             seq_len=seq_len,
+                             task=task,
+                             stats=stats,
+                             num_samples=mc_dropout_samples,
+                             output_path=output_path,
+                             logger=logger)
+
     # --------------------------------------------- compute latest statistics ---------------------------------------------------------------------------------------
 
     logger.info("<------------------------computing latest statistics on SMC Transformer----------------------------------------------------------------------------------------->")
@@ -512,7 +514,7 @@ if __name__ == "__main__":
                               output_path=output_path,
                               logger=logger)
 
-    # -----unistep evaluation with N = 1 ---------------------------------------------------------------------------------------------------#
+    # -----unistep evaluation with N = 1 ------------------------------------------------------------------------------------------------------------------------------#
 
     logger.info("starting evaluation of the SMC Transformer on the test set...")
     if task == 'synthetic':
@@ -524,6 +526,11 @@ if __name__ == "__main__":
                              stats=stats,
                              output_path=output_path,
                              logger=logger)
+
+
+
+
+
 
     # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
     # input_seq_length = 13
@@ -544,6 +551,9 @@ if __name__ == "__main__":
     # np.save(mean_pred_test, mean_pred)
     # np.save(pred_P_test, pred_P)
     # np.save(pred_NP_test, pred_NP)
+
+
+
 
     ##-----------------old code scripts --------------------------------------------------------------------------------------------------------------
 
