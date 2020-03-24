@@ -65,6 +65,11 @@ def saving_training_history(keys, values, output_path, csv_fname, logger, start_
   write_to_csv(baseline_history_fn, history)
   logger.info('saving loss and metrics information...')
 
+def saving_inference_results(keys, values, output_path, csv_fname):
+  results = dict(zip(keys, values))
+  results_fn = output_path + '/' + csv_fname
+  write_to_csv(results_fn, results)
+
 def saving_model_outputs(output_path, predictions, attn_weights, pred_fname, attn_weights_fname, logger):
   model_output_path = os.path.join(output_path, "model_outputs")
   if not os.path.isdir(model_output_path):

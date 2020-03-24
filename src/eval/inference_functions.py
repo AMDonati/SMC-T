@@ -112,7 +112,6 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   # getting sampled predictions from the list of r_NP:
   list_preds_multistep = []
-  tensor_preds_multistep = []
   if sample_pred:
     for r in list_r_NP:
       # reshape to have a tensor of shape (B,N,P,1,D)
@@ -132,12 +131,11 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
         mean_r_=smc_transformer.final_layer(r_)
         X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
         list_pred_t.append(X_pred)
-      tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,F)
-      list_preds_multistep.append(list_pred_t)
-      tensor_preds_multistep.append(tensor_pred_t)
-    tensor_preds_multistep = tf.stack(tensor_preds_multistep, axis=2)
-    tensor_preds_multistep = tf.squeeze(tensor_preds_multistep, axis=-2)
-    tensor_preds_multistep = tf.squeeze(tensor_preds_multistep, axis=-1)
+      tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
+      tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
+      list_preds_multistep.append(tensor_pred_t)
+    tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
+
       #------------- OR... FOR SAMPLING PREDICTIONS...-----------------------------------------------------------------------------------------------
       # for r in list_r_NP:
       #   # reshape to have a tensor of shape (B,N,P,1,D)
@@ -168,7 +166,6 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
   last_input = inputs[:,-1,:] # (B,F)
   num_features = tf.shape(last_input)[-1]
   list_preds_sampled = []
-  tensor_preds_sampled = []
   for t in range(num_timesteps):
     list_pred_t = []
     for n in range(N_est):
@@ -176,16 +173,15 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
       list_pred_t.append(new_input)
     sample_ind = np.random.randint(0, N_est)
     last_input = list_pred_t[sample_ind] # (B,F)
-    list_preds_sampled.append([X[:,0] for X in list_pred_t])
     tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,F)
-    tensor_preds_sampled.append(tensor_pred_t[:,:,0])
-  tensor_preds_sampled = tf.stack(tensor_preds_sampled, axis=2) # (B, N_est, S)
+    list_preds_sampled.append(tensor_pred_t[:,:,0])
+  tensor_preds_sampled = tf.stack(list_preds_sampled, axis=2) # (B, N_est, S)
 
   return list_preds_sampled, tensor_preds_sampled
 
 if __name__ == "__main__":
   num_particles_training = 1
-  seq_len = 25
+  seq_len = 24
   b = 8
   F = 3 # multivariate case.
   num_layers = 1
@@ -221,9 +217,9 @@ if __name__ == "__main__":
     target_feature=target_feature,
     rate=rate)
 
-  inputs = tf.random.uniform(shape=(b,seq_len,F))
+  inputs = tf.random.uniform(shape=(b,seq_len+1,F))
 
-  # ---------------------- test of multi-step inference function -------------------------------------------------------------
+  # ---------------------- test of multi-step inference function ----------------------------------------------------------------------
   num_samples = 5
   N_est = 25
   num_timesteps = 4
@@ -242,12 +238,12 @@ if __name__ == "__main__":
 
   print('shape of tensor for multistep inference', tensor_preds_sampled.shape)
 
-  #--------------- test of generate_empirical_distribution---------------------------------------------------------------------
+  #--------------- test of generate_empirical_distribution ----------------------------------------------------------------------------
 
   cov_matrix_3D = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
 
-  list_preds_sampled, tensor_preds_sampled = generate_empirical_distribution(inputs=inputs,
+  list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution(inputs=inputs,
                                                        matrix_A=A_3D,
                                                        cov_matrix=cov_matrix_3D,
                                                        N_est=N_est,
@@ -256,3 +252,9 @@ if __name__ == "__main__":
   print('example of preds - empirical distribution', list_preds_sampled[0])
   print('number of examples per preds', len(list_preds_sampled[0]))
   print('shape of tensor for multistep empirical distribution', tensor_preds_sampled.shape)
+
+  # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
+  KL_measure = tf.keras.losses.KLDivergence()
+  for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
+    KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
+    print('KL distance for timestep {}: {}'.format(t, KL_distance))
