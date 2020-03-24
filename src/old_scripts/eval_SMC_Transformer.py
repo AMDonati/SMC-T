@@ -3,7 +3,7 @@ import numpy as np
 import json
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
-from eval.inference_SMC_Transformer import evaluate_one_timestep
+from eval.inference_functions import evaluate_one_timestep
 from preprocessing.time_series.df_to_dataset import df_to_data_regression
 
 # -------- load config file and checkpoint --------------------------------------

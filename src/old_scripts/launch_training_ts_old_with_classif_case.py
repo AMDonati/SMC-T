@@ -61,7 +61,7 @@ from utils.utils_train import saving_training_history
 from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
-from eval.inference_SMC_Transformer import evaluate_one_timestep
+from eval.inference_functions import evaluate_one_timestep
 
 if __name__ == "__main__":
 
