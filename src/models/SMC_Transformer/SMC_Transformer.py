@@ -358,6 +358,73 @@ class SMC_Transformer(tf.keras.Model):
 
     return SMC_loss
 
+  # def inference_function(self, inputs, smc_transformer, num_samples, num_timesteps, num_particles=None):
+  #   '''
+  #   :param inputs (test data): shape (B_test, S)
+  #   :param K: key matrix in self_attention > shape (B,P,S,D)
+  #   :param V: value matrix in self_attention > shape (B,P,S,D)
+  #   :param num_samples:
+  #   :param inference_decoding_timestep:
+  #   :return:
+  #   '''
+  #   sampled_z, sampled_K, sampled_V = [], [], []
+  #   N = num_samples
+  #
+  #   # call of the smc_transformer on inputs:
+  #   s = tf.shape(inputs)[1]
+  #   mask = create_look_ahead_mask(s)
+  #   outputs, _, _ = smc_transformer(inputs=inputs,
+  #                   training=False,
+  #                   mask=mask)
+  #   _, _, w_s, (K0_s, V0_s) = outputs
+  #
+  #   X_s = inputs[:,-1]
+  #   # adding zeros to KO_s and V0_s
+  #   shape_future = (tf.shape(K0_s)[0], num_particles, num_timesteps, tf.shape(K0_s)[-1])
+  #   future_K = tf.zeros(shape=shape_future)
+  #   future_V = tf.zeros(shape=shape_future)
+  #   K = tf.concat([K0_s, future_K], axis=2)
+  #   V = tf.concat([V0_s, future_V], axis=2)
+  #
+  #   inputs_mha = [X_s for _ in range(3)]
+  #
+  #   for t in range(s,s+num_timesteps):
+  #   if t == s:
+  #     for n in range(N):
+  #       (z, K, V), attn_weights = self.cell.mha_smc(inputs=inputs_mha, timestep=t, K=K, V=V)
+  #       sampled_z.append(z) # (B,P,1,D)
+  #       sampled_K.append(K) # (B,P,S,D)
+  #       sampled_V.append(V) # (B,P,S,D)
+  #
+  #     sampled_z = tf.stack(sampled_z, axis=1) # (B,N,P,1,D)
+  #     sampled_K = tf.stack(sampled_K, axis=1) # (B,N,P,S,D)
+  #     sampled_V = tf.stack(sampled_V, axis=1) # (B,N,P,S,D)
+  #
+  #     shape_NP = (tf.shape(sampled_z)[0],
+  #                 tf.shape(sampled_z)[1]*tf.shape(sampled_z)[2],
+  #                 -1,
+  #                 tf.shape(sampled_z)[3], tf.shape(sampled_z)[-1])
+  #     sampled_z = tf.reshape(sampled_z, shape=shape_NP) # shape (B,N*P,1,1,D)
+  #     sampled_z = tf.squeeze(sampled_z, axis = 2) # shape (B,N*P,1,D) # $z^{m,i}$
+  #
+  #   else:
+  #     inputs_mha = [X_pred_N_P for _ in range(3)]
+  #     (sampled_z, K_NP, V_NP), _ = self.cell.mha_smc(inputs=inputs_mha, timestep=t, K=K_NP, V=V_NP)
+  #
+  #   # pass forward until output layer for sampled_z
+  #   z = self.dropout1(sampled_z, training=False)
+  #   inputs_N = tf.tile(X_s, multiples=[1,num_samples,1,1]) # (B,N*P,1,D)
+  #   out1 = self.layernorm1(z + inputs_N) # (B, N, P, 1, D)
+  #   ffn_output = self.ffn(out1)  # (B, N, P, 1, D)
+  #   ffn_output = self.dropout3(ffn_output, training=False) # (B, N, P, 1, D)
+  #   r_t_N_P = self.layernorm3(ffn_output + out1)  # (B, N, P, 1, D) # $r^{m,i}$
+  #   #TODO, here instead: compute w_t, sample m* and i*, get r(m*,i*) and compute X_t^\hat.
+  #   X_pred_N_P = self.output_layer(r_t_N_P)
+  #   X_pred_N_P = X_pred_N_P + tf.random.normal(shape=tf.shape(X_pred_N_P), stddev=self.omega)# (B,NP,1,F) #TODO: here as self.omega as stddev.
+  #
+  #   #TODO: this function should return instead: r_t^{m,i}, new_K, new_V, and then X_t^(m,i)
+  #   return X_pred_N_P, r_t_N_P, (sampled_K, sampled_V)
+
   def call(self, inputs, training, mask):
     '''
     -args:
@@ -490,7 +557,6 @@ class SMC_Transformer(tf.keras.Model):
       attn_weights['SMC_layer_{}'.format(self.num_layers)] = attn_weights_SMC_layer
 
     self.pass_forward = True
-
 
     return (Y0_T, Z0_T, w_T, (K,V)), (avg_prediction_after_softmax, avg_prediction, max_prediction), attn_weights
 

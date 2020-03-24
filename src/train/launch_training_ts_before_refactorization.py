@@ -380,7 +380,7 @@ if __name__ == "__main__":
       ckpt_manager = tf.train.CheckpointManager(ckpt, baseline_ckpt_path, max_to_keep=EPOCHS)
 
       # if a checkpoint exists, restore the latest checkpoint.
-      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args=args, ckpt=ckpt, logger=logger)
+      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args_load_ckpt=args, ckpt=ckpt, logger=logger)
       if start_epoch is None:
         start_epoch = 0
 
@@ -552,7 +552,7 @@ if __name__ == "__main__":
       ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
       # if a checkpoint exists, restore the latest checkpoint.
-      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+      start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args_load_ckpt=args, logger=logger)
       if start_epoch is None:
         start_epoch = 0
 
@@ -760,7 +760,7 @@ if __name__ == "__main__":
     ckpt_manager = tf.train.CheckpointManager(ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
-    num_epochs = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args=args, logger=logger)
+    num_epochs = restoring_checkpoint(ckpt_manager=ckpt_manager, ckpt=ckpt, args_load_ckpt=args, logger=logger)
 
     # --------------------------------------------- compute latest statistics ---------------------------------------------------------------------------------------
 

@@ -353,7 +353,6 @@ if __name__ == "__main__":
     sys.setrecursionlimit(100000)
     tf.config.experimental_run_functions_eagerly(True)  # to remove TensorInacessibleError
 
-    #dataset = train_dataset
     # to choose which models to train.
     train_smc_transformer = args.train_smc_T
     train_classic_transformer = args.train_baseline
@@ -475,9 +474,8 @@ if __name__ == "__main__":
     smc_T_ckpt_manager = tf.train.CheckpointManager(smc_T_ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.
-    num_epochs_smc_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args=args, logger=logger)
+    num_epochs_smc_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args_load_ckpt=args.load_ckpt, logger=logger)
 
-    #TODO: restore checkpoint for Baseline Transformer
     # restoring latest checkpoint from Baseline Transformer
     if args.train_baseline:
       transformer = Transformer(num_layers=num_layers,
@@ -492,7 +490,7 @@ if __name__ == "__main__":
       baseline_T_ckpt_path = os.path.join(checkpoint_path, "transformer_baseline_1")
       baseline_T_ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
       baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
-      num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args=args, logger=logger)
+      num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=smc_T_ckpt_manager, ckpt=smc_T_ckpt, args_load_ckpt=args.load_ckpt, logger=logger)
 
       logger.info("starting evaluation of MC Dropout on the Baseline Transformer on the test set...")
       MC_Dropout_Transformer(transformer=transformer,
@@ -526,34 +524,6 @@ if __name__ == "__main__":
                              stats=stats,
                              output_path=output_path,
                              logger=logger)
-
-
-
-
-
-
-    # ---- multistep evaluation --------------------------------------------------------------------------------------------------------------------
-    # input_seq_length = 13
-    # num_samples = 2
-    #
-    # for (inp,tar) in test_dataset:
-    #   (pred_inp, attn_weights), (mean_pred, pred_P, pred_NP), inp_to_infer = evaluate_one_timestep(
-    #   model=smc_transformer,
-    #   inputs=inp,
-    #   num_samples=num_samples,
-    #   inp_seq_len=input_seq_length)
-    #
-    # # save output of evaluation function in .npy files.
-    # eval_output_path = os.path.join(output_path, "eval_outputs")
-    # mean_pred_test = eval_output_path + '/' + 'mean_pred_test.npy'
-    # pred_P_test = eval_output_path + '/' + 'pred_P_test.npy'
-    # pred_NP_test = eval_output_path + '/' + 'pred_NP_test.npy'
-    # np.save(mean_pred_test, mean_pred)
-    # np.save(pred_P_test, pred_P)
-    # np.save(pred_NP_test, pred_NP)
-
-
-
 
     ##-----------------old code scripts --------------------------------------------------------------------------------------------------------------
 

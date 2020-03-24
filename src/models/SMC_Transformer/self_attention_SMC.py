@@ -93,7 +93,9 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     Transpose the result such that the shape is (batch_size, num_heads, seq_len, depth)
     (batch_size, num_particle, seq_length, d_model) => (batch_size, num_particle, seq_length, num_heads, depth=d_model/num_heads)
     """
-    x = tf.reshape(x, (batch_size, self.num_particles, -1, self.num_heads, self.depth))
+    #TODO: replace here self
+    #x = tf.reshape(x, (batch_size, self.num_particles, -1, self.num_heads, self.depth))
+    x = tf.reshape(x, (batch_size, tf.shape(x)[1], -1, self.num_heads, self.depth))
     return tf.transpose(x, perm=[0, 1, 3, 2, 4])
 
   def concat_heads(self, x):

@@ -26,7 +26,7 @@ if __name__ == "__main__":
   XX = tf.matmul(X_temp, A_2D)
   noise = tf.random.normal(stddev=cov_matrix_2D, shape=(1,2))
   XX = XX + noise
-  list_samples=[]
+  list_samples = []
   A = A_3D if num_features == 3 else A_2D
   cov_matrix = cov_matrix_3D if num_features == 3 else A_3D
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     list_samples.append(X_seq)
 
   X_data = tf.stack(list_samples, axis=0)
-  X_data=tf.squeeze(X_data, axis=1)
+  X_data = tf.squeeze(X_data, axis=1)
 
   data_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data'
   file_path = data_path + '/synthetic_dataset_{}_feat.npy'.format(num_features)

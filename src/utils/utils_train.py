@@ -44,15 +44,16 @@ def create_run_dir(path_dir, path_name):
     os.makedirs(path)
   return path
 
-def restoring_checkpoint(ckpt_manager, ckpt, args, logger):
-  if ckpt_manager.latest_checkpoint and args.load_ckpt:
+def restoring_checkpoint(ckpt_manager, ckpt, args_load_ckpt=True, logger=None):
+  if ckpt_manager.latest_checkpoint and args_load_ckpt:
     ckpt_restored_path = ckpt_manager.latest_checkpoint
     ckpt_name = os.path.basename(ckpt_restored_path)
     _, ckpt_num = ckpt_name.split('-')
     start_epoch = int(ckpt_num)
     ckpt.restore(ckpt_manager.latest_checkpoint)
-    print(" checkpoint restored from {}".format(ckpt_manager.latest_checkpoint))
-    logger.info('Latest checkpoint restored!!')
+    print("checkpoint restored from {}".format(ckpt_manager.latest_checkpoint))
+    if logger is not None:
+      logger.info('Latest checkpoint restored!!')
     return start_epoch
 
 def saving_training_history(keys, values, output_path, csv_fname, logger, start_epoch):
