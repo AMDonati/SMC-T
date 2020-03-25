@@ -204,8 +204,8 @@ class SMC_Transformer(tf.keras.Model):
     self.rate = rate
 
     self.data_type = data_type
-    if data_type=='time_series_multi':
-      assert target_feature is not None
+    #if data_type=='time_series_multi':
+      #assert target_feature is not None
     self.task_type = task_type
 
     self.sigma = sigma
@@ -282,14 +282,10 @@ class SMC_Transformer(tf.keras.Model):
       initial_weights = self.cell.compute_w_classification(predictions=logits_initial, x=initial_word_id) # shape (B,P).
 
     elif self.task_type == 'regression':
-      assert self.target_vocab_size == 1
       # TODO replace the tf.cast by an assert.
       initial_word_id = tf.cast(initial_word_id, dtype=tf.float32) # shape (B,F)
       if len(tf.shape(initial_word_id)) == 1:
         initial_word_id = tf.expand_dims(initial_word_id, axis=-1)
-      # tiling word_id to get the right shape:
-      initial_word_id = tf.expand_dims(initial_word_id, axis=1)
-      initial_word_id = tf.tile(initial_word_id, multiples=[1, self.num_particles, 1])  # shape (B,P,F)
 
       initial_weights = self.cell.compute_w_regression(predictions=logits_initial, y=initial_word_id) # shape (B,P)
 
@@ -358,73 +354,6 @@ class SMC_Transformer(tf.keras.Model):
 
     return SMC_loss
 
-  # def inference_function(self, inputs, smc_transformer, num_samples, num_timesteps, num_particles=None):
-  #   '''
-  #   :param inputs (test data): shape (B_test, S)
-  #   :param K: key matrix in self_attention > shape (B,P,S,D)
-  #   :param V: value matrix in self_attention > shape (B,P,S,D)
-  #   :param num_samples:
-  #   :param inference_decoding_timestep:
-  #   :return:
-  #   '''
-  #   sampled_z, sampled_K, sampled_V = [], [], []
-  #   N = num_samples
-  #
-  #   # call of the smc_transformer on inputs:
-  #   s = tf.shape(inputs)[1]
-  #   mask = create_look_ahead_mask(s)
-  #   outputs, _, _ = smc_transformer(inputs=inputs,
-  #                   training=False,
-  #                   mask=mask)
-  #   _, _, w_s, (K0_s, V0_s) = outputs
-  #
-  #   X_s = inputs[:,-1]
-  #   # adding zeros to KO_s and V0_s
-  #   shape_future = (tf.shape(K0_s)[0], num_particles, num_timesteps, tf.shape(K0_s)[-1])
-  #   future_K = tf.zeros(shape=shape_future)
-  #   future_V = tf.zeros(shape=shape_future)
-  #   K = tf.concat([K0_s, future_K], axis=2)
-  #   V = tf.concat([V0_s, future_V], axis=2)
-  #
-  #   inputs_mha = [X_s for _ in range(3)]
-  #
-  #   for t in range(s,s+num_timesteps):
-  #   if t == s:
-  #     for n in range(N):
-  #       (z, K, V), attn_weights = self.cell.mha_smc(inputs=inputs_mha, timestep=t, K=K, V=V)
-  #       sampled_z.append(z) # (B,P,1,D)
-  #       sampled_K.append(K) # (B,P,S,D)
-  #       sampled_V.append(V) # (B,P,S,D)
-  #
-  #     sampled_z = tf.stack(sampled_z, axis=1) # (B,N,P,1,D)
-  #     sampled_K = tf.stack(sampled_K, axis=1) # (B,N,P,S,D)
-  #     sampled_V = tf.stack(sampled_V, axis=1) # (B,N,P,S,D)
-  #
-  #     shape_NP = (tf.shape(sampled_z)[0],
-  #                 tf.shape(sampled_z)[1]*tf.shape(sampled_z)[2],
-  #                 -1,
-  #                 tf.shape(sampled_z)[3], tf.shape(sampled_z)[-1])
-  #     sampled_z = tf.reshape(sampled_z, shape=shape_NP) # shape (B,N*P,1,1,D)
-  #     sampled_z = tf.squeeze(sampled_z, axis = 2) # shape (B,N*P,1,D) # $z^{m,i}$
-  #
-  #   else:
-  #     inputs_mha = [X_pred_N_P for _ in range(3)]
-  #     (sampled_z, K_NP, V_NP), _ = self.cell.mha_smc(inputs=inputs_mha, timestep=t, K=K_NP, V=V_NP)
-  #
-  #   # pass forward until output layer for sampled_z
-  #   z = self.dropout1(sampled_z, training=False)
-  #   inputs_N = tf.tile(X_s, multiples=[1,num_samples,1,1]) # (B,N*P,1,D)
-  #   out1 = self.layernorm1(z + inputs_N) # (B, N, P, 1, D)
-  #   ffn_output = self.ffn(out1)  # (B, N, P, 1, D)
-  #   ffn_output = self.dropout3(ffn_output, training=False) # (B, N, P, 1, D)
-  #   r_t_N_P = self.layernorm3(ffn_output + out1)  # (B, N, P, 1, D) # $r^{m,i}$
-  #   #TODO, here instead: compute w_t, sample m* and i*, get r(m*,i*) and compute X_t^\hat.
-  #   X_pred_N_P = self.output_layer(r_t_N_P)
-  #   X_pred_N_P = X_pred_N_P + tf.random.normal(shape=tf.shape(X_pred_N_P), stddev=self.omega)# (B,NP,1,F) #TODO: here as self.omega as stddev.
-  #
-  #   #TODO: this function should return instead: r_t^{m,i}, new_K, new_V, and then X_t^(m,i)
-  #   return X_pred_N_P, r_t_N_P, (sampled_K, sampled_V)
-
   def call(self, inputs, training, mask):
     '''
     -args:
@@ -471,7 +400,6 @@ class SMC_Transformer(tf.keras.Model):
       x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     elif self.num_layers == 1:
-      #TODO: change the name of r to x.
       # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
       x = self.input_dense_projection(input_tensor_processed) # one dense layer to have a tensor of shape (B,P,S,D)
@@ -500,7 +428,7 @@ class SMC_Transformer(tf.keras.Model):
     # taking the first S-1 sequence elements for x (input data), & elements 1 to S for y (used for computing w)
     x = x[:,:seq_len-1,:,:]
     y = tf.expand_dims(inputs[:,1:,:], axis=-1)
-    inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #r > (B,S,P,D)
+    inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #x > (B,S,P,D)
 
     if self.test:
       print('y', y)
@@ -574,7 +502,7 @@ if __name__ == "__main__":
   omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'
-  C = 1 # vocabulary size or number of classes.
+  C = F # vocabulary size or number of classes.
   noise_encoder = False
   noise_SMC_layer = True
   rate = 0.1
@@ -600,8 +528,9 @@ if __name__ == "__main__":
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
-  target_feature = 0 if data_type == 'time_series_multi' else None
-  maximum_position_encoding = 2000
+  target_feature = None
+  #target_feature = 0 if data_type == 'time_series_multi' else None
+  maximum_position_encoding = None
 
   sample_transformer = SMC_Transformer(
     num_layers = num_layers,

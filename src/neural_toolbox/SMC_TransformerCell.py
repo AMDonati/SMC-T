@@ -122,31 +122,26 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # logw = -0.5 * mu_t ^ T * mu_t / omega
     # logw = logw - min(logw)
     # w = exp(logw)
-    :param predictions: output of final layer (logits.) > shape (B,P,1) (regression case)
+    :param predictions: output of final layer (logits.) > shape (B,P,F) or (B,P,1,F) (regression case)
     :param y: current sequence element (x_t) > shape (B,F,1); F > 1 for multivariate case.
     :return:
     '''
     # TODO: replace a the tf.cast by an assert (input data should be of dtype=tf.float32 for the regression case).
-    y = tf.cast(y, dtype=tf.float32)  # x of shape (B,P) for classif case / shape (B,P,F) for time_series case.
-    y = tf.squeeze(y, axis=-1)
+    y = tf.cast(y, dtype=tf.float32)  # y of shape (B,F) for classif case / shape (B,F) for time_series case.
     if len(tf.shape(predictions)) == 4:
-      predictions = tf.squeeze(predictions, axis=-1)  # shape (B,P,1)
+      predictions = tf.squeeze(predictions, axis=-2)  # shape (B,P,F)
     # expanding and tiling x over the particle dimensions to have the right shape
     y = tf.expand_dims(y, axis=1) # (B,1,F,1)
     y = tf.tile(y, multiples=[1, self.num_particles, 1])
-    # if len(tf.shape(x)) == 3:  # nlp /classif case
-    #   x = tf.tile(x, multiples=[1, self.num_particles, 1])  # shape (B,P,1)
-    # elif len(tf.shape(x)) == 4:
-    #   x = tf.tile(x, multiples=[1, self.num_particles, 1, 1])  # shape (B,P,1,F) time_series case.
 
     # multivariate case: selecting the target feature as the ground truth (labels)
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(y)[-1]
       y = y[:, :, self.target_feature] # (B, P)
       y = tf.expand_dims(y, axis=-1) # (B, P, 1)
-    mu_t = y - predictions
-    # mu_t=tf.squeeze(mu_t, axis=-1)
-    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # should be of shape : (B,P,P)
+
+    mu_t = y - predictions # (B,P,F)
+    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
     log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
@@ -183,10 +178,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
       B, N, P, S, D = tf.shape(sampled_K)[0], tf.shape(sampled_K)[1], tf.shape(sampled_K)[2], tf.shape(sampled_K)[3], tf.shape(sampled_K)[4]
 
-      shape_z = (B,
-                N*P,
-                -1,
-                1, D)
+      shape_z = (B, N*P, -1, 1, D)
       shape_K = (B, N*P, -1, S, D)
 
       sampled_z = tf.reshape(sampled_z, shape=shape_z) # shape (B,N*P,1,1,D)
@@ -237,7 +229,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # unnesting inputs
     x, y = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
-    y = tf.cast(y, dtype=tf.int32) # shape (B, F) > should be of shape (B,1,F)?
+    y = tf.cast(y, dtype=tf.float32)
+    y = tf.squeeze(y, axis=-1)
     # getting x
     K, V, w, I = states
     I = tf.cast(I, dtype=tf.int32)
@@ -275,8 +268,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
 
     # 3. FOR SMC: compute the new set of weights.
-    if len(tf.shape(y)) == 1:
-      y = tf.expand_dims(y, axis=-1)  # shape (B,1) or (B,F,1) for multivariate case. should be (B,1,F)...
     predictions = self.output_layer(r_)  # (B,P,1,V)
 
     if self.test:
@@ -288,7 +279,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       assert self.target_vocab_size > 1
       w_squeezed = self.compute_w_classification(predictions=predictions, x=y)
     elif self.task_type == 'regression':
-      assert self.target_vocab_size == 1
       w_squeezed = self.compute_w_regression(predictions=predictions, y=y)
 
     # add a tf.stop_gradient on the weights to have backpropagation on these parameters:

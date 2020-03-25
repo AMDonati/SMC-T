@@ -145,8 +145,8 @@ def loss_function_classification(real, predictions, weights, transformer, classi
 
 def loss_function_binary(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
   '''DOES NOT WORK...
-  :param real: targets > shape (B,P,S)
-  :param predictions (log_probas) > shape (B,P,S,V)
+  :param real: targets > shape (B,P,S,F)
+  :param predictions (log_probas) > shape (B,P,S,C=F)
   :param weights: re-sampling_weights for the last element > shape (B,P)
   :param classic_loss: boolean to compute the classic loss or not (default=True)
   :param SMC_loss: boolean to compute the SMC loss (default=True)
@@ -167,19 +167,14 @@ def loss_function_binary(real, predictions, weights, transformer, classic_loss=T
 
 def loss_function_regression(real, predictions, weights, transformer, classic_loss=True, SMC_loss=True):
   '''
-  :param real: targets > shape (B,P,S)
-  :param predictions > shape (B,P,S,1)
+  :param real: targets > shape (B,P,S) (B,P,S,F)
+  :param predictions > shape (B,P,S,1) (B,P,S,F)
   :param weights: re-sampling_weights for the last element > shape (B,P)
   :param classic_loss: boolean to compute the classic loss or not (default=True)
   :param SMC_loss: boolean to compute the SMC loss (default=True)
   :return:
   a scalar computing the SMC loss as defined in the paper.
   '''
-  num_particles=tf.shape(weights)[1]
-  if len(tf.shape(real))==2:
-    # tiling targets to add the particle dimensions
-    real=tf.expand_dims(real, axis=1)
-    real=tf.tile(real, multiples=[1,num_particles,1])
   if classic_loss:
     # TODO: if sigma of weights_computation is not equal to 1. change the mse by a custom SMC_log_likelihood.
     loss_mse, loss_mse_std = mse_with_particles(real=real, pred=predictions)
@@ -193,12 +188,11 @@ def loss_function_regression(real, predictions, weights, transformer, classic_lo
   loss = loss_mse + loss_smc
 
   # compute mse from average prediction.
-  avg_prediction = tf.reduce_mean(predictions, axis=1) # (B,S,1)
+  avg_prediction = tf.reduce_mean(predictions, axis=1) # (B,S,F)
   loss_mse_from_avg_pred = tf.keras.losses.MSE(real, avg_prediction) # (B,S)
   loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1) # (B)
   loss_mse_from_avg_pred = tf.reduce_mean(loss_mse_from_avg_pred, axis=-1)
 
-  #TODO: add as return the loss_mse that will be used as a metric for the regression case.
   return loss, loss_mse, loss_mse_from_avg_pred,  loss_mse_std
 
 # -------- custom schedule for learning rate... -----------------------------------------------------------------

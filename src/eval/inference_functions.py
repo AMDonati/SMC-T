@@ -154,6 +154,16 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
+
+
+
+
+
+
+
+
+
+
 def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_timesteps):
   '''
   :param inputs: ts input data of shape (B,S,F)

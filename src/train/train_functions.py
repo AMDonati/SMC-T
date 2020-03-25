@@ -224,6 +224,8 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   data_type = hparams["task"]["data_type"]
   task_type = hparams["task"]["task_type"]
   target_feature = hparams["data"]["target_feature"]
+  if target_feature == "None":
+    target_feature = None
 
   smc_transformer = SMC_Transformer(num_layers=num_layers,
                                     d_model=d_model,

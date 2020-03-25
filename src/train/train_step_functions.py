@@ -103,10 +103,7 @@ def train_step_SMC_T(inputs,
     tar_real = inputs[:, 1:]
   else:
     tar_inp = inputs
-    tar_real = targets
-
-  #assert len(tf.shape(tar_inp)) == 2
-  #assert len(tf.shape(tar_real)) == 2
+    tar_real = targets # (B,S,F)
 
   seq_len = tf.shape(tar_inp)[1]
   mask_transformer = create_look_ahead_mask(seq_len)

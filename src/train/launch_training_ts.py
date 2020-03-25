@@ -82,7 +82,7 @@ if __name__ == "__main__":
   parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
   parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
-  parser.add_argument("-skip_training", type=bool, default=True, help="skip training and directly evaluate?")
+  parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
@@ -136,7 +136,6 @@ if __name__ == "__main__":
   rnn_dropout_rate = hparams["RNN_hparams"]["rnn_dropout_rate"]
 
   # loading data arguments for the regression case
-
   file_path = hparams["data"]["file_path"]
   TRAIN_SPLIT = hparams["data"]["TRAIN_SPLIT"]
   VAL_SPLIT = hparams["data"]["VAL_SPLIT"]
@@ -155,6 +154,8 @@ if __name__ == "__main__":
     index_name = hparams["data"]["index_name"]
 
   test_loss = False
+
+  #TODO: add target_vocab_size & num_features
 
   #------------------ UPLOAD the training dataset ----------------------------------------------------------------------------------------------------------------------
 
@@ -177,12 +178,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -221,14 +222,15 @@ if __name__ == "__main__":
       target_feature=target_feature,
       cv=cv)
 
-
-  num_classes = 25 if data_type == 'classification' else 1
-  target_vocab_size = num_classes  # 25 bins
   if not cv:
+    num_features = train_data.shape[-1]
+    target_vocab_size = num_features
     seq_len = train_data.shape[1] - 1  # 24 observations
     training_samples = train_data.shape[0]
     steps_per_epochs = int(train_data.shape[0] / BATCH_SIZE)
   else:
+    num_features = train_data[0].shape[-1]
+    target_vocab_size = num_features
     seq_len = train_data[0].shape[1]-1
     training_samples = train_data[0].shape[0]
     steps_per_epochs = int(train_data[0].shape[0] / BATCH_SIZE)
