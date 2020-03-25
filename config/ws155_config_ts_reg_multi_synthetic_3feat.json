@@ -5,7 +5,7 @@
      "VAL_SPLIT": 0.5,
      "VAL_SPLIT_cv": 0.9,
      "cv": "False",
-     "target_feature": 0
+     "target_feature": "None"
    },
 
   "model": {
@@ -20,9 +20,9 @@
   },
 
   "smc": {
-    "num_particles": 25,
+    "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
+    "noise_SMC_layer": "False",
     "sigma" : 0.05,
     "omega" : 0.3
   },

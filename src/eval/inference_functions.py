@@ -64,7 +64,7 @@ import numpy as np
 
 def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
   '''
-  :param inputs:
+  :param inputs: shape (B,S,F)
   :param smc_transformer:
   :param N_prop:
   :param N_est:
@@ -104,6 +104,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   num_init_features = tf.shape(input)[-1]
   for t in range(num_timesteps):
     if tf.shape(X_pred_NP)[-1] == 1:
+      #TODO: remove this if loop for the multi-dim case.
       X_pred_NP = tf.tile(X_pred_NP, multiples = [1, 1, 1, num_init_features]) # mandatory for t >0 (last dim is 1 otherwise and issue pf shape
     X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
     X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t)
@@ -154,15 +155,140 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
+  '''
+  :param inputs: shape (B,S,F)
+  :param smc_transformer:
+  :param N_prop:
+  :param N_est:
+  :param num_particles:
+  :param num_timesteps:
+  :param sample_pred:
+  :return:
+  '''
+  list_X_pred_NP, list_r_NP = [], []
+  N = N_prop
+
+  # call of the smc_transformer on inputs:
+  s = tf.shape(inputs)[1] - num_timesteps
+  mask = create_look_ahead_mask(s)
+  smc_transformer.noise_SMC_layer = True
+  smc_transformer.num_particles = num_particles
+  smc_transformer.cell.num_particles = num_particles
+
+  inp_model = inputs[:,:s,:]
+  inp_inference = inputs[:,s:,:]
+  outputs, _, _ = smc_transformer(inputs=inp_model,
+                                  training=False,
+                                  mask=mask)
+  _, _, w_s, (K0_s, V0_s) = outputs
+  # preprocessing initial input:
+  input = inp_model[:, -1, :] # (B,1,F)
+  input = tf.expand_dims(input, axis=1)  # (B,1,F)
+  input = tf.expand_dims(input, axis=1) # (B,1,1,F)
+  input = tf.tile(input, multiples=[1, num_particles, 1, 1])  # (B,P,1,F)
+
+  # adding zeros to KO_s and V0_s
+  shape_future = (tf.shape(K0_s)[0], num_particles, num_timesteps, tf.shape(K0_s)[-1])
+  future_K = tf.zeros(shape=shape_future)
+  future_V = tf.zeros(shape=shape_future)
+  K_init = tf.concat([K0_s, future_K], axis=2)
+  V_init = tf.concat([V0_s, future_V], axis=2)
+  K = K_init
+  V= V_init
+  X_pred_NP = input # (B,P,1,F)
+
+  for t in range(num_timesteps):
+    if tf.shape(X_pred_NP)[-1] == 1:
+      NP = tf.shape(X_pred_NP)[1]
+      obs_features = inp_inference[:,t,1:] # (B,F=2)
+      obs_features = tf.expand_dims(obs_features, axis=1) # (B,1,F=2)
+      obs_features_NP = tf.expand_dims(obs_features, axis=1) # (B,1,1,F=2)
+      obs_features_NP = tf.tile(obs_features_NP, multiples=[1,NP,1,1]) # (B,NP,1,F=2)
+      X_pred_NP = tf.concat([X_pred_NP, obs_features_NP], axis=-1)
+    X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
+    X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t)
+    list_X_pred_NP.append(X_pred_NP)
+    list_r_NP.append(r_N_P)
+
+  # getting sampled predictions from the list of r_NP:
+  list_preds_multistep = []
+  if sample_pred:
+    for r in list_r_NP:
+      # reshape to have a tensor of shape (B,N,P,1,D)
+      new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
+      r = tf.reshape(r, shape=new_shape) # (B,-1,N,P,1,D)
+      r = tf.squeeze(r, axis=1) # (B,N,P,1,D)
+      # select n* and p*:
+      p_ = tf.random.categorical(logits=w_s, num_samples=1)
+      uniform_logits = tf.constant([[1/N for _ in range(N)] for _ in range(tf.shape(r)[0])])
+      n_ = tf.random.categorical(logits=uniform_logits, num_samples=1)
+      r_=tf.gather(r, p_, axis=2, batch_dims=1)
+      r_=tf.gather(r_, n_, axis=1, batch_dims=1) # (B,1,1,1,D)
+      r_= tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
+
+      list_pred_t = []
+      for _ in range(N_est):
+        mean_r_=smc_transformer.final_layer(r_)
+        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
+        list_pred_t.append(X_pred)
+      tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
+      tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
+      list_preds_multistep.append(tensor_pred_t)
+    tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
+
+      #------------- OR... FOR SAMPLING PREDICTIONS...-----------------------------------------------------------------------------------------------
+      # for r in list_r_NP:
+      #   # reshape to have a tensor of shape (B,N,P,1,D)
+      #   new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
+      #   r = tf.reshape(r, shape=new_shape)  # (B,-1,N,P,1,D)
+      #   r = tf.squeeze(r, axis=1)  # (B,N,P,1,D)
+      #   # select n* and p*:
+      #   p_ = tf.random.categorical(logits=w_s, num_samples=num_particles)
+      #   uniform_logits = tf.constant([[1 / N for _ in range(N)] for _ in range(tf.shape(r)[0])])
+      #   n_ = tf.random.categorical(logits=uniform_logits, num_samples=N)
+      #   r_ = tf.gather(r, p_, axis=2, batch_dims=1)
+      #   r_ = tf.gather(r_, n_, axis=1, batch_dims=1)  # (B,N,P,1,D)
+      #   mean_r_=smc_transformer.final_layer(r_) # (B,N,P,1,D)
+      #   X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,N,P,1,D)
+      #   list_preds_multistep.append(X_pred)
+
+  return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
 
+def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_timesteps):
+  '''
+  :param inputs: ts input data of shape (B,S,F)
+  :param matrix_A: matrix of autogressive model > shape (F * F)
+  :param cov_matrix: covariance matrix for the gaussian noise > shape (F,1)
+  :param N_est: number of samples to draw for the empirical distribution
+  :param num_timesteps: number of timesteps for the inference
+  :return:
+  '''
+  s = tf.shape(inputs)[1] - num_timesteps
+  inp_model = inputs[:, :s, :]
+  inp_inference = inputs[:, s:, :]
 
+  last_input = inp_model[:,-1,:] # (B,F)
+  num_features = tf.shape(last_input)[-1]
+  list_preds_sampled = []
+  for t in range(num_timesteps):
+    list_pred_t = []
+    for n in range(N_est):
+      new_input = tf.matmul(last_input, matrix_A) + tf.random.normal(stddev=cov_matrix, shape=(1, num_features)) # (B,F)
+      new_input = tf.expand_dims(new_input[:,0], axis=-1)
+      list_pred_t.append(new_input)
+    tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,F)
+    list_preds_sampled.append(tensor_pred_t)
+    # new_input for next timestep
+    sample_ind = np.random.randint(0, N_est)
+    last_input = list_pred_t[sample_ind]  # (B,1)
+    obs_features = inp_inference[:,t,1:] #(B,F_obs=2)
+    last_input = tf.concat([last_input, obs_features], axis=-1)
 
+  tensor_preds_sampled = tf.stack(list_preds_sampled, axis=2) # (B, N_est, S)
 
-
-
-
-
+  return list_preds_sampled, tensor_preds_sampled
 
 def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_timesteps):
   '''
@@ -188,6 +314,10 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
   tensor_preds_sampled = tf.stack(list_preds_sampled, axis=2) # (B, N_est, S)
 
   return list_preds_sampled, tensor_preds_sampled
+
+
+
+
 
 if __name__ == "__main__":
   num_particles_training = 1
@@ -245,7 +375,19 @@ if __name__ == "__main__":
   print('number of timesteps predicted', len(list_preds_sampled))
   print('example of preds', list_preds_sampled[0])
   print('number of examples per preds', len(list_preds_sampled[0]))
+  print('shape of tensor for multistep inference', tensor_preds_sampled.shape)
 
+  (list_r_t, list_X_pred_t), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep_1D(inputs=inputs,
+                                                                                                       smc_transformer=sample_transformer,
+                                                                                                       N_prop=num_samples,
+                                                                                                       N_est=N_est,
+                                                                                                       num_particles=num_particles_inference,
+                                                                                                       num_timesteps=num_timesteps,
+                                                                                                       sample_pred=True)
+
+  print('number of timesteps predicted', len(list_preds_sampled))
+  print('example of preds', list_preds_sampled[0])
+  print('number of examples per preds', len(list_preds_sampled[0]))
   print('shape of tensor for multistep inference', tensor_preds_sampled.shape)
 
   #--------------- test of generate_empirical_distribution ----------------------------------------------------------------------------
@@ -258,6 +400,14 @@ if __name__ == "__main__":
                                                        cov_matrix=cov_matrix_3D,
                                                        N_est=N_est,
                                                        num_timesteps=num_timesteps)
+
+  list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution_1D(inputs=inputs,
+                                                                                  matrix_A=A_3D,
+                                                                                  cov_matrix=cov_matrix_3D,
+                                                                                  N_est=N_est,
+                                                                                  num_timesteps=num_timesteps)
+
+
   print('number of timesteps predicted - empirical distribution', len(list_preds_sampled))
   print('example of preds - empirical distribution', list_preds_sampled[0])
   print('number of examples per preds', len(list_preds_sampled[0]))
@@ -265,6 +415,8 @@ if __name__ == "__main__":
 
   # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
   KL_measure = tf.keras.losses.KLDivergence()
+  #KL_measure_2 = tf.keras.losses.KLDivergence(reduction=losses_utils.ReductionV2.NONE)
   for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
     KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
+    #KL_distance_2 = KL_measure_2(y_true=true_distrib, y_pred=pred_distrib)
     print('KL distance for timestep {}: {}'.format(t, KL_distance))

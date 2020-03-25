@@ -178,12 +178,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -471,8 +471,8 @@ if __name__ == "__main__":
     # creating checkpoint manager
     smc_T_ckpt = tf.train.Checkpoint(transformer=smc_transformer,
                                      optimizer=optimizer)
-    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
-    #smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
+    #smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer")
+    smc_T_ckpt_path = os.path.join(checkpoint_path, "SMC_transformer_1")
     smc_T_ckpt_manager = tf.train.CheckpointManager(smc_T_ckpt, smc_T_ckpt_path, max_to_keep=EPOCHS)
 
     # if a checkpoint exists, restore the latest checkpoint.

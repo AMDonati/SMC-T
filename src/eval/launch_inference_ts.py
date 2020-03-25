@@ -8,14 +8,12 @@ from utils.utils_train import create_logger
 from utils.utils_train import restoring_checkpoint
 from utils.utils_train import saving_inference_results
 from train.loss_functions import CustomSchedule
-from eval.inference_functions import inference_function_multistep
-from eval.inference_functions import generate_empirical_distribution
+from eval.inference_functions import inference_function_multistep_1D
+from eval.inference_functions import generate_empirical_distribution_1D
 
 import argparse
 import json
 import os
-import sys
-
 
 if __name__ == "__main__":
 
@@ -23,7 +21,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_10_noise_True_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
@@ -31,8 +29,8 @@ if __name__ == "__main__":
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=10, type=int, help="number of particles generated for inference")
-  parser.add_argument("-N", default=5, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
+  parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   #TODO: remove this one and do a for loop instead.
   #parser.add_argument("-N_est", type=int, help="number of samples for estimating the empirical distribution")
 
@@ -119,7 +117,10 @@ if __name__ == "__main__":
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
-  output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
+
+  if not os.path.isdir(os.path.join(output_path, 'inference_results')):
+    output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
+  output_path = os.path.join(output_path, 'inference_results')
   folder_template = 'num-timesteps_{}_p_inf_{}_N_{}'
   out_folder=folder_template.format(num_timesteps, p_inf, N)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
@@ -169,7 +170,7 @@ if __name__ == "__main__":
 
   # ------------------------------------- compute latest statistics as a check -----------------------------------------------------------------------------------------
   # ------------------------------------- compute inference timesteps --------------------------------------------------------------------------------------------------
-  list_num_samples = [5,25,50,100]
+  list_num_samples = [5, 25, 50, 100, 250, 500, 1000]
   cov_matrix_3D = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
 
@@ -177,7 +178,7 @@ if __name__ == "__main__":
   for N_est in list_num_samples:
     logger.info('inference results for number of samples: {}'.format(N_est))
 
-    (list_r_NP, list_X_pred_NP), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep(inputs=test_dataset,
+    (list_r_NP, list_X_pred_NP), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                        smc_transformer=smc_transformer,
                                                                                                        N_prop=N,
                                                                                                        N_est=N_est,
@@ -186,7 +187,7 @@ if __name__ == "__main__":
                                                                                                        sample_pred=True)
 
 
-    list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution(inputs=test_dataset,
+    list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                   matrix_A=A_3D,
                                                                                   cov_matrix=cov_matrix_3D,
                                                                                   N_est=N_est,
