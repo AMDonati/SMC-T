@@ -1,0 +1,71 @@
+INFO:training log:Latest checkpoint restored!!
+INFO:training log:inference results for number of samples: 5
+INFO:training log:KL distance for timestep 0: 2.8330094814300537
+INFO:training log:KL distance normalized for timestep 0: 0.5666018724441528
+INFO:training log:KL distance for timestep 1: 4.116352558135986
+INFO:training log:KL distance normalized for timestep 1: 0.8232704997062683
+INFO:training log:KL distance for timestep 2: 4.536799430847168
+INFO:training log:KL distance normalized for timestep 2: 0.9073598980903625
+INFO:training log:KL distance for timestep 3: 4.4289398193359375
+INFO:training log:KL distance normalized for timestep 3: 0.8857879638671875
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 25
+INFO:training log:KL distance for timestep 0: 12.82264518737793
+INFO:training log:KL distance normalized for timestep 0: 0.5129058361053467
+INFO:training log:KL distance for timestep 1: 10.886335372924805
+INFO:training log:KL distance normalized for timestep 1: 0.4354534149169922
+INFO:training log:KL distance for timestep 2: 14.666882514953613
+INFO:training log:KL distance normalized for timestep 2: 0.5866752862930298
+INFO:training log:KL distance for timestep 3: 14.930440902709961
+INFO:training log:KL distance normalized for timestep 3: 0.5972176194190979
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 50
+INFO:training log:KL distance for timestep 0: 27.176681518554688
+INFO:training log:KL distance normalized for timestep 0: 0.5435336232185364
+INFO:training log:KL distance for timestep 1: 36.16116714477539
+INFO:training log:KL distance normalized for timestep 1: 0.7232233285903931
+INFO:training log:KL distance for timestep 2: 36.93503189086914
+INFO:training log:KL distance normalized for timestep 2: 0.7387006282806396
+INFO:training log:KL distance for timestep 3: 29.347557067871094
+INFO:training log:KL distance normalized for timestep 3: 0.5869511365890503
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 100
+INFO:training log:KL distance for timestep 0: 55.84287643432617
+INFO:training log:KL distance normalized for timestep 0: 0.5584287643432617
+INFO:training log:KL distance for timestep 1: 74.95146179199219
+INFO:training log:KL distance normalized for timestep 1: 0.749514639377594
+INFO:training log:KL distance for timestep 2: 91.2172622680664
+INFO:training log:KL distance normalized for timestep 2: 0.9121726155281067
+INFO:training log:KL distance for timestep 3: 136.99009704589844
+INFO:training log:KL distance normalized for timestep 3: 1.3699009418487549
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 250
+INFO:training log:KL distance for timestep 0: 134.10302734375
+INFO:training log:KL distance normalized for timestep 0: 0.5364121198654175
+INFO:training log:KL distance for timestep 1: 155.0289306640625
+INFO:training log:KL distance normalized for timestep 1: 0.6201156973838806
+INFO:training log:KL distance for timestep 2: 162.80142211914062
+INFO:training log:KL distance normalized for timestep 2: 0.6512056589126587
+INFO:training log:KL distance for timestep 3: 146.786376953125
+INFO:training log:KL distance normalized for timestep 3: 0.5871455073356628
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 500
+INFO:training log:KL distance for timestep 0: 272.2465515136719
+INFO:training log:KL distance normalized for timestep 0: 0.5444930791854858
+INFO:training log:KL distance for timestep 1: 210.46734619140625
+INFO:training log:KL distance normalized for timestep 1: 0.4209347069263458
+INFO:training log:KL distance for timestep 2: 292.6693115234375
+INFO:training log:KL distance normalized for timestep 2: 0.5853386521339417
+INFO:training log:KL distance for timestep 3: 369.39581298828125
+INFO:training log:KL distance normalized for timestep 3: 0.7387916445732117
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
+INFO:training log:inference results for number of samples: 1000
+INFO:training log:KL distance for timestep 0: 538.8986206054688
+INFO:training log:KL distance normalized for timestep 0: 0.5388986468315125
+INFO:training log:KL distance for timestep 1: 685.1422119140625
+INFO:training log:KL distance normalized for timestep 1: 0.6851422190666199
+INFO:training log:KL distance for timestep 2: 752.2536010742188
+INFO:training log:KL distance normalized for timestep 2: 0.7522535920143127
+INFO:training log:KL distance for timestep 3: 744.7827758789062
+INFO:training log:KL distance normalized for timestep 3: 0.7447828054428101
+INFO:training log:<--------------------------------------------------------------------------------------------------------------------------------------------------------->
