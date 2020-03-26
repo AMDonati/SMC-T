@@ -147,7 +147,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
-def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False, sigma=0.05):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -169,6 +169,8 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   smc_transformer.cell.mha_smc.noise = True
   smc_transformer.num_particles = num_particles
   smc_transformer.cell.num_particles = num_particles
+  smc_transformer.sigma = sigma
+  smc_transformer.cell.mha_smc.sigma_scalar = sigma
 
   inp_model = inputs[:,:s,:]
   inp_inference = inputs[:,s:,:]
@@ -320,13 +322,14 @@ if __name__ == "__main__":
   num_heads = 4
   dff = 48
   maximum_position_encoding = seq_len
-  sigma = 0.1
+  sigma = 0.05
   data_type = 'time_series_multi'
   task_type = 'regression'
   C = 1 # vocabulary size or number of classes.
   noise_encoder = False
   noise_SMC_layer = False
   rate = 0
+  omega = 0.3
 
   target_feature = 0 if data_type == 'time_series_multi' else None
   maximum_position_encoding = 50
@@ -341,6 +344,7 @@ if __name__ == "__main__":
     num_particles=num_particles_training,
     seq_len=seq_len,
     sigma=sigma,
+    omega=omega,
     noise_encoder=noise_encoder,
     noise_SMC_layer=noise_SMC_layer,
     data_type=data_type,
@@ -356,17 +360,17 @@ if __name__ == "__main__":
   num_timesteps = 4
   num_particles_inference = 10
 
-  (list_r_t, list_X_pred_t), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep(inputs=inputs,
-                                                                               smc_transformer=sample_transformer,
-                                                                               N_prop=num_samples,
-                                                                               N_est=N_est,
-                                                                               num_particles=num_particles_inference,
-                                                                               num_timesteps=num_timesteps,
-                                                                               sample_pred=True)
-  print('number of timesteps predicted', len(list_preds_sampled))
-  print('example of preds', list_preds_sampled[0])
-  print('number of examples per preds', len(list_preds_sampled[0]))
-  print('shape of tensor for multistep inference', tensor_preds_sampled.shape)
+  # (list_r_t, list_X_pred_t), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep(inputs=inputs,
+  #                                                                              smc_transformer=sample_transformer,
+  #                                                                              N_prop=num_samples,
+  #                                                                              N_est=N_est,
+  #                                                                              num_particles=num_particles_inference,
+  #                                                                              num_timesteps=num_timesteps,
+  #                                                                              sample_pred=True)
+  # print('number of timesteps predicted', len(list_preds_sampled))
+  # print('example of preds', list_preds_sampled[0])
+  # print('number of examples per preds', len(list_preds_sampled[0]))
+  # print('shape of tensor for multistep inference', tensor_preds_sampled.shape)
 
   (list_r_t, list_X_pred_t), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep_1D(inputs=inputs,
                                                                                                        smc_transformer=sample_transformer,
@@ -374,7 +378,8 @@ if __name__ == "__main__":
                                                                                                        N_est=N_est,
                                                                                                        num_particles=num_particles_inference,
                                                                                                        num_timesteps=num_timesteps,
-                                                                                                       sample_pred=True)
+                                                                                                       sample_pred=True,
+                                                                                                       sigma=0.1)
 
   print('number of timesteps predicted', len(list_preds_sampled))
   print('example of preds', list_preds_sampled[0])

@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_True_sigma_0.05'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
   #p_inf = args.p_inf
   N = args.N
   list_p_inf = [10,50]
-  N_est = 10000
+  N_est = 50000
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -128,8 +128,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}'
-  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], N, N_est)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_{}'
+  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -155,6 +155,7 @@ if __name__ == "__main__":
                                     maximum_position_encoding=maximum_position_encoding_smc,
                                     num_particles=num_particles,
                                     sigma=sigma,
+                                    omega=omega,
                                     rate=rate,
                                     noise_encoder=noise_encoder,
                                     noise_SMC_layer=noise_SMC_layer,
