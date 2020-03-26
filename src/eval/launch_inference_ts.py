@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_True_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
   #p_inf = args.p_inf
   N = args.N
   list_p_inf = [10,50]
-  N_est = 100000
+  N_est = 10000
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")

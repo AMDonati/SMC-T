@@ -165,6 +165,8 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   s = tf.shape(inputs)[1] - num_timesteps
   mask = create_look_ahead_mask(s)
   smc_transformer.noise_SMC_layer = True
+  smc_transformer.cell.noise = True
+  smc_transformer.cell.mha_smc.noise = True
   smc_transformer.num_particles = num_particles
   smc_transformer.cell.num_particles = num_particles
 
