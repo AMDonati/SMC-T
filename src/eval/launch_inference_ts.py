@@ -128,8 +128,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}_N_{}_N-est_{}'
-  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], list_p_inf[2], N, N_est)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}'
+  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], N, N_est)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
