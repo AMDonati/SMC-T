@@ -119,8 +119,8 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   #p_inf = args.p_inf
   N = args.N
-  list_p_inf = [10,20,50]
-  N_est = 10000
+  list_p_inf = [10,50]
+  N_est = 100000
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
