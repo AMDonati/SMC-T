@@ -2,6 +2,14 @@ import tensorflow as tf
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import numpy as np
+import scipy.stats
+
+import ot
+
+from utils.KL_divergences_estimators import naive_estimator
+
+#import scipy.stats.wasserstein_distance as wass_distance
+#import scipy.stats.entropy as KL_distance
 
 # def evaluate_one_timestep(model, num_samples, inputs, inp_seq_len):
 #   """
@@ -136,22 +144,6 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
       tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
       list_preds_multistep.append(tensor_pred_t)
     tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
-
-      #------------- OR... FOR SAMPLING PREDICTIONS...-----------------------------------------------------------------------------------------------
-      # for r in list_r_NP:
-      #   # reshape to have a tensor of shape (B,N,P,1,D)
-      #   new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
-      #   r = tf.reshape(r, shape=new_shape)  # (B,-1,N,P,1,D)
-      #   r = tf.squeeze(r, axis=1)  # (B,N,P,1,D)
-      #   # select n* and p*:
-      #   p_ = tf.random.categorical(logits=w_s, num_samples=num_particles)
-      #   uniform_logits = tf.constant([[1 / N for _ in range(N)] for _ in range(tf.shape(r)[0])])
-      #   n_ = tf.random.categorical(logits=uniform_logits, num_samples=N)
-      #   r_ = tf.gather(r, p_, axis=2, batch_dims=1)
-      #   r_ = tf.gather(r_, n_, axis=1, batch_dims=1)  # (B,N,P,1,D)
-      #   mean_r_=smc_transformer.final_layer(r_) # (B,N,P,1,D)
-      #   X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,N,P,1,D)
-      #   list_preds_multistep.append(X_pred)
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
@@ -316,9 +308,6 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
   return list_preds_sampled, tensor_preds_sampled
 
 
-
-
-
 if __name__ == "__main__":
   num_particles_training = 1
   seq_len = 24
@@ -414,9 +403,19 @@ if __name__ == "__main__":
   print('shape of tensor for multistep empirical distribution', tensor_preds_sampled.shape)
 
   # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
-  KL_measure = tf.keras.losses.KLDivergence()
+  #KL_measure = tf.keras.losses.KLDivergence()
+
   #KL_measure_2 = tf.keras.losses.KLDivergence(reduction=losses_utils.ReductionV2.NONE)
   for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
-    KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
-    #KL_distance_2 = KL_measure_2(y_true=true_distrib, y_pred=pred_distrib)
+    #KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
+    true_distrib = tf.squeeze(true_distrib, axis=-1)
+    true_distrib = true_distrib.numpy()
+    pred_distrib = pred_distrib.numpy()
+    N_est = pred_distrib.shape[1]
+
+    #KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=true_distrib, axis=1)
+    wass_dist = ot.emd2_1d(x_a=true_distrib[0,:], x_b=pred_distrib[0,:])
+    KL_dist = naive_estimator(true_distrib[0,:].reshape(N_est,1), pred_distrib[0,:].reshape(N_est,1))
+    #wass_dist = scipy.stats.wasserstein_distance(true_distrib, pred_distrib)
+
     print('KL distance for timestep {}: {}'.format(t, KL_distance))

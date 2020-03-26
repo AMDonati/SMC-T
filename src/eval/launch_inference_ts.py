@@ -10,6 +10,10 @@ from utils.utils_train import saving_inference_results
 from train.loss_functions import CustomSchedule
 from eval.inference_functions import inference_function_multistep_1D
 from eval.inference_functions import generate_empirical_distribution_1D
+import statistics
+
+import ot
+from utils.KL_divergences_estimators import naive_estimator
 
 import argparse
 import json
@@ -21,21 +25,21 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_10_noise_True_sigma_0.05'
-  default_out_folder = os.path.join(results_path, exp_path)
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
   #parser.add_argument("-config", type=str, help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
+  parser.add_argument("-out_folder", default=exp_path, type=str, help="path for the output folder with training result")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
-  parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
+  parser.add_argument("-num_timesteps", default=1, type=int, help="number of timesteps for doing inference")
+  #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   #TODO: remove this one and do a for loop instead.
   #parser.add_argument("-N_est", type=int, help="number of samples for estimating the empirical distribution")
 
   args=parser.parse_args()
-  output_path = args.out_folder
+  exp_path = args.out_folder
+  output_path = os.path.join(results_path, exp_path)
   config_path = os.path.join(output_path, 'config.json')
   test_data_path = args.data_path
 
@@ -112,8 +116,10 @@ if __name__ == "__main__":
 
   # ---------------preparing the output path for inference -------------------------------------------------------------------------------------------------------------
   num_timesteps = args.num_timesteps
-  p_inf = args.p_inf
+  #p_inf = args.p_inf
   N = args.N
+  list_p_inf = [10,20,50]
+  N_est = 10000
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -121,8 +127,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}_N_{}'
-  out_folder=folder_template.format(num_timesteps, p_inf, N)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}_N_{}_N-est_{}'
+  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], list_p_inf[2], N, N_est)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -170,13 +176,13 @@ if __name__ == "__main__":
 
   # ------------------------------------- compute latest statistics as a check -----------------------------------------------------------------------------------------
   # ------------------------------------- compute inference timesteps --------------------------------------------------------------------------------------------------
-  list_num_samples = [5, 25, 50, 100, 250, 500, 1000]
+  #list_num_samples = [500, 1000, 5000, 10000, 50000]
   cov_matrix_3D = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
 
   list_KL_exp = []
-  for N_est in list_num_samples:
-    logger.info('inference results for number of samples: {}'.format(N_est))
+  for p_inf in list_p_inf:
+    logger.info('inference results for number of particles: {}'.format(p_inf))
 
     (list_r_NP, list_X_pred_NP), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                        smc_transformer=smc_transformer,
@@ -192,26 +198,39 @@ if __name__ == "__main__":
                                                                                   cov_matrix=cov_matrix_3D,
                                                                                   N_est=N_est,
                                                                                   num_timesteps=num_timesteps)
-    KL_measure = tf.keras.losses.KLDivergence()
+    #KL_measure = tf.keras.losses.KLDivergence()
+    # KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
+    # KL_distance_norm = KL_distance / N_est
+    # KL_timesteps.append(KL_distance_norm.numpy())
+
     KL_timesteps = []
     for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
-      KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
-      KL_distance_norm = KL_distance / N_est
-      KL_timesteps.append(KL_distance_norm.numpy())
-      logger.info('KL distance for timestep {}: {}'.format(t, KL_distance))
-      logger.info('KL distance normalized for timestep {}: {}'.format(t, KL_distance_norm))
-    list_KL_exp.append(KL_timesteps)
+      true_distrib = tf.squeeze(true_distrib, axis=-1)
+      true_distrib = true_distrib.numpy()
+      pred_distrib = pred_distrib.numpy()
+      batch_size = pred_distrib.shape[0]
+      num_samples = pred_distrib.shape[1]
+
+      #KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
+      wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
+      wassertein_dist = statistics.mean(wassertein_dist_list)
+      KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
+      KL_dist = statistics.mean(KL_distance_list)
+      logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
+
+    #list_KL_exp.append(KL_timesteps)
     logger.info("<--------------------------------------------------------------------------------------------------------------------------------------------------------->")
 
   # ------------------------------------------------------- saving results on a csv file ---------------------------------------------------------------
 
-  keys = ['N_est = {}'.format(n) for n in list_num_samples]
-  keys = ['inference_timestep'] + keys
-  values = ['t+{}'.format(i+1) for i in range(num_timesteps)]
-  values = [values] + list_KL_exp
-  csv_fname='inference_results_KL_norm.csv'
-
-  saving_inference_results(keys=keys,
-                            values=values,
-                            output_path=output_path,
-                            csv_fname=csv_fname)
+  # keys = ['N_est = {}'.format(n) for n in list_num_samples]
+  # keys = ['inference_timestep'] + keys
+  # values = ['t+{}'.format(i+1) for i in range(num_timesteps)]
+  # values = [values] + list_KL_exp
+  # csv_fname='inference_results_KL_norm.csv'
+  #
+  # saving_inference_results(keys=keys,
+  #                           values=values,
+  #                           output_path=output_path,
+  #                           csv_fname=csv_fname)

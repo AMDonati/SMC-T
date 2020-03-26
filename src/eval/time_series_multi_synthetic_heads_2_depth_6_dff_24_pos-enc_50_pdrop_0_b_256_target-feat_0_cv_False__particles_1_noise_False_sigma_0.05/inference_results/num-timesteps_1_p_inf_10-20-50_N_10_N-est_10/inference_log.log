@@ -1,0 +1,3 @@
+INFO:training log:inference results for number of particles: 10
+INFO:training log:KL distance for timestep 0: 2.848446300240667
+INFO:training log:wassertein distance for timestep 0: 8.261032120840705
