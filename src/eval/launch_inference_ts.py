@@ -26,20 +26,21 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
   exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
+  default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
   #parser.add_argument("-config", type=str, help="path for the config file with hyperparameters")
-  parser.add_argument("-out_folder", default=exp_path, type=str, help="path for the output folder with training result")
+  parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
-  parser.add_argument("-num_timesteps", default=1, type=int, help="number of timesteps for doing inference")
+  parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
-  parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-N", default=20, type=int, help="number of samples for MC sampling")
   #TODO: remove this one and do a for loop instead.
   #parser.add_argument("-N_est", type=int, help="number of samples for estimating the empirical distribution")
 
   args=parser.parse_args()
-  exp_path = args.out_folder
-  output_path = os.path.join(results_path, exp_path)
+  output_path = args.out_folder
+
   config_path = os.path.join(output_path, 'config.json')
   test_data_path = args.data_path
 
@@ -214,9 +215,9 @@ if __name__ == "__main__":
       #KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
       wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
       wassertein_dist = statistics.mean(wassertein_dist_list)
-      KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
-      KL_dist = statistics.mean(KL_distance_list)
-      logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
+      #KL_dist = statistics.mean(KL_distance_list)
+      #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
       logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
 
     #list_KL_exp.append(KL_timesteps)
