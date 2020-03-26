@@ -121,6 +121,7 @@ if __name__ == "__main__":
   N = args.N
   list_p_inf = [10,50]
   N_est = 50000
+  sigma = 0.1
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -192,7 +193,8 @@ if __name__ == "__main__":
                                                                                                        N_est=N_est,
                                                                                                        num_particles=p_inf,
                                                                                                        num_timesteps=num_timesteps,
-                                                                                                       sample_pred=True)
+                                                                                                       sample_pred=True,
+                                                                                                       sigma=sigma)
 
 
     list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution_1D(inputs=test_dataset,
