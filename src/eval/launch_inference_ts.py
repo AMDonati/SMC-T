@@ -1,3 +1,14 @@
+#TODO: simulations plan
+#TODO: plot the density graph for the true and predicted distrib
+#TODO: implement a 'learned' omega (cf discussion with Florian on Telegram.)
+#TODO: new training experiments to assess the impact of the layer norm and the place of the noise.
+#TODO: sigma 'learned'
+#TODO: add comparison with MC Dropout (Transformer and LSTM.)
+
+#TODO: check the 'good' experiments from ws155.
+
+# https://stackoverflow.com/questions/3220284/how-to-customize-the-time-format-for-python-logging
+
 import tensorflow as tf
 import numpy as np
 
@@ -29,14 +40,11 @@ if __name__ == "__main__":
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
 
-  #parser.add_argument("-config", type=str, help="path for the config file with hyperparameters")
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=20, type=int, help="number of samples for MC sampling")
-  #TODO: remove this one and do a for loop instead.
-  #parser.add_argument("-N_est", type=int, help="number of samples for estimating the empirical distribution")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -119,9 +127,10 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   #p_inf = args.p_inf
   N = args.N
-  list_p_inf = [10,50]
-  N_est = 50000
+  list_p_inf = [10]
+  N_est = 5000
   sigma = 0.1
+  omega = 0.2
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -129,8 +138,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder=folder_template.format(num_timesteps, list_p_inf[0], list_p_inf[1], N, N_est, sigma, omega)
+  folder_template = 'num-timesteps_{}_p_inf_{}_N_{}_N-est_{}_sigma_{}_omega_{}'
+  out_folder=folder_template.format(num_timesteps, list_p_inf[0], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -207,6 +216,8 @@ if __name__ == "__main__":
     # KL_distance_norm = KL_distance / N_est
     # KL_timesteps.append(KL_distance_norm.numpy())
 
+    # KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
+
     KL_timesteps = []
     for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
       true_distrib = tf.squeeze(true_distrib, axis=-1)
@@ -215,12 +226,16 @@ if __name__ == "__main__":
       batch_size = pred_distrib.shape[0]
       num_samples = pred_distrib.shape[1]
 
-      #KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
+      # distributions distance and variance of the predicted distribution.
       wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
       wassertein_dist = statistics.mean(wassertein_dist_list)
       #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
       #KL_dist = statistics.mean(KL_distance_list)
+      std_pred_distrib = np.std(pred_distrib, axis=1)
+      std_pred_distrib = np.mean(std_pred_distrib, axis=0)
+
       #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
       logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
 
     #list_KL_exp.append(KL_timesteps)

@@ -182,7 +182,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       shape_K = (B, N*P, -1, S, D)
 
       sampled_z = tf.reshape(sampled_z, shape=shape_z) # shape (B,N*P,1,1,D)
-      sampled_z = tf.squeeze(sampled_z, axis = 2) # shape (B,N*P,1,D) # $z^{m,i}$
+      sampled_z = tf.squeeze(sampled_z, axis=2) # shape (B,N*P,1,D) # $z^{m,i}$
       sampled_K = tf.reshape(sampled_K, shape=shape_K)
       sampled_K = tf.squeeze(sampled_K, axis=2)
       sampled_V = tf.reshape(sampled_V, shape=shape_K)

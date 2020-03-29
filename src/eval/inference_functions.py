@@ -8,66 +8,11 @@ import ot
 
 from utils.KL_divergences_estimators import naive_estimator
 
+
 #import scipy.stats.wasserstein_distance as wass_distance
 #import scipy.stats.entropy as KL_distance
 
-# def evaluate_one_timestep(model, num_samples, inputs, inp_seq_len):
-#   """
-#   :param model:
-#   :param num_samples:
-#   :param inputs: shape (B, S, F)
-#   :param inp_seq_len:
-#   :param target_seq_len:
-#   :return:
-#   """
-#   num_particles = model.num_particles
-#   #total_seq_len = tf.shape(inputs)[1]
-#
-#   # forward pass on inp_seq_len of inputs
-#   inp_to_predict = inputs[:,:inp_seq_len, :]
-#   inp_to_infer = inputs[:,inp_seq_len:,:] # (B,S-S_inp,F)
-#   target_seq_len = tf.shape(inp_to_infer)[1]
-#
-#   mask_inp = create_look_ahead_mask(inp_seq_len)
-#
-#   (pred, traj, w_T, (K,V)),_, attn_weights = model(inputs=inp_to_predict, mask=mask_inp, training = False)
-#
-#   # adding zeros to (K,V) to have tensors of shape (B,P,S,D)
-#   shape_future = (tf.shape(K)[0], num_particles, target_seq_len, tf.shape(K)[-1])
-#   future_K = tf.zeros(shape=shape_future)
-#   future_V = tf.zeros(shape=shape_future)
-#   K = tf.concat([K, future_K], axis=2)
-#   V = tf.concat([V, future_V], axis=2)
-#
-#   # take the last pred:
-#   #last_pred = pred[:,:,-1,:]
-#
-#   list_inf_pred, list_pred_P, list_pred_N_P = [], [], []
-#
-#   # preprocess inp_to_infer:
-#   inputs_mha = tf.expand_dims(inp_to_infer, axis=1)  # (B,1,S-Sinp,F)
-#   inputs_mha = tf.tile(inputs_mha, multiples=[1, num_particles, 1, 1])  # (B,P,S-Sinp,F)
-#   inputs_mha = model.input_dense_projection(inputs_mha) # (B,P,S-Sinp,D)
-#
-#   for t in range(target_seq_len):
-#     inp_t = inputs_mha[:, :, t, :] # shape (B,P,D)
-#     inp_t = tf.expand_dims(inp_t, axis=2)
-#     (inf_pred, pred_P, pred_N_P), (K, V) = model.cell.inference_function(inouts=inp_t,
-#                                                                          K=K,
-#                                                                          V=V,
-#                                                                          num_samples=num_samples,
-#                                                                          t=t,
-#                                                                          inf)
-#     #TODO: add resampling step here? (by adding as output w_t and as input of the function the target?)
-#     list_inf_pred.append(inf_pred)  # (B,1,F=1)
-#     list_pred_P.append(pred_P)  # (B,P,1,F=1)
-#     list_pred_N_P.append(pred_N_P)  # (B,N*P,1,F=1)
-#
-#   # seq_inf_pred = tf.stack(list_inf_pred, axis=1)
-#   # seq_pred_P = tf.stack(list_pred_P, axis=2)
-#   # seq_pred_N_P = tf.stack(list_pred_N_P, axis=2)
-#
-#   return (pred, attn_weights), (list_inf_pred, list_pred_P, list_pred_N_P), inp_to_infer
+#https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.norm.html
 
 
 def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
@@ -224,32 +169,43 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
       r_= tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
 
       list_pred_t = []
-      for _ in range(N_est):
-        mean_r_=smc_transformer.final_layer(r_)
-        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
-        list_pred_t.append(X_pred)
-      tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
-      tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
-      list_preds_multistep.append(tensor_pred_t)
-    tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
 
-      #------------- OR... FOR SAMPLING PREDICTIONS...-----------------------------------------------------------------------------------------------
-      # for r in list_r_NP:
-      #   # reshape to have a tensor of shape (B,N,P,1,D)
-      #   new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
-      #   r = tf.reshape(r, shape=new_shape)  # (B,-1,N,P,1,D)
-      #   r = tf.squeeze(r, axis=1)  # (B,N,P,1,D)
-      #   # select n* and p*:
-      #   p_ = tf.random.categorical(logits=w_s, num_samples=num_particles)
-      #   uniform_logits = tf.constant([[1 / N for _ in range(N)] for _ in range(tf.shape(r)[0])])
-      #   n_ = tf.random.categorical(logits=uniform_logits, num_samples=N)
-      #   r_ = tf.gather(r, p_, axis=2, batch_dims=1)
-      #   r_ = tf.gather(r_, n_, axis=1, batch_dims=1)  # (B,N,P,1,D)
-      #   mean_r_=smc_transformer.final_layer(r_) # (B,N,P,1,D)
-      #   X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,N,P,1,D)
-      #   list_preds_multistep.append(X_pred)
+    #   for _ in range(N_est):
+    #     #TODO: use here numpy.random.normal, instead of tf.random.normal.
+    #     mean_r_=smc_transformer.final_layer(r_) #TODO: transform this into a numpy_array to avoid the for loop.
+    #     X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
+    #     list_pred_t.append(X_pred)
+    #   tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
+    #   tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
+    #   list_preds_multistep.append(tensor_pred_t)
+    # tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
 
-  return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
+      mean_r_ = smc_transformer.final_layer(r_) # (B,1,1)
+      mean_r_ = tf.squeeze(mean_r_, axis=-1)
+      mean_r_ = mean_r_.numpy() # (B,1)
+      batch_size = mean_r_.shape[0]
+      X_pred = np.random.normal(loc=mean_r_, scale=omega, size=(batch_size, N_est))
+      list_preds_multistep.append(X_pred)
+
+  return (list_r_NP, list_X_pred_NP), list_preds_multistep , w_s
+
+def compute_inference_pdf_1D(smc_transformer, sampling_weights, list_r_NP, N, p_inf, omega):
+  '''
+  :param sampling_weights: resampling weights until t-1: tensor of shape (B,P)
+  :param list_r_NP: list of $r^{m,i}$: tensors of shape (B,NP,1,D)
+  :param omega: value of the variance
+  :return:
+  '''
+  # get the mean of the mix of gaussian distributions from r
+  list_mean_NP = [smc_transformer.final_layer(r_NP) for r_NP in list_r_NP]
+
+  #transform list_mean_NP in a numpy array
+  list_means_array = [mean.numpy() for mean in list_mean_NP]
+  # reshape (B,NP,1,1) to (B,N,P,1,1)
+  list_means_array = [m.reshape(m.shape[0], N, p_inf, m.shape[-2], m.shape[-1]) for m in list_means_array]
+
+  return list_means_array
+
 
 
 def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_timesteps):
@@ -419,10 +375,12 @@ if __name__ == "__main__":
     true_distrib = true_distrib.numpy()
     pred_distrib = pred_distrib.numpy()
     N_est = pred_distrib.shape[1]
+    std_pred_distrib = np.std(pred_distrib, axis=1)
+    std_pred_distrib = np.mean(std_pred_distrib, axis=0)
 
     #KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=true_distrib, axis=1)
     wass_dist = ot.emd2_1d(x_a=true_distrib[0,:], x_b=pred_distrib[0,:])
     KL_dist = naive_estimator(true_distrib[0,:].reshape(N_est,1), pred_distrib[0,:].reshape(N_est,1))
     #wass_dist = scipy.stats.wasserstein_distance(true_distrib, pred_distrib)
 
-    print('KL distance for timestep {}: {}'.format(t, KL_distance))
+    #print('KL distance for timestep {}: {}'.format(t, KL_distance))
