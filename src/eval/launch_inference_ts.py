@@ -1,6 +1,7 @@
 #TODO: simulations plan
 #TODO: plot the density graph for the true and predicted distrib
-#TODO: implement a 'learned' omega (cf discussion with Florian on Telegram.)
+#TODO: implement the KL divergence.
+#TODO: implement a 'learned' omega (cf discussion with Florian on Telegram.) > before that, check that new 'training' code works for one single feature.
 #TODO: new training experiments to assess the impact of the layer norm and the place of the noise.
 #TODO: sigma 'learned'
 #TODO: add comparison with MC Dropout (Transformer and LSTM.)
@@ -44,7 +45,8 @@ if __name__ == "__main__":
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
-  parser.add_argument("-N", default=20, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-sigma", default=0.05, type=int, help="number of samples for MC sampling")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -125,12 +127,10 @@ if __name__ == "__main__":
 
   # ---------------preparing the output path for inference -------------------------------------------------------------------------------------------------------------
   num_timesteps = args.num_timesteps
-  #p_inf = args.p_inf
   N = args.N
+  sigma = args.sigma
   list_p_inf = [10]
   N_est = 5000
-  sigma = 0.1
-  omega = 0.2
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -196,36 +196,33 @@ if __name__ == "__main__":
   for p_inf in list_p_inf:
     logger.info('inference results for number of particles: {}'.format(p_inf))
 
-    (list_r_NP, list_X_pred_NP), (list_preds_sampled, tensor_preds_sampled) = inference_function_multistep_1D(inputs=test_dataset,
+    (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                        smc_transformer=smc_transformer,
                                                                                                        N_prop=N,
                                                                                                        N_est=N_est,
                                                                                                        num_particles=p_inf,
                                                                                                        num_timesteps=num_timesteps,
                                                                                                        sample_pred=True,
-                                                                                                       sigma=sigma)
+                                                                                                       sigma=sigma,
+                                                                                                      omega=omega,
+                                                                                                      output_path=output_path)
 
-
-    list_empirical_dist, tensor_empirical_distrib = generate_empirical_distribution_1D(inputs=test_dataset,
+    list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                   matrix_A=A_3D,
                                                                                   cov_matrix=cov_matrix_3D,
                                                                                   N_est=N_est,
-                                                                                  num_timesteps=num_timesteps)
+                                                                                  num_timesteps=num_timesteps,
+                                                                                  output_path=output_path)
     #KL_measure = tf.keras.losses.KLDivergence()
     # KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
     # KL_distance_norm = KL_distance / N_est
     # KL_timesteps.append(KL_distance_norm.numpy())
-
     # KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
 
     KL_timesteps = []
     for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
-      true_distrib = tf.squeeze(true_distrib, axis=-1)
-      true_distrib = true_distrib.numpy()
-      pred_distrib = pred_distrib.numpy()
       batch_size = pred_distrib.shape[0]
       num_samples = pred_distrib.shape[1]
-
       # distributions distance and variance of the predicted distribution.
       wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
       wassertein_dist = statistics.mean(wassertein_dist_list)
@@ -233,7 +230,6 @@ if __name__ == "__main__":
       #KL_dist = statistics.mean(KL_distance_list)
       std_pred_distrib = np.std(pred_distrib, axis=1)
       std_pred_distrib = np.mean(std_pred_distrib, axis=0)
-
       #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
       logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
       logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))

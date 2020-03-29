@@ -92,7 +92,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
-def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, output_path, sample_pred=False):
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, omega, sigma, output_path, sample_pred=False):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -369,7 +369,8 @@ if __name__ == "__main__":
                                                                                             num_timesteps=num_timesteps,
                                                                                             output_path=output_path,
                                                                                             sample_pred=True,
-                                                                                            sigma=0.1)
+                                                                                            sigma=0.1,
+                                                                                            omega=omega)
 
   print('number of timesteps predicted', len(list_preds_sampled))
   print('example of preds', list_preds_sampled[0])
