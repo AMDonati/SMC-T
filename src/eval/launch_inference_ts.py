@@ -48,6 +48,7 @@ if __name__ == "__main__":
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.2, type=float, help="value of the external covariance of the gaussian noise")
 
@@ -133,7 +134,7 @@ if __name__ == "__main__":
   N = args.N
   sigma = args.sigma
   list_p_inf = [10,50]
-  N_est = 5000
+  N_est = args.N_est
   omega = args.omega
 
   output_path = args.out_folder
