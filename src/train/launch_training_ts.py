@@ -178,12 +178,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
   if not cv:
     num_features = train_data.shape[-1]
-    target_vocab_size = num_features
+    target_vocab_size = num_features if target_feature is None else 1
     seq_len = train_data.shape[1] - 1  # 24 observations
     training_samples = train_data.shape[0]
     steps_per_epochs = int(train_data.shape[0] / BATCH_SIZE)
@@ -459,6 +459,7 @@ if __name__ == "__main__":
                                       maximum_position_encoding=maximum_position_encoding_smc,
                                       num_particles=num_particles,
                                       sigma=sigma,
+                                      omega = omega,
                                       rate=rate,
                                       noise_encoder=noise_encoder,
                                       noise_SMC_layer=noise_SMC_layer,
@@ -526,6 +527,9 @@ if __name__ == "__main__":
                              stats=stats,
                              output_path=output_path,
                              logger=logger)
+
+
+
 
     ##-----------------old code scripts --------------------------------------------------------------------------------------------------------------
 

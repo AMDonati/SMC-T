@@ -23,6 +23,7 @@ from train.loss_functions import CustomSchedule
 from eval.inference_functions import inference_function_multistep_1D
 from eval.inference_functions import generate_empirical_distribution_1D
 import statistics
+import tensorflow_probability as tfp
 
 import ot
 from utils.KL_divergences_estimators import naive_estimator

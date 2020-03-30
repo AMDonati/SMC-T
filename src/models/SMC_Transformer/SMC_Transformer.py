@@ -528,7 +528,7 @@ if __name__ == "__main__":
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
-  target_feature = None
+  target_feature = 0
   #target_feature = 0 if data_type == 'time_series_multi' else None
   maximum_position_encoding = None
 

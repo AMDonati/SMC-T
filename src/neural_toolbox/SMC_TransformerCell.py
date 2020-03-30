@@ -20,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, rate, omega=1, target_feature=None, maximum_position_encoding=None, training=True, resampling=True, test=False,
+              num_layers, sigma, noise, task_type, rate, omega, maximum_position_encoding=None, training=True, resampling=True, test=False,
       **kwargs):
     #TODO: remove default Value for omega and target feature.
     '''
