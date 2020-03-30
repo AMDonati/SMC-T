@@ -79,8 +79,8 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
   parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
   parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
@@ -178,12 +178,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)

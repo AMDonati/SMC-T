@@ -20,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, rate, omega, maximum_position_encoding=None, training=True, resampling=True, test=False,
+              num_layers, sigma, noise, task_type, rate, omega, target_feature, maximum_position_encoding=None, training=True, resampling=True, test=False,
       **kwargs):
     #TODO: remove default Value for omega and target feature.
     '''
@@ -142,7 +142,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     mu_t = y - predictions # (B,P,F)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w)
+    log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w) #TODO: here, add the omega learned option.
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
@@ -308,7 +308,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
 
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    I=tf.stop_gradient(I)
+    I = tf.stop_gradient(I)
 
     # resample K, V, and z:
     if self.resampling:

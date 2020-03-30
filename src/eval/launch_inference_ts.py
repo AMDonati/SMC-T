@@ -2,6 +2,7 @@
 #TODO: plot the density graph for the true and predicted distrib
 #TODO: implement the KL divergence.
 #TODO: implement a 'learned' omega (cf discussion with Florian on Telegram.) > before that, check that new 'training' code works for one single feature.
+# > OK, oemga learned not easy to implement because used in the computation of w.
 #TODO: new training experiments to assess the impact of the layer norm and the place of the noise.
 #TODO: sigma 'learned'
 #TODO: add comparison with MC Dropout (Transformer and LSTM.)
@@ -132,6 +133,7 @@ if __name__ == "__main__":
   sigma = args.sigma
   list_p_inf = [10]
   N_est = 5000
+  omega = 0.2
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -227,11 +229,11 @@ if __name__ == "__main__":
       # distributions distance and variance of the predicted distribution.
       wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
       wassertein_dist = statistics.mean(wassertein_dist_list)
-      #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
-      #KL_dist = statistics.mean(KL_distance_list)
+      KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
+      KL_dist = statistics.mean(KL_distance_list)
       std_pred_distrib = np.std(pred_distrib, axis=1)
       std_pred_distrib = np.mean(std_pred_distrib, axis=0)
-      #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
       logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
       logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
 

@@ -146,7 +146,7 @@ class SMC_Transformer(tf.keras.Model):
 
   def __init__(self, num_layers, d_model, num_heads, dff,
                target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, rate, omega,
-               target_feature=None, maximum_position_encoding=None, resampling=True, test=False):
+               target_feature, maximum_position_encoding=None, resampling=True, test=False):
     super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:

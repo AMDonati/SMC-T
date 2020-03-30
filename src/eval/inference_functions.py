@@ -11,7 +11,6 @@ from utils.KL_divergences_estimators import naive_estimator
 
 #import scipy.stats.wasserstein_distance as wass_distance
 #import scipy.stats.entropy as KL_distance
-
 #https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.norm.html
 
 
@@ -243,28 +242,44 @@ def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_
   inp_inference = inputs[:, s:, :]
   last_input = inp_model[:,-1,:] # (B,F)
   num_features = tf.shape(last_input)[-1]
+  batch_size = tf.shape(last_input)[0]
   list_preds_sampled = []
   list_mean_per_timestep = []
+
   for t in range(num_timesteps):
     list_pred_t = []
     mean = tf.matmul(last_input, matrix_A)
     list_mean_per_timestep.append(mean)
+
+    #TODO: debug this code.
+    #mean = mean.numpy()
+    # cov_matrix = cov_matrix.numpy()
+    # sampled_new_inputs = np.random.normal(loc=mean, scale=cov_matrix, size=(batch_size, N_est, num_features)) # (B, N_est, F)
+    # sampled_new_inputs = sampled_new_inputs[:,:,0] # (B, N_est)
+    # list_preds_sampled.append(sampled_new_inputs)
+    # # compute new_input for next timestep
+    # sample_ind = np.random.randint(0, N_est)
+    # last_input = sampled_new_inputs[:, sample_ind]  # (B)
+    # last_input = tf.expand_dims(last_input, axis=-1)
+    # obs_features = inp_inference[:, t, 1:]  # (B,F_obs=2)
+    # last_input = tf.concat([last_input, obs_features], axis=-1)
+
     for n in range(N_est):
       new_input = mean + tf.random.normal(stddev=cov_matrix, shape=(1, num_features)) # (B,F)
       new_input = tf.expand_dims(new_input[:,0], axis=-1)
       list_pred_t.append(new_input)
-    tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,F)
+
+    tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1)
     list_preds_sampled.append(tensor_pred_t)
     # compute new_input for next timestep
     sample_ind = np.random.randint(0, N_est)
     last_input = list_pred_t[sample_ind]  # (B,1)
     obs_features = inp_inference[:,t,1:] #(B,F_obs=2)
     last_input = tf.concat([last_input, obs_features], axis=-1)
-  #tensor_preds_sampled = tf.stack(list_preds_sampled, axis=2) # (B, N_est, S)
 
+  # transforming tensors into numpy arrays.
   list_preds_sampled = [tf.squeeze(x, axis=-1).numpy() for x in list_preds_sampled] # (B,N_est)
   list_mean_per_timestep = [m.numpy() for m in list_mean_per_timestep]
-
   # saving information in .npy files
   true_distrib_path = output_path + '/' + 'true_empirical_distrib.npy'
   true_means_path = output_path + '/' + 'true_gaussian_means.npy'

@@ -54,10 +54,10 @@ if __name__ == "__main__":
   data_type = 'time_series_multi'
   rate = 0.1
   seq_len = 24
-  num_samples = 25
+  num_samples = 5000
   task = 'synthetic'
   stats = None
-  output_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output'
+  output_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/temp'
   logger= create_logger(out_file_log=output_path + 'training_log.log')
 
   # create the test dataset:
