@@ -8,7 +8,7 @@ import statistics
 import math
 
 #TODO: arrange plots formatting (legend: etc...)
-#TODO: check form of function if adding 'manually' gaussian pdfs in tf.
+#TODO: check form of function if adding 'manually' gaussian pdfs in tf. > ok works.
 
 
 def compute_mixture_gaussian_pdf(x, pred_means, omega_preds, sampling_weights):
@@ -18,6 +18,8 @@ def compute_mixture_gaussian_pdf(x, pred_means, omega_preds, sampling_weights):
   omega_preds: scalar for the covariance value.
   -sampling weights: numpy array of shape (num_particles)
   '''
+  N = tf.shape(pred_means)[0]
+  P = tf.shape(pred_means)[1]
   dist = tfp.distributions.Normal(loc=pred_means, scale=omega_preds)
   # prepare input x: convert it into a tensor and tile it.
   x = tf.convert_to_tensor(x, dtype=tf.float32)
@@ -49,7 +51,7 @@ def compute_mixture_gaussian_pdf_2(x, pred_means, omega_preds, sampling_weights)
       pdf = dist.prob(x) # (num_samples)
       list_pdf_N.append(pdf)
     pdf_N = tf.stack(list_pdf_N) # (N, num_samples)
-    pdf_p = tf.reduce_mean(pdf_N) # (num_samples)
+    pdf_p = tf.reduce_mean(pdf_N, axis=0) # (num_samples)
     list_pdf_P.append(pdf_p)
   pdf_P = tf.stack(list_pdf_P) # (P, num_samples)
   sampling_weights = tf.expand_dims(sampling_weights, axis=0) # (1, P)
@@ -59,7 +61,7 @@ def compute_mixture_gaussian_pdf_2(x, pred_means, omega_preds, sampling_weights)
   return pdf
 
 
-def plot_one_timestep(pred_means, true_means, sampled_preds, sampling_weights, omega_preds, omega_true_distrib, color, output_path):
+def plot_one_timestep(pred_means, true_means, sampled_preds, sampling_weights, omega_preds, omega_true_distrib, output_path):
     '''
     args:
     -pred_means: numpy array of shape (batch_size, num MC samples, num particles, 1)
@@ -67,33 +69,56 @@ def plot_one_timestep(pred_means, true_means, sampled_preds, sampling_weights, o
     -sampled_preds: array of shape (batch_size, N_est)
     -sampling weights: numpy array of shape (batch_size, num_particle)
     '''
-    #np.random.seed = seed
-
-    # draw a sample among the samples of the test set:
     batch_size = pred_means.shape[0]
-    index = np.random.randint(low=0, high=batch_size)
-    pred_means = pred_means[index, :, :] # (N,P,1)
-    true_mean = true_means[index] # scalar.
-    sampled_preds = sampled_preds[index,:]
-    sampling_weights = sampling_weights[index, :] #(P)
 
-    # plot the predicted probability density function.
-    fig, ax = plt.subplots(1, 1)
-    x = np.linspace(start=true_mean - 5 * omega_preds, stop=true_mean + 5 * omega_preds, num=100) # (100)
-    pdf_predicted = compute_mixture_gaussian_pdf(x=x, pred_means=pred_means, omega_preds=omega_preds, sampling_weights=sampling_weights)
-    ax.plot(x, pdf_predicted, color, lw=2, alpha=0.6, label='predicted pdf for sample number: {}'.format(index))
+    # prepare subplots
+    fig, axs = plt.subplots(2, 2)
+    list_samples = []
+    # loop over number of plots
+    for i in range(4):
+      # select ax for plotting:
+      if i == 0:
+        ax = axs[0, 0]
+        color = 'tab:blue'
+      elif i == 1:
+        ax = axs[0, 1]
+        color = 'tab:orange'
+      elif i == 2:
+        ax = axs[1, 0]
+        color = 'tab:green'
+      elif i == 3:
+        ax = axs[1, 1]
+        color = 'tab:red'
 
-    # plot the true probability density function.
-    true_dist = tfp.distributions.Normal(loc=true_mean, scale=omega_true_distrib)
-    ax.plot(x, true_dist.prob(x), color, lw=2, linestyle='dashed', label='true pdf for sample number: {}')
+      # draw a sample among the samples of the test set:
+      index = np.random.randint(low=0, high=batch_size)
+      list_samples.append(index)
+      pred_mean = pred_means[index, :, :] # (N,P,1)
+      true_mean = true_means[index] # scalar.
+      sampled_pred = sampled_preds[index,:]
+      sampling_weight = sampling_weights[index, :] #(P)
 
-    # plot the predicted empirical distribution:
-    ax.hist(sampled_preds, density=True, histtype='stepfilled', alpha=0.2)
+      # plot the predicted probability density function.
+      x = np.linspace(start=true_mean - 5 * omega_preds, stop=true_mean + 5 * omega_preds, num=100) # (100)
+      pdf_predicted = compute_mixture_gaussian_pdf(x=x, pred_means=pred_mean, omega_preds=omega_preds, sampling_weights=sampling_weight)
+      ax.plot(x, pdf_predicted, color, lw=2, alpha=0.6, label='predicted pdf for sample number: {}'.format(index))
+      #pdf_predicted_2 = compute_mixture_gaussian_pdf_2(x=x, pred_means=pred_means, omega_preds=omega_preds, sampling_weights=sampling_weights)
+      #ax.plot(x, pdf_predicted_2, '-k', lw=2, alpha=0.6)
 
-    plt.legend(fontsize=14)
-    plt.title('True pdf versus predicted pdf per timestep for samplne # {}'.format(index), fontsize=16)
+      # plot the true probability density function.
+      true_dist = tfp.distributions.Normal(loc=true_mean, scale=omega_true_distrib)
+      ax.plot(x, true_dist.prob(x), color, lw=2, linestyle='dashed', label='true pdf for sample number: {}')
+
+      # plot the predicted empirical distribution:
+      ax.hist(sampled_pred, density=True, histtype='stepfilled', alpha=0.2)
+
+    #plt.legend(fontsize=14)
+    #plt.title('True pdf versus predicted pdf per timestep for samplne # {}'.format(index), fontsize=16)
     plt.show()
-    fig_path = output_path + '/'+'true_pdf_vs_pred_pdf_one_timestep_sample{}.png'.format(index)
+    fig_path = output_path + '/'+'true_pdf_vs_pred_pdf_one_timestep_samples_{}_{}_{}_{}.png'.format(list_samples[0],
+                                                                                                    list_samples[1],
+                                                                                                    list_samples[2],
+                                                                                                    list_samples[3])
     plt.savefig(fig_path)
 
 
@@ -109,13 +134,9 @@ def plot_multiple_timesteps(pred_means, true_means, sampled_preds, sampling_weig
 
   # prepare plot with multiple subplots:
   fig, axs = plt.subplots(2, 2)
-  #axs[0, 0].plot(x, y)
   axs[0, 0].set_title('t+1')
-  #axs[0, 1].plot(x, y, 'tab:orange')
   axs[0, 1].set_title('t+2')
-  #axs[1, 0].plot(x, -y, 'tab:green')
   axs[1, 0].set_title('t+3')
-  #axs[1, 1].plot(x, -y, 'tab:red')
   axs[1, 1].set_title('t+4')
 
   # for ax in axs.flat:
@@ -197,39 +218,33 @@ if __name__ == "__main__":
   #preds_gaussian_means = tf.squeeze(preds_gaussian_means, axis=-1) # (num_timesteps, B, N, P, 1)
   sampling_weights = tf.convert_to_tensor(sampling_weights) # (B,P)
 
-  omega_preds = 0.3
+  omega_preds = 0.2
   omega_true_distrib = 0.2
 
-  # test of plotting for one timestep and one sample
-  pred_means = preds_gaussian_means[0, 0, :, :] # (N, P)
-  N = tf.shape(pred_means)[0]
-  P = tf.shape(pred_means)[1]
-  dist = tfp.distributions.Normal(loc=pred_means, scale=omega_preds)
-  #true_gaussian_mean = true_gaussian_mean[0, 0]
-  true_mean = true_gaussian_mean[0, 0]
-  x = np.linspace(start=true_mean - 5 * omega_preds, stop=true_mean + 5 * omega_preds, num=100) # (100)
-  x = tf.convert_to_tensor(x, dtype=tf.float32)
-  x = tf.expand_dims(tf.expand_dims(x, axis=0), axis=0)
-  x = tf.tile(x, multiples=[N,P,1])
-  sampling_weight = sampling_weights[0, :] # (P)
-  pdf = dist.prob(x)
-  pdf = tf.reduce_mean(pdf, axis=1)
-  sampling_weight = tf.expand_dims(sampling_weight, axis=0)
-  pdf = tf.matmul(sampling_weight, pdf)
-  pdf = tf.squeeze(pdf, axis=0)
+  # # test of compute_gaussian_mixture_function
+  # true_means = true_gaussian_mean[0,:] # (B)
+  # pred_means = preds_gaussian_means[0,:,:,:,:] #(B,N,P,1)
+  # batch_size = pred_means.shape[0]
+  # index = np.random.randint(low=0, high=batch_size)
+  # pred_means = pred_means[index, :, :]  # (N,P,1)
+  # true_mean = true_means[index]  # scalar.
+  # sampling_weights = sampling_weights[index, :]  # (P)
+  # x = np.linspace(start=true_mean - 5 * omega_preds, stop=true_mean + 5 * omega_preds, num=100)  # (100)
+  #
+  # pdf = compute_mixture_gaussian_pdf_2(x=x, pred_means=pred_means, omega_preds=omega_preds, sampling_weights=sampling_weights)
 
-  # t=0
-  # true_mean = true_gaussian_mean[t,:]
-  # pred_means = preds_gaussian_means[t,:,:,:,:]
-  # sampled_preds = sampled_pred_distrib[t,:,:]
-  # plot_one_timestep(pred_means=pred_means,
-  #                   true_means=true_mean,
-  #                   sampled_preds=sampled_preds,
-  #                   omega_preds=omega_preds,
-  #                   omega_true_distrib=omega_true_distrib,
-  #                   sampling_weights=sampling_weights,
-  #                   output_path=file_path,
-  #                   color='r')
+  # test of plotting for one timestep and one sample
+  t=0
+  true_mean = true_gaussian_mean[t,:]
+  pred_means = preds_gaussian_means[t,:,:,:,:]
+  sampled_preds = sampled_pred_distrib[t,:,:]
+  plot_one_timestep(pred_means=pred_means,
+                    true_means=true_mean,
+                    sampled_preds=sampled_preds,
+                    omega_preds=omega_preds,
+                    omega_true_distrib=omega_true_distrib,
+                    sampling_weights=sampling_weights,
+                    output_path=file_path)
 
   plot_multiple_timesteps(pred_means=preds_gaussian_means, true_means=true_gaussian_mean,
                           sampled_preds=sampled_pred_distrib, sampling_weights=sampling_weights,

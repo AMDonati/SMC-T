@@ -48,7 +48,8 @@ if __name__ == "__main__":
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-sigma", default=0.05, type=int, help="number of samples for MC sampling")
+  parser.add_argument("-sigma", default=0.05, type=int, help="value of the internal noise")
+  parser.add_argument("-omega", default=0.2, type=int, help="value of the external covariance of the gaussian noise")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -131,9 +132,9 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [10]
+  list_p_inf = [10,50]
   N_est = 5000
-  omega = 0.2
+  omega = args.omega
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -141,8 +142,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder=folder_template.format(num_timesteps, list_p_inf[0], N, N_est, sigma, omega)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_{}'
+  out_folder=folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------

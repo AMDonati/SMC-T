@@ -8,7 +8,6 @@ import ot
 
 from utils.KL_divergences_estimators import naive_estimator
 
-
 #import scipy.stats.wasserstein_distance as wass_distance
 #import scipy.stats.entropy as KL_distance
 #https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.norm.html
@@ -192,7 +191,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
     # get the mean of the mix of gaussian distributions from r
     list_mean_NP = [smc_transformer.final_layer(r_NP) for r_NP in list_r_NP]
     list_mean_NP = [mean.numpy() for mean in list_mean_NP] # transform list_mean_NP in a numpy array
-    list_mean_NP = [m.reshape(m.shape[0], N, num_particles, m.shape[-1]) for m in list_mean_NP] # reshape (B,NP,1,1) to (B,N,P,1,1)
+    list_mean_NP = [m.reshape(m.shape[0], N, num_particles, m.shape[-1]) for m in list_mean_NP] # reshape (B,NP,1,1) to (B,N,P,1)
 
     # ------------------------------- save arrays for plotting the predicted probability density function------------------------------------
     list_X_pred_NP = [tf.squeeze(x, axis=-2).numpy() for x in list_X_pred_NP]
@@ -266,7 +265,7 @@ def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_
 
     for n in range(N_est):
       new_input = mean + tf.random.normal(stddev=cov_matrix, shape=(1, num_features)) # (B,F)
-      new_input = tf.expand_dims(new_input[:,0], axis=-1)
+      new_input = tf.expand_dims(new_input[:,0], axis=-1) # (B,1)
       list_pred_t.append(new_input)
 
     tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1)
