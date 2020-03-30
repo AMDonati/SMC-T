@@ -48,8 +48,8 @@ if __name__ == "__main__":
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-sigma", default=0.05, type=int, help="value of the internal noise")
-  parser.add_argument("-omega", default=0.2, type=int, help="value of the external covariance of the gaussian noise")
+  parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
+  parser.add_argument("-omega", default=0.2, type=float, help="value of the external covariance of the gaussian noise")
 
   args=parser.parse_args()
   output_path = args.out_folder
