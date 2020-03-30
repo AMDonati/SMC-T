@@ -23,10 +23,10 @@ def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_
   if not os.path.isdir(eval_output_path):
     os.makedirs(eval_output_path)
 
-  predictions_MC_Dropout_path = eval_output_path + 'predictions_MC_Dropout.npy'
+  predictions_MC_Dropout_path = os.path.join(eval_output_path, 'predictions_MC_Dropout.npy')
   np.save(predictions_MC_Dropout_path, predictions_test_MC_Dropout)
 
-  targets_path = eval_output_path + 'targets_test.npy'
+  targets_path = os.path.join(eval_output_path, 'targets_test.npy')
   np.save(targets_path, y_test)
 
   # unormalization of the predictions:
@@ -35,8 +35,8 @@ def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_
     predictions_unnorm = predictions_test * data_std + data_mean
     targets_unnorm = y_test * data_std + data_mean
     # saving predictions and targets unnorm:
-    predictions_unnorm_path = eval_output_path + 'predictions_unnorm_MC_Dropout.npy'
-    targets_unnorm_path = eval_output_path + 'targets_unnorm.npy'
+    predictions_unnorm_path = os.path.join(eval_output_path, 'predictions_unnorm_MC_Dropout.npy')
+    targets_unnorm_path = os.path.join(eval_output_path, 'targets_unnorm.npy')
     np.save(predictions_unnorm_path, predictions_unnorm)
     np.save(targets_unnorm_path, targets_unnorm)
 

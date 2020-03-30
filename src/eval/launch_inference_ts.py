@@ -229,11 +229,11 @@ if __name__ == "__main__":
       # distributions distance and variance of the predicted distribution.
       wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
       wassertein_dist = statistics.mean(wassertein_dist_list)
-      KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
-      KL_dist = statistics.mean(KL_distance_list)
+      #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
+      #KL_dist = statistics.mean(KL_distance_list)
       std_pred_distrib = np.std(pred_distrib, axis=1)
       std_pred_distrib = np.mean(std_pred_distrib, axis=0)
-      logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
       logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
       logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
 

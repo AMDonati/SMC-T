@@ -173,6 +173,7 @@ if __name__ == "__main__":
 
   elif task == 'synthetic':
     X_data = np.load(file_path)
+    stats = None
     train_data, val_data, test_data = split_synthetic_dataset(x_data=X_data,
                                                               TRAIN_SPLIT=TRAIN_SPLIT,
                                                               VAL_SPLIT=VAL_SPLIT,
@@ -506,27 +507,27 @@ if __name__ == "__main__":
                              logger=logger)
 
     # --------------------------------------------- compute latest statistics ---------------------------------------------------------------------------------------
+    if args.train_smc_T:
+      logger.info("<------------------------computing latest statistics on SMC Transformer----------------------------------------------------------------------------------------->")
+      compute_latest_statistics(smc_transformer=smc_transformer,
+                                train_dataset=train_dataset,
+                                val_dataset=val_dataset,
+                                seq_len=seq_len,
+                                output_path=output_path,
+                                logger=logger)
 
-    logger.info("<------------------------computing latest statistics on SMC Transformer----------------------------------------------------------------------------------------->")
-    compute_latest_statistics(smc_transformer=smc_transformer,
-                              train_dataset=train_dataset,
-                              val_dataset=val_dataset,
-                              seq_len=seq_len,
-                              output_path=output_path,
-                              logger=logger)
+      # -----unistep evaluation with N = 1 ------------------------------------------------------------------------------------------------------------------------------#
 
-    # -----unistep evaluation with N = 1 ------------------------------------------------------------------------------------------------------------------------------#
-
-    logger.info("starting evaluation of the SMC Transformer on the test set...")
-    if task == 'synthetic':
-      stats = None
-    evaluate_SMC_Transformer(smc_transformer=smc_transformer,
-                             test_dataset=test_dataset,
-                             seq_len=seq_len,
-                             task=task,
-                             stats=stats,
-                             output_path=output_path,
-                             logger=logger)
+      logger.info("starting evaluation of the SMC Transformer on the test set...")
+      if task == 'synthetic':
+        stats = None
+      evaluate_SMC_Transformer(smc_transformer=smc_transformer,
+                               test_dataset=test_dataset,
+                               seq_len=seq_len,
+                               task=task,
+                               stats=stats,
+                               output_path=output_path,
+                               logger=logger)
 
 
 

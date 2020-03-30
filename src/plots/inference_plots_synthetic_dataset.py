@@ -155,17 +155,19 @@ def plot_multiple_timesteps(pred_means, true_means, sampled_preds, sampling_weig
     # plot the predicted probability density function.
     x = np.linspace(start=true_mean_t - 5 * omega_preds, stop=true_mean_t + 5 * omega_preds, num=100)  # (100)
     pdf_predicted = compute_mixture_gaussian_pdf(x=x, pred_means=pred_means_t, omega_preds=omega_preds, sampling_weights=sampling_weights)
-    ax.plot(x, pdf_predicted, color, lw=5, alpha=0.6, label='predicted pdf for sample #{}'.format(index))
+    #ax.plot(x, pdf_predicted, color, lw=5, alpha=0.6, label='predicted pdf for sample #{}'.format(index))
+    ax.plot(x, pdf_predicted, color, lw=5, alpha=0.6)
 
     # plot the true probability density function.
     true_dist = tfp.distributions.Normal(loc=true_mean_t, scale=omega_true_distrib)
-    ax.plot(x, true_dist.prob(x), color, lw=2, linestyle='dashed', label='true pdf for sample #{}'.format(index))
+    #ax.plot(x, true_dist.prob(x), color, lw=2, linestyle='dashed', label='true pdf for sample #{}'.format(index))
+    ax.plot(x, true_dist.prob(x), color, lw=2, linestyle='dashed')
 
     # plot the predicted empirical distribution:
     ax.hist(sampled_preds_t, density=True, histtype='stepfilled', alpha=0.2)
 
   plt.legend(fontsize=14)
-  plt.title('True pdf versus predicted pdf per timestep for sample # {}'.format(index), fontsize=16)
+  #plt.title('True pdf versus predicted pdf per timestep for sample # {}'.format(index), fontsize=16)
   plt.show()
   fig_path = output_path + '/' + 'true_pdf_vs_pred_pdf_{}_timesteps_sample{}.png'.format(num_timesteps, index)
   plt.savefig(fig_path)
@@ -173,7 +175,7 @@ def plot_multiple_timesteps(pred_means, true_means, sampled_preds, sampling_weig
 
 if __name__ == "__main__":
 
-  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10_N_10_N-est_5000_sigma_0.05_omega_0.3'
+  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10_N_10_N-est_5000_sigma_0.05_omega_0.2'
 
   preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep.npy')
   true_gaussian_mean_path = os.path.join(file_path, 'true_gaussian_means.npy')
