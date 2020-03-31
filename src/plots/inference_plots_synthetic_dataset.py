@@ -114,7 +114,7 @@ def plot_one_timestep(pred_means, true_means, sampled_preds, sampling_weights, o
 
     #plt.legend(fontsize=14)
     #plt.title('True pdf versus predicted pdf per timestep for samplne # {}'.format(index), fontsize=16)
-    plt.show()
+    #plt.show()
     fig_path = output_path + '/'+'true_pdf_vs_pred_pdf_one_timestep_samples_{}_{}_{}_{}.png'.format(list_samples[0],
                                                                                                     list_samples[1],
                                                                                                     list_samples[2],
@@ -189,7 +189,7 @@ def plot_multiple_timesteps(pred_means, true_means, sampled_preds, sampling_weig
 
   plt.legend(fontsize=14)
   #plt.title('True pdf versus predicted pdf per timestep for sample # {}'.format(index), fontsize=16)
-  plt.show()
+  #plt.show()
   fig_path = output_path + '/' + 'true_pdf_vs_pred_pdf_{}_timesteps_sample{}.png'.format(num_timesteps, index)
   plt.savefig(fig_path)
 

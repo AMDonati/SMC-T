@@ -15,6 +15,7 @@ import tensorflow as tf
 import numpy as np
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+from models.Baselines.Transformer_without_enc import Transformer
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger
@@ -23,6 +24,7 @@ from utils.utils_train import saving_inference_results
 from train.loss_functions import CustomSchedule
 from eval.inference_functions import inference_function_multistep_1D
 from eval.inference_functions import generate_empirical_distribution_1D
+from eval.inference_functions import inference_Baseline_T_MC_Dropout_1D
 import statistics
 #import tensorflow_probability as tfp
 
@@ -42,6 +44,7 @@ if __name__ == "__main__":
   exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0.1_b_256_target-feat_0_cv_False'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
@@ -51,6 +54,7 @@ if __name__ == "__main__":
   parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.2, type=float, help="value of the external covariance of the gaussian noise")
+  parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str, help="path for the output folder with training results for the Baseline Transformer")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -87,7 +91,7 @@ if __name__ == "__main__":
   noise_SMC_layer_str = hparams["smc"]["noise_SMC_layer"]
   noise_SMC_layer = True if noise_SMC_layer_str == "True" else False
   sigma = hparams["smc"]["sigma"]
-  omega = 1
+  #omega = 1
   if task == 'synthetic':
     omega = hparams["smc"]["omega"]
   # computing manually resampling parameter
@@ -105,7 +109,6 @@ if __name__ == "__main__":
   rnn_dropout_rate = hparams["RNN_hparams"]["rnn_dropout_rate"]
 
   # loading data arguments for the regression case
-
   file_path = hparams["data"]["file_path"]
   TRAIN_SPLIT = hparams["data"]["TRAIN_SPLIT"]
   VAL_SPLIT = hparams["data"]["VAL_SPLIT"]
@@ -144,7 +147,7 @@ if __name__ == "__main__":
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
   folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder=folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma, omega)
+  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -218,6 +221,8 @@ if __name__ == "__main__":
                                                                                   N_est=N_est,
                                                                                   num_timesteps=num_timesteps,
                                                                                   output_path=output_path)
+
+  # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
     #KL_measure = tf.keras.losses.KLDivergence()
     # KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
     # KL_distance_norm = KL_distance / N_est
@@ -241,6 +246,63 @@ if __name__ == "__main__":
 
     #list_KL_exp.append(KL_timesteps)
     logger.info("<--------------------------------------------------------------------------------------------------------------------------------------------------------->")
+
+  # --------------------------- inference function for MC Dropout Baseline Transformer -----------------------------------------------------------------------------
+  # get the hparams:
+  Baseline_T_path = args.baseline_T_path
+  config_T_path = os.path.join(Baseline_T_path, 'config.json')
+  checkpoint_T_path = os.path.join(Baseline_T_path, "checkpoints")
+  with open(config_T_path) as f:
+    hparams_T = json.load(f)
+
+  # model params
+  num_layers = hparams_T["model"]["num_layers"]
+  num_heads = hparams_T["model"]["num_heads"]
+  d_model = hparams_T["model"]["d_model"]
+  dff = hparams_T["model"]["dff"]
+  rate = hparams_T["model"]["rate"]  # p_dropout
+  max_pos_enc_bas_str = hparams_T["model"]["maximum_position_encoding_baseline"]
+  maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
+
+  # task params
+  data_type = hparams_T["task"]["data_type"]
+  task_type = hparams_T["task"]["task_type"]
+  task = hparams_T["task"]["task"]
+
+  target_vocab_size = 1
+
+  # define optimizer
+  if custom_schedule == "True":
+    learning_rate = CustomSchedule(d_model)
+  optimizer = tf.keras.optimizers.Adam(learning_rate,
+                                       beta_1=0.9,
+                                       beta_2=0.98,
+                                       epsilon=1e-9)
+
+  transformer = Transformer(num_layers=num_layers,
+                            d_model=d_model,
+                            num_heads=num_heads,
+                            dff=dff,
+                            target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=maximum_position_encoding_baseline,
+                            data_type=data_type,
+                            rate=rate)
+
+  baseline_T_ckpt_path = os.path.join(checkpoint_T_path, "transformer_baseline_1")
+  baseline_T_ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
+  baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
+  num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=baseline_T_ckpt_manager, ckpt=baseline_T_ckpt,
+                                               args_load_ckpt=args.load_ckpt, logger=logger)
+
+
+  test_dataset_T = test_dataset[:,:-1,:] # (5000, 24, 3)
+  output_path_T = os.path.join(Baseline_T_path, 'Baseline_T_MC_Dropout_preds_inference.npy')
+  logger.info("starting MC Dropout inference on a trained Baseline Transformer...")
+  MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset_T,
+                                                              transformer=transformer,
+                                                              num_mc_samples=N_est,
+                                                              num_timesteps=num_timesteps,
+                                                              output_path=output_path_T)
 
   # ------------------------------------------------------- saving results on a csv file ---------------------------------------------------------------
 

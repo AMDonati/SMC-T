@@ -1,5 +1,6 @@
 import tensorflow as tf
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import numpy as np
 import scipy.stats
@@ -7,10 +8,60 @@ import scipy.stats
 import ot
 
 from utils.KL_divergences_estimators import naive_estimator
+from eval.Transformer_dropout import MC_Dropout_Transformer
 
 #import scipy.stats.wasserstein_distance as wass_distance
 #import scipy.stats.entropy as KL_distance
 #https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.norm.html
+
+#TODO: create an inference function for the Baseline Transformer with a MC-Dropout algorithm.
+
+def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, num_mc_samples, num_timesteps, output_path):
+  '''
+  :param inputs: (B,S,F)
+  :param transformer:
+  :param num_mc_samples:
+  :param num_timsteps:
+  :return:
+  '''
+  s = tf.shape(inputs)[1] - num_timesteps
+  inp_model = inputs[:, :s, :]
+  inp_inference = inputs[:, s:, :]
+  # forward pass on the first s inputs:
+  predictions, _ = transformer(inputs=inp_model,
+                                      training=True,
+                                      mask=create_look_ahead_mask(s)) # predictions (B,s,1)
+
+
+  last_pred = predictions [:,-1,:] # (B,1)
+  #last_pred = tf.expand_dims(last_pred, axis=1)
+  for t in range(num_timesteps):
+    obs_feat = inp_inference[:,t,1:]
+    new_input = tf.concat([last_pred,obs_feat], axis=1) # (B,F)
+    new_input = tf.expand_dims(new_input, axis=1)
+    inp_model = tf.concat([inp_model, new_input], axis=1) # (B,s+1,F)
+    seq_len = tf.shape(inp_model)[1]
+    if t == num_timesteps - 1:
+      MC_Dropout_predictions = MC_Dropout_Transformer(transformer=transformer,
+                                                      test_dataset=inp_model,
+                                                      seq_len=seq_len,
+                                                      num_samples=num_mc_samples,
+                                                      task='synthetic',
+                                                      stats=None,
+                                                      output_path=None,
+                                                      logger=None)  # (B,N,S,1)
+    else:
+      predictions, _ = transformer(inputs=inp_model,
+                                   training=True,
+                                   mask=create_look_ahead_mask(seq_len))
+      last_pred = predictions[:,-1,:]
+
+  # select only the inference part (number of timesteps):
+  MC_Dropout_predictions = MC_Dropout_predictions[:,:,s:,:].numpy()
+  np.save(file=output_path, arr=MC_Dropout_predictions)
+
+  return MC_Dropout_predictions
+
 
 
 def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
@@ -210,23 +261,6 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   return (list_mean_NP, list_X_pred_NP), list_preds_multistep, w_s
 
 
-# def compute_inference_pdf_1D(smc_transformer, sampling_weights, list_r_NP, N, p_inf, omega):
-#   '''
-#   :param sampling_weights: resampling weights until t-1: tensor of shape (B,P)
-#   :param list_r_NP: list of $r^{m,i}$: tensors of shape (B,NP,1,D)
-#   :param omega: value of the variance
-#   :return:
-#   '''
-#   # get the mean of the mix of gaussian distributions from r
-#   list_mean_NP = [smc_transformer.final_layer(r_NP) for r_NP in list_r_NP]
-#
-#   #transform list_mean_NP in a numpy array
-#   list_means_array = [mean.numpy() for mean in list_mean_NP]
-#   # reshape (B,NP,1,1) to (B,N,P,1,1)
-#   list_means_array = [m.reshape(m.shape[0], N, p_inf, m.shape[-2], m.shape[-1]) for m in list_means_array]
-#
-#   return list_means_array
-
 def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_timesteps, output_path):
   '''
   :param inputs: ts input data of shape (B,S,F)
@@ -410,6 +444,38 @@ if __name__ == "__main__":
   print('number of examples per preds', list_preds_sampled[0].shape[1])
 
   true_gaussian_means = np.load(output_path + '/' + 'true_gaussian_means.npy')
+
+  #------ test of MC Dropout inference function -----------------------------------------------------
+  B=8
+  S=24
+  num_feat = 3
+  num_layers = 1
+  d_model = 2
+  dff = 8
+  num_heads = 1
+  target_vocab_size = 1
+  maximum_position_encoding_baseline = 50
+  rate = 0.1
+  num_mc_samples = 25
+
+  test_dataset = tf.random.uniform(shape=(B, S, num_feat))
+  transformer = Transformer(num_layers=num_layers,
+                            d_model=d_model,
+                            num_heads=num_heads,
+                            dff=dff,
+                            target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=maximum_position_encoding_baseline,
+                            data_type=data_type,
+                            rate=rate)
+
+  output_path_T = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/temp' + '/' + 'Baseline_T_MC_Dropout_preds.npy'
+
+  MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset,
+                                                              transformer=transformer,
+                                                              num_mc_samples=num_mc_samples,
+                                                              num_timesteps=4,
+                                                              output_path=output_path_T)
+
 
   # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
   #KL_measure = tf.keras.losses.KLDivergence()

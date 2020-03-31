@@ -6,28 +6,34 @@ from models.Baselines.Transformer_without_enc import Transformer
 from utils.utils_train import create_logger
 
 
-def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_samples, output_path, logger):
+def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_samples, output_path, logger, inference=True):
   list_predictions = []
   for i in range(num_samples):
-    for (test_data, y_test) in test_dataset:
-      X_test = test_data[:,:-1,:]
-      predictions_test, _ = transformer(inputs=X_test,
+    if inference:
+      predictions_test, _ = transformer(inputs=test_dataset,
+                                        training=True,
+                                        mask=create_look_ahead_mask(seq_len))
+    else:
+      for (test_data, y_test) in test_dataset:
+        X_test = test_data[:,:-1,:]
+        predictions_test, _ = transformer(inputs=X_test,
                                         training=True,
                                         mask=create_look_ahead_mask(seq_len))
       # predictions_test shape (B,S,1)
     list_predictions.append(predictions_test)
 
   predictions_test_MC_Dropout = tf.stack(list_predictions, axis=1) # shape (B, N, S, 1)
-  logger.info("saving predictions from MC Dropout on the Baseline Transformer...")
-  eval_output_path = os.path.join(output_path, "eval_outputs_Baseline_T_MC_Dropout")
-  if not os.path.isdir(eval_output_path):
-    os.makedirs(eval_output_path)
+  if logger is not None:
+    logger.info("saving predictions from MC Dropout on the Baseline Transformer...")
 
-  predictions_MC_Dropout_path = os.path.join(eval_output_path, 'predictions_MC_Dropout.npy')
-  np.save(predictions_MC_Dropout_path, predictions_test_MC_Dropout)
-
-  targets_path = os.path.join(eval_output_path, 'targets_test.npy')
-  np.save(targets_path, y_test)
+  if output_path is not None:
+    eval_output_path = os.path.join(output_path, "eval_outputs_Baseline_T_MC_Dropout")
+    if not os.path.isdir(eval_output_path):
+      os.makedirs(eval_output_path)
+    predictions_MC_Dropout_path = os.path.join(eval_output_path, 'predictions_MC_Dropout.npy')
+    np.save(predictions_MC_Dropout_path, predictions_test_MC_Dropout)
+    targets_path = os.path.join(eval_output_path, 'targets_test.npy')
+    np.save(targets_path, y_test)
 
   # unormalization of the predictions:
   if task =='unistep-forcst':
@@ -35,10 +41,13 @@ def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_
     predictions_unnorm = predictions_test * data_std + data_mean
     targets_unnorm = y_test * data_std + data_mean
     # saving predictions and targets unnorm:
-    predictions_unnorm_path = os.path.join(eval_output_path, 'predictions_unnorm_MC_Dropout.npy')
-    targets_unnorm_path = os.path.join(eval_output_path, 'targets_unnorm.npy')
-    np.save(predictions_unnorm_path, predictions_unnorm)
-    np.save(targets_unnorm_path, targets_unnorm)
+    if output_path is not None:
+      predictions_unnorm_path = os.path.join(eval_output_path, 'predictions_unnorm_MC_Dropout.npy')
+      targets_unnorm_path = os.path.join(eval_output_path, 'targets_unnorm.npy')
+      np.save(predictions_unnorm_path, predictions_unnorm)
+      np.save(targets_unnorm_path, targets_unnorm)
+
+  return predictions_test_MC_Dropout
 
 if __name__ == "__main__":
   # create a test dataset
