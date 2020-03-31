@@ -8,6 +8,11 @@ from utils.utils_train import create_logger
 
 def MC_Dropout_Transformer(transformer, test_dataset, seq_len, task, stats, num_samples, output_path, logger, inference=True):
   list_predictions = []
+  # setting the right dropout rate:
+  #transformer.decoder.rate = dropout_rate
+  #for layer in (transformer.decoder.dec_layers):
+    #layer.rate = dropout_rate
+
   for i in range(num_samples):
     if inference:
       predictions_test, _ = transformer(inputs=test_dataset,

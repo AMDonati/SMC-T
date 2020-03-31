@@ -89,8 +89,10 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     return output, attention_weights
 
 class DecoderLayer(tf.keras.layers.Layer):
-  def __init__(self, d_model, num_heads, dff, rate=0.1):
+  def __init__(self, d_model, num_heads, dff, rate):
     super(DecoderLayer, self).__init__()
+
+    self.rate = rate
 
     self.mha1 = MultiHeadAttention(d_model, num_heads)
 
@@ -141,13 +143,14 @@ class Decoder(tf.keras.layers.Layer):
     self.d_model = d_model
     self.num_layers = num_layers
     self.maximum_position_encoding=maximum_position_encoding
+    self.rate = rate
     self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     self.input_dense_projection = tf.keras.layers.Dense(d_model) # for regression case (multivariate > to be able to have a d_model > F).
     if maximum_position_encoding is not None:
       self.pos_encoding = positional_encoding(position=maximum_position_encoding, d_model=d_model)
     self.dec_layers = [DecoderLayer(d_model=d_model, num_heads=num_heads, dff=dff, rate=rate)
                        for _ in range(num_layers)]
-    self.dropout = tf.keras.layers.Dropout(rate)
+    self.dropout = tf.keras.layers.Dropout(self.rate)
     self.data_type = data_type
 
   def call(self, inputs, training, look_ahead_mask):
@@ -194,6 +197,7 @@ class Transformer(tf.keras.Model):
                            maximum_position_encoding=maximum_position_encoding,
                            data_type=data_type, rate=rate)
     self.final_layer = tf.keras.layers.Dense(target_vocab_size)
+
 
   def call(self, inputs, training, mask):
     '''

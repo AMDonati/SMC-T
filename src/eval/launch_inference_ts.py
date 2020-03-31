@@ -44,17 +44,19 @@ if __name__ == "__main__":
   exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
-  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0.1_b_256_target-feat_0_cv_False'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
+  parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str,
+                      help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.2, type=float, help="value of the external covariance of the gaussian noise")
-  parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str, help="path for the output folder with training results for the Baseline Transformer")
+  parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -136,9 +138,10 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [10,50]
+  list_p_inf = [10,50,100,500]
   N_est = args.N_est
   omega = args.omega
+  dropout_rate = args.dropout_rate
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -146,8 +149,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma, omega)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_{}'
+  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], list_p_inf[3], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -201,108 +204,129 @@ if __name__ == "__main__":
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
 
   list_KL_exp = []
-  for p_inf in list_p_inf:
-    logger.info('inference results for number of particles: {}'.format(p_inf))
+  inference_smc_T = True
+  if inference_smc_T:
+    for p_inf in list_p_inf:
+      logger.info('inference results for number of particles: {}'.format(p_inf))
 
-    (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
-                                                                                                       smc_transformer=smc_transformer,
-                                                                                                       N_prop=N,
-                                                                                                       N_est=N_est,
-                                                                                                       num_particles=p_inf,
-                                                                                                       num_timesteps=num_timesteps,
-                                                                                                       sample_pred=True,
-                                                                                                       sigma=sigma,
-                                                                                                      omega=omega,
-                                                                                                      output_path=output_path)
+      (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
+                                                                                                smc_transformer=smc_transformer,
+                                                                                                N_prop=N,
+                                                                                                N_est=N_est,
+                                                                                                num_particles=p_inf,
+                                                                                                num_timesteps=num_timesteps,
+                                                                                                sample_pred=True,
+                                                                                                sigma=sigma,
+                                                                                                omega=omega,
+                                                                                                output_path=output_path)
 
-    list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
-                                                                                  matrix_A=A_3D,
-                                                                                  cov_matrix=cov_matrix_3D,
-                                                                                  N_est=N_est,
-                                                                                  num_timesteps=num_timesteps,
-                                                                                  output_path=output_path)
+      list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
+                                                                                matrix_A=A_3D,
+                                                                                cov_matrix=cov_matrix_3D,
+                                                                                N_est=N_est,
+                                                                                num_timesteps=num_timesteps,
+                                                                                output_path=output_path)
 
-  # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
-    #KL_measure = tf.keras.losses.KLDivergence()
-    # KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
-    # KL_distance_norm = KL_distance / N_est
-    # KL_timesteps.append(KL_distance_norm.numpy())
-    # KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
+    # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
+      #KL_measure = tf.keras.losses.KLDivergence()
+      # KL_distance = KL_measure(y_true=true_distrib, y_pred=pred_distrib)
+      # KL_distance_norm = KL_distance / N_est
+      # KL_timesteps.append(KL_distance_norm.numpy())
+      # KL_dist = scipy.stats.entropy(pk=pred_distrib, qk=pred_distrib)
 
-    KL_timesteps = []
-    for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
-      batch_size = pred_distrib.shape[0]
-      num_samples = pred_distrib.shape[1]
-      # distributions distance and variance of the predicted distribution.
-      wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
-      wassertein_dist = statistics.mean(wassertein_dist_list)
-      #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
-      #KL_dist = statistics.mean(KL_distance_list)
-      std_pred_distrib = np.std(pred_distrib, axis=1)
-      std_pred_distrib = np.mean(std_pred_distrib, axis=0)
-      #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
-      logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
-      logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
-
-    #list_KL_exp.append(KL_timesteps)
-    logger.info("<--------------------------------------------------------------------------------------------------------------------------------------------------------->")
+      # KL_timesteps = []
+      # for t, (true_distrib, pred_distrib) in enumerate(zip(list_empirical_dist, list_preds_sampled)):
+      #   batch_size = pred_distrib.shape[0]
+      #   num_samples = pred_distrib.shape[1]
+      #   # distributions distance and variance of the predicted distribution.
+      #   wassertein_dist_list = [ot.emd2_1d(x_a=true_distrib[i,:], x_b=pred_distrib[i,:]) for i in range(batch_size)]
+      #   wassertein_dist = statistics.mean(wassertein_dist_list)
+      #   #KL_distance_list = [naive_estimator(true_distrib[i,:].reshape(num_samples,1), pred_distrib[i,:].reshape(num_samples,1)) for i in range(batch_size)]
+      #   #KL_dist = statistics.mean(KL_distance_list)
+      #   std_pred_distrib = np.std(pred_distrib, axis=1)
+      #   std_pred_distrib = np.mean(std_pred_distrib, axis=0)
+      #   #logger.info('KL distance for timestep {}: {}'.format(t, KL_dist))
+      #   logger.info('standard deviation of the predictive distribution: {}'.format(std_pred_distrib))
+      #   logger.info('wassertein distance for timestep {}: {}'.format(t, wassertein_dist))
+      #
+      # #list_KL_exp.append(KL_timesteps)
+      # logger.info("<--------------------------------------------------------------------------------------------------------------------------------------------------------->")
 
   # --------------------------- inference function for MC Dropout Baseline Transformer -----------------------------------------------------------------------------
   # get the hparams:
-  Baseline_T_path = args.baseline_T_path
-  config_T_path = os.path.join(Baseline_T_path, 'config.json')
-  checkpoint_T_path = os.path.join(Baseline_T_path, "checkpoints")
-  with open(config_T_path) as f:
-    hparams_T = json.load(f)
+  inference_mc_dropout = False
+  if inference_mc_dropout:
+    Baseline_T_path = args.baseline_T_path
+    config_T_path = os.path.join(Baseline_T_path, 'config.json')
+    checkpoint_T_path = os.path.join(Baseline_T_path, "checkpoints")
+    with open(config_T_path) as f:
+      hparams_T = json.load(f)
 
-  # model params
-  num_layers = hparams_T["model"]["num_layers"]
-  num_heads = hparams_T["model"]["num_heads"]
-  d_model = hparams_T["model"]["d_model"]
-  dff = hparams_T["model"]["dff"]
-  rate = hparams_T["model"]["rate"]  # p_dropout
-  max_pos_enc_bas_str = hparams_T["model"]["maximum_position_encoding_baseline"]
-  maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
+    # model params
+    num_layers = hparams_T["model"]["num_layers"]
+    num_heads = hparams_T["model"]["num_heads"]
+    d_model = hparams_T["model"]["d_model"]
+    dff = hparams_T["model"]["dff"]
+    rate = hparams_T["model"]["rate"]  # p_dropout
+    max_pos_enc_bas_str = hparams_T["model"]["maximum_position_encoding_baseline"]
+    maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
 
-  # task params
-  data_type = hparams_T["task"]["data_type"]
-  task_type = hparams_T["task"]["task_type"]
-  task = hparams_T["task"]["task"]
+    # task params
+    data_type = hparams_T["task"]["data_type"]
+    task_type = hparams_T["task"]["task_type"]
+    task = hparams_T["task"]["task"]
 
-  target_vocab_size = 1
+    target_vocab_size = 1
 
-  # define optimizer
-  if custom_schedule == "True":
-    learning_rate = CustomSchedule(d_model)
-  optimizer = tf.keras.optimizers.Adam(learning_rate,
-                                       beta_1=0.9,
-                                       beta_2=0.98,
-                                       epsilon=1e-9)
+    # define optimizer
+    if custom_schedule == "True":
+      learning_rate = CustomSchedule(d_model)
+    optimizer = tf.keras.optimizers.Adam(learning_rate,
+                                         beta_1=0.9,
+                                         beta_2=0.98,
+                                         epsilon=1e-9)
 
-  transformer = Transformer(num_layers=num_layers,
-                            d_model=d_model,
-                            num_heads=num_heads,
-                            dff=dff,
-                            target_vocab_size=target_vocab_size,
-                            maximum_position_encoding=maximum_position_encoding_baseline,
-                            data_type=data_type,
-                            rate=rate)
+    transformer = Transformer(num_layers=num_layers,
+                              d_model=d_model,
+                              num_heads=num_heads,
+                              dff=dff,
+                              target_vocab_size=target_vocab_size,
+                              maximum_position_encoding=maximum_position_encoding_baseline,
+                              data_type=data_type,
+                              rate=rate)
 
-  baseline_T_ckpt_path = os.path.join(checkpoint_T_path, "transformer_baseline_1")
-  baseline_T_ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
-  baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
-  num_epochs_baseline_T = restoring_checkpoint(ckpt_manager=baseline_T_ckpt_manager, ckpt=baseline_T_ckpt,
-                                               args_load_ckpt=args.load_ckpt, logger=logger)
+    transformer_w_dropout = Transformer(num_layers=num_layers,
+                              d_model=d_model,
+                              num_heads=num_heads,
+                              dff=dff,
+                              target_vocab_size=target_vocab_size,
+                              maximum_position_encoding=maximum_position_encoding_baseline,
+                              data_type=data_type,
+                              rate=dropout_rate)
 
+    # restore 2 transformers
+    baseline_T_ckpt_path = os.path.join(checkpoint_T_path, "transformer_baseline_1")
+    baseline_T_ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
+    baseline_T_dropout_ckpt = tf.train.Checkpoint(transformer=transformer_w_dropout, optimizer=optimizer)
+    baseline_T_ckpt_manager = tf.train.CheckpointManager(baseline_T_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
+    baseline_T_dropout_ckpt_manager = tf.train.CheckpointManager(baseline_T_dropout_ckpt, baseline_T_ckpt_path, max_to_keep=EPOCHS)
+    _ = restoring_checkpoint(ckpt_manager=baseline_T_ckpt_manager,
+                             ckpt=baseline_T_ckpt,
+                             args_load_ckpt=True,
+                             logger=logger)
+    _ = restoring_checkpoint(ckpt_manager=baseline_T_dropout_ckpt_manager,
+                             ckpt=baseline_T_dropout_ckpt,
+                             args_load_ckpt=True,
+                             logger=logger)
+    test_dataset_T = test_dataset[:,:-1,:] # (5000, 24, 3)
 
-  test_dataset_T = test_dataset[:,:-1,:] # (5000, 24, 3)
-  output_path_T = os.path.join(Baseline_T_path, 'Baseline_T_MC_Dropout_preds_inference.npy')
-  logger.info("starting MC Dropout inference on a trained Baseline Transformer...")
-  MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset_T,
-                                                              transformer=transformer,
-                                                              num_mc_samples=N_est,
-                                                              num_timesteps=num_timesteps,
-                                                              output_path=output_path_T)
+    logger.info("starting MC Dropout inference on a trained Baseline Transformer...")
+    MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset_T,
+                                                                transformer=transformer,
+                                                                transformer_w_dropout=transformer_w_dropout,
+                                                                num_mc_samples=N_est,
+                                                                num_timesteps=num_timesteps,
+                                                                output_path=Baseline_T_path)
 
   # ------------------------------------------------------- saving results on a csv file ---------------------------------------------------------------
 

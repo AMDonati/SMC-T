@@ -4,6 +4,7 @@ from models.Baselines.Transformer_without_enc import Transformer
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import numpy as np
 import scipy.stats
+import os
 
 import ot
 
@@ -16,7 +17,7 @@ from eval.Transformer_dropout import MC_Dropout_Transformer
 
 #TODO: create an inference function for the Baseline Transformer with a MC-Dropout algorithm.
 
-def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, num_mc_samples, num_timesteps, output_path):
+def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, transformer_w_dropout, num_mc_samples, num_timesteps, output_path):
   '''
   :param inputs: (B,S,F)
   :param transformer:
@@ -32,9 +33,9 @@ def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, num_mc_samples, num_
                                       training=True,
                                       mask=create_look_ahead_mask(s)) # predictions (B,s,1)
 
-
   last_pred = predictions [:,-1,:] # (B,1)
   #last_pred = tf.expand_dims(last_pred, axis=1)
+  list_true_preds = []
   for t in range(num_timesteps):
     obs_feat = inp_inference[:,t,1:]
     new_input = tf.concat([last_pred,obs_feat], axis=1) # (B,F)
@@ -42,7 +43,7 @@ def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, num_mc_samples, num_
     inp_model = tf.concat([inp_model, new_input], axis=1) # (B,s+1,F)
     seq_len = tf.shape(inp_model)[1]
     if t == num_timesteps - 1:
-      MC_Dropout_predictions = MC_Dropout_Transformer(transformer=transformer,
+      MC_Dropout_predictions = MC_Dropout_Transformer(transformer=transformer_w_dropout,
                                                       test_dataset=inp_model,
                                                       seq_len=seq_len,
                                                       num_samples=num_mc_samples,
@@ -50,18 +51,22 @@ def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, num_mc_samples, num_
                                                       stats=None,
                                                       output_path=None,
                                                       logger=None)  # (B,N,S,1)
-    else:
-      predictions, _ = transformer(inputs=inp_model,
+    predictions, _ = transformer(inputs=inp_model,
                                    training=True,
                                    mask=create_look_ahead_mask(seq_len))
-      last_pred = predictions[:,-1,:]
+    last_pred = predictions[:,-1,:]
+    list_true_preds.append(last_pred)
 
   # select only the inference part (number of timesteps):
   MC_Dropout_predictions = MC_Dropout_predictions[:,:,s:,:].numpy()
-  np.save(file=output_path, arr=MC_Dropout_predictions)
+  list_true_preds = [x.numpy() for x in list_true_preds]
 
-  return MC_Dropout_predictions
+  MC_preds_path = os.path.join(output_path, 'Baseline_T_MC_Dropout_preds_inference.npy')
+  list_true_preds_path = os.path.join(output_path, 'Baseline_T_true_preds.npy')
+  np.save(file=MC_preds_path, arr=MC_Dropout_predictions)
+  np.save(file=list_true_preds_path, arr=list_true_preds)
 
+  return MC_Dropout_predictions, list_true_preds
 
 
 def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
@@ -247,10 +252,10 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
     # ------------------------------- save arrays for plotting the predicted probability density function------------------------------------
     list_X_pred_NP = [tf.squeeze(x, axis=-2).numpy() for x in list_X_pred_NP]
     w_s = w_s.numpy()
-    gaussian_means_path = output_path + '/' + 'pred_gaussian_means_per_timestep.npy'
-    sampled_distrib_path = output_path + '/' + 'preds_sampled_per_timestep.npy'
-    sampling_weights_path = output_path + '/' + 'sampling_weights.npy'
-    all_preds_path = output_path + '/' + 'list_X_pred_NP.npy'
+    gaussian_means_path = output_path + '/' + 'pred_gaussian_means_per_timestep_P_{}.npy'.format(num_particles)
+    sampled_distrib_path = output_path + '/' + 'preds_sampled_per_timestep_P_{}.npy'.format(num_particles)
+    sampling_weights_path = output_path + '/' + 'sampling_weights_P_{}.npy'.format(num_particles)
+    all_preds_path = output_path + '/' + 'list_X_pred_NP_P_{}.npy'.format(num_particles)
 
     np.save(file=gaussian_means_path, arr=list_mean_NP)
     np.save(file=sampled_distrib_path, arr=list_preds_multistep)
@@ -446,8 +451,8 @@ if __name__ == "__main__":
   true_gaussian_means = np.load(output_path + '/' + 'true_gaussian_means.npy')
 
   #------ test of MC Dropout inference function -----------------------------------------------------
-  B=8
-  S=24
+  B = 8
+  S = 24
   num_feat = 3
   num_layers = 1
   d_model = 2
@@ -455,7 +460,7 @@ if __name__ == "__main__":
   num_heads = 1
   target_vocab_size = 1
   maximum_position_encoding_baseline = 50
-  rate = 0.1
+  rate = 0
   num_mc_samples = 25
 
   test_dataset = tf.random.uniform(shape=(B, S, num_feat))
@@ -473,9 +478,9 @@ if __name__ == "__main__":
   MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset,
                                                               transformer=transformer,
                                                               num_mc_samples=num_mc_samples,
-                                                              num_timesteps=4,
+                                                              dropout_rate=0.1,
+                                                              num_timesteps=1,
                                                               output_path=output_path_T)
-
 
   # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
   #KL_measure = tf.keras.losses.KLDivergence()
