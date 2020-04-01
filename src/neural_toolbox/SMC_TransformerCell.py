@@ -262,11 +262,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     x = tf.expand_dims(x, axis=2)
-    out1 = self.layernorm1(z + x) # r corresponds here to r^(l-1) (input of the cell).
-    ffn_output = self.ffn(out1)  # (B, P, 1, D)
-    ffn_output = self.dropout3(ffn_output, training=self.training)
-    r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
-
+    # out1 = self.layernorm1(z + x) # r corresponds here to r^(l-1) (input of the cell).
+    # ffn_output = self.ffn(out1)  # (B, P, 1, D)
+    ffn_output = self.ffn(z) #TODO: remove this line to come back to normal.
+    #ffn_output = self.dropout3(ffn_output, training=self.training)
+    r_ = self.dropout3(ffn_output, training=self.training) #TODO: comment this line to come back to normal with layernorm.
+    #r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
     # 3. FOR SMC: compute the new set of weights.
     predictions = self.output_layer(r_)  # (B,P,1,V)
 

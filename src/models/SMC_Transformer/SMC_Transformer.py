@@ -502,7 +502,8 @@ if __name__ == "__main__":
   omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'
-  C = F # vocabulary size or number of classes.
+  target_feature = 0
+  C = F if target_feature is None else 1
   noise_encoder = False
   noise_SMC_layer = True
   rate = 0.1
@@ -528,7 +529,7 @@ if __name__ == "__main__":
 
   ####---------test of Transformer class--------------------------------------------------------------------------------
 
-  target_feature = 0
+
   #target_feature = 0 if data_type == 'time_series_multi' else None
   maximum_position_encoding = None
 
@@ -540,16 +541,16 @@ if __name__ == "__main__":
     target_vocab_size = C,
     maximum_position_encoding = maximum_position_encoding,
     num_particles = num_particles,
-  seq_len = seq_len,
-  sigma = sigma,
-  omega = omega,
-  noise_encoder = noise_encoder,
-  noise_SMC_layer = noise_SMC_layer,
-  data_type = data_type,
-  task_type = task_type,
-  target_feature = target_feature,
-  rate = rate,
-  test = test)
+    seq_len = seq_len,
+    sigma = sigma,
+    omega = omega,
+    noise_encoder = noise_encoder,
+    noise_SMC_layer = noise_SMC_layer,
+    data_type = data_type,
+    task_type = task_type,
+    target_feature = target_feature,
+    rate = rate,
+    test = test)
 
 
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
@@ -589,8 +590,8 @@ if __name__ == "__main__":
 
   inference_dec_timestep = tf.shape(K)[2]
   num_samples = 2
-  preds, attn_params = sample_transformer.cell.inference_function(inputs=input,
-                                                                  K=K,
-                                                                  V=V,
-                                                                  num_samples=num_samples,
-                                                                  inference_decoding_timestep=inference_dec_timestep)
+  #preds, attn_params = sample_transformer.cell.inference_function(inputs=input,
+                                                                  #K=K,
+                                                                  #V=V,
+                                                                  #num_samples=num_samples,
+                                                                  #inf_timestep=inference_dec_timestep)

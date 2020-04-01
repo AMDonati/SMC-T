@@ -78,12 +78,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
     # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
     # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
     scaled_attention, attention_weights = scaled_dot_product_attention(q, k, v, mask)
-
     scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
-
     concat_attention = tf.reshape(scaled_attention,
                                   (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
-
     output = self.dense(concat_attention)  # (batch_size, seq_len_q, d_model)
 
     return output, attention_weights
@@ -116,11 +113,12 @@ class DecoderLayer(tf.keras.layers.Layer):
     # squeezing x if needed (needs to be of shape (B,S,D)
     if len(tf.shape(input))==4:
       input=tf.squeeze(input, axis=2)
-    out1 = self.layernorm1(attn1 + input) # (B,S,D)
-
-    ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
+   # out1 = self.layernorm1(attn1 + input) # (B,S,D)
+    #ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
+    ffn_output = self.ffn(attn1)  # (batch_size, target_seq_len, d_model) #TODO: remove this line to come back to normal.
     ffn_output = self.dropout3(ffn_output, training=training)
-    out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
+    #out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
+    out3 = ffn_output #TODO: remove this line to go back to normal.
 
     return out3, attn_weights
 
