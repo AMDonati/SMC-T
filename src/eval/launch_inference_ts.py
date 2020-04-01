@@ -55,7 +55,7 @@ if __name__ == "__main__":
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
-  parser.add_argument("-omega", default=0.2, type=float, help="value of the external covariance of the gaussian noise")
+  parser.add_argument("-omega", default=1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
 
   args=parser.parse_args()
@@ -138,7 +138,7 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [10,50,100,500]
+  list_p_inf = [50,100,500]
   N_est = args.N_est
   omega = args.omega
   dropout_rate = args.dropout_rate
@@ -149,8 +149,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], list_p_inf[3], N, N_est, sigma, omega)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_{}'
+  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], N, N_est, sigma, omega)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -208,8 +208,9 @@ if __name__ == "__main__":
   if inference_smc_T:
     for p_inf in list_p_inf:
       logger.info('inference results for number of particles: {}'.format(p_inf))
+      logger.info('initial std...: {}'.format(omega))
 
-      (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
+      (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                 smc_transformer=smc_transformer,
                                                                                                 N_prop=N,
                                                                                                 N_est=N_est,
@@ -217,8 +218,8 @@ if __name__ == "__main__":
                                                                                                 num_timesteps=num_timesteps,
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
-                                                                                                omega=omega,
                                                                                                 output_path=output_path)
+      logger.info('learned std: {}'.format(list_learned_std))
 
       list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                 matrix_A=A_3D,
