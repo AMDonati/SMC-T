@@ -16,7 +16,7 @@
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None",
-      "mc_dropout_samples": 5000
+      "mc_dropout_samples": 10
   },
 
   "smc": {
