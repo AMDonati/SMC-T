@@ -323,10 +323,10 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       print('z resampled', z[:,:,:,0])
 
     # get the normalized mean of z,k,q,v for the SMC loss.
-    mean_z = self.mha_smc.stddev # shape (B,P,1,D)
-    mean_k = self.mha_smc.mean_k
-    mean_v = self.mha_smc.mean_v
-    mean_q = self.mha_smc.mean_q
+    mean_z = self.mha_smc.noise_z_norm # shape (B,P,1,D)
+    mean_k = self.mha_smc.noise_k_norm
+    mean_v = self.mha_smc.noise_v_norm
+    mean_q = self.mha_smc.noise_q_norm
 
     list_means = [mean_z, mean_k, mean_v, mean_q]
 

@@ -107,6 +107,86 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
                       (tf.shape(scaled_attention)[0], tf.shape(scaled_attention)[1], -1,
                        self.d_model))  # (batch_size, NUM_PARTICLES, seq_len_q, d_model)
 
+  def compute_k_q_v_noise(self, mean_k, mean_q, mean_v):
+    total_depth = tf.shape(mean_k)[-1]
+
+    if self.noise:
+      gaussian_noise_k = tf.random.normal(shape=tf.shape(mean_k), name='gaussian_k') # (B,P,1,D)
+      gaussian_noise_q = tf.random.normal(shape=tf.shape(mean_q), name='gaussian_q')
+      gaussian_noise_v = tf.random.normal(shape=tf.shape(mean_v), name='gaussian_v')
+    else:
+      gaussian_noise_k = tf.zeros(shape=tf.shape(mean_k)) # (B,P,1,D)
+      gaussian_noise_q = tf.zeros(shape=tf.shape(mean_q))
+      gaussian_noise_v = tf.zeros(shape=tf.shape(mean_v))
+
+    if self.sigma_scalar == 'learned':
+      diag_k = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32, name='cov_diag_k') # (D,D)
+      diag_q = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32, name='cov_diag_q') # (D,D)
+      diag_v = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32,name='cov_diag_v')  # (D,D)
+      self.sigma_k = tf.matmul(diag_k, diag_k, transpose_b=True)  # (D, D)
+      self.sigma_q = tf.matmul(diag_q, diag_q, transpose_b=True)  # (D, D)
+      self.sigma_v = tf.matmul(diag_v, diag_v, transpose_b=True)  # (D, D)
+      noise_k = tf.tensordot(self.sigma_k, gaussian_noise_k, axes=[0,3])  # shape (D,B,P,1)
+      noise_q = tf.tensordot(self.sigma_q, gaussian_noise_q, axes=[0, 3])  # shape (D,B,P,1)
+      noise_v = tf.tensordot(self.sigma_v, gaussian_noise_v, axes=[0, 3])  # shape (D,B,P,1)
+      noise_k = tf.transpose(noise_k, perm=[1, 2, 3, 0])  # (B,P,1,D)
+      noise_v = tf.transpose(noise_v, perm=[1, 2, 3, 0])  # (B,P,1,D)
+      noise_q = tf.transpose(noise_q, perm=[1, 2, 3, 0])  # (B,P,1,D)
+    else:
+      noise_k = tf.scalar_mul(self.sigma_scalar, gaussian_noise_k) # (B,P,1,D)
+      noise_q = tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
+      noise_v = tf.scalar_mul(self.sigma_scalar, gaussian_noise_v)
+
+    k = mean_k + noise_k # (B,P,1,D)
+    q = mean_q + noise_q
+    v = mean_v + noise_v
+
+    # outputting the normalized noise of k,q,v to add it in the computation of the loss.
+    if self.sigma_scalar == 'learned':
+      sigma_inv_k, sigma_inv_q, sigma_inv_v = tf.linalg.inv(self.sigma_k), tf.linalg.inv(self.sigma_q), tf.linalg.inv(self.sigma_v)
+      self.noise_k_norm = tf.tensordot(sigma_inv_k, (k - mean_k), axes=[0, 3])  # shape (D,B,P,1)
+      self.noise_q_norm = tf.tensordot(sigma_inv_q, (q - mean_q), axes=[0, 3])  # shape (D,B,P,1)
+      self.noise_v_norm = tf.tensordot(sigma_inv_v, (v - mean_v), axes=[0, 3])  # shape (D,B,P,1)
+      self.noise_k_norm = tf.transpose(self.noise_k_norm, perm=[1, 2, 3, 0])  # (B,P,1,D)
+      self.noise_q_norm = tf.transpose(self.noise_q_norm, perm=[1, 2, 3, 0])  # (B,P,1,D)
+      self.noise_v_norm = tf.transpose(self.noise_v_norm, perm=[1, 2, 3, 0])  # (B,P,1,D)
+    else:
+      self.noise_k_norm = tf.scalar_mul(1/self.sigma_scalar, k - mean_k) # (B,P,1,D)
+      self.noise_q_norm = tf.scalar_mul(1/self.sigma_scalar, q - mean_q)
+      self.noise_v_norm = tf.scalar_mul(1/self.sigma_scalar, v - mean_v)
+
+    return k,q,v
+
+  def compute_z_noise(self, mean_z):
+    total_depth = tf.shape(mean_z)[-1]
+
+    # compute the $\epsilon$ of the reparametrized noise.
+    if self.noise:
+      gaussian_noise_z = tf.random.normal(shape=tf.shape(mean_z), name='gaussian_noise_z')  # shape (B,P,1,D)
+    else:
+      gaussian_noise_z = tf.zeros(shape=tf.shape(mean_z), dtype=tf.float32)  # (B,P,1,D)
+
+    # adding a Gaussian noise using the reparametrization trick.
+    if self.sigma_scalar == 'learned':
+      diag = tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32, name='cov_diag_z') # (D,D) initialize sigma as a 'positive' diagonal matrix as a start
+      self.sigma_z = tf.matmul(diag, diag, transpose_b=True)  # (D, D) imposing constraints on the form of the covariance matrix to have a semi-definite positive matrix
+      noise_z = tf.tensordot(self.sigma_z, gaussian_noise_z, axes=[0,3])  # shape (D,B,P,1) - tensordot multiplication for sigma and epsilon (fixed gaussian noise)
+      noise_z = tf.transpose(noise_z, perm=[1, 2, 3, 0])  # (B,P,1,D)
+    else:
+      noise_z = tf.scalar_mul(self.sigma_scalar, gaussian_noise_z)
+
+    mu = self.dense(mean_z)
+    z = mu + noise_z
+
+    if self.sigma_scalar == 'learned':
+      sigma_inv = tf.linalg.inv(self.sigma_z)
+      self.noise_z_norm = tf.tensordot(sigma_inv, (z - mu), axes=[0, 3])  # shape (D,B,P,1)
+      self.noise_z_norm = tf.transpose(self.noise_z_norm, perm=[1,2,3,0]) # (B,P,1,D)
+    else:
+      self.noise_z_norm = tf.scalar_mul(1/self.sigma_scalar, (z - mu))  # used in the computation of the loss.
+
+    return z
+
   def call(self, inputs, timestep, K=None, V=None, seed=123):
     '''
     -Args:
@@ -123,38 +203,17 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
     batch_size = tf.shape(v)[0]
 
     # > FOR SMC: q is only the query of the current word: shape (batch_size, num_particles, d_model)
-    k_= self.wk(k)  # (B,P,1,D)
-    v_ = self.wv(v)  # (B,P,1,D)
-    q_ = self.wq(q)  # (B,P,1,D)
+    mean_k = self.wk(k)  # (B,P,1,D)
+    mean_q = self.wq(q)  # (B,P,1,D)
+    mean_v = self.wv(v)  # (B,P,1,D)
 
-    if self.noise:
-
-      gaussian_noise_k = tf.random.normal(shape=tf.shape(k), name='gaussian_k')
-      gaussian_noise_q = tf.random.normal(shape=tf.shape(q), name='gaussian_q')
-      gaussian_noise_v = tf.random.normal(shape=tf.shape(v), name='gaussian_v')
-
-    else:
-
-      gaussian_noise_k = tf.zeros(shape=tf.shape(k))
-      gaussian_noise_q = tf.zeros(shape=tf.shape(q))
-      gaussian_noise_v = tf.zeros(shape=tf.shape(v))
-
-    noise_k = tf.scalar_mul(self.sigma_scalar, gaussian_noise_k)
-    noise_q = tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
-    noise_v = tf.scalar_mul(self.sigma_scalar, gaussian_noise_v)
-
-    k = k_ + noise_k
-    v = v_ + noise_v
-    q = q_ + noise_q
-
-    # outputting the normalized mean of k,q,v to add it in the computation of the loss.
-    self.mean_k = tf.scalar_mul(1/self.sigma_scalar, k - k_)
-    self.mean_v = tf.scalar_mul(1/self.sigma_scalar, v - v_)
-    self.mean_q = tf.scalar_mul(1/self.sigma_scalar, q - q_)
+    # add noise with reparametrization trick to k,q,v.
+    k,q,v = self.compute_k_q_v_noise(mean_k=mean_k, mean_q=mean_q, mean_v=mean_v)
+    #k,q,v=mean_k,mean_q,mean_v
 
     k = self.split_heads(k, batch_size)  # (B,P,H,1,D/H)
-    v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)
     q = self.split_heads(q, batch_size)  # (B,P,H,1,D/H)
+    v = self.split_heads(v, batch_size)  # (B,P,H,1,D/H)
 
     if K is not None:
       K = self.split_heads(K, batch_size)  # (B,P,H,S,D/H)
@@ -162,44 +221,15 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       V = self.split_heads(V, batch_size)  # (B,P,H,S,D/H)
 
     # compute self_attention for every head:
-    (z, K, V), attn_weights = self_attention_SMC(q, k, v, timestep, K, V) # z (B,P,H,1,D/H), (K,V): (B,P,H,S,D/H)
+    (mean_z, K, V), attn_weights = self_attention_SMC(q, k, v, timestep, K, V) # z (B,P,H,1,D/H), (K,V): (B,P,H,S,D/H)
 
     # concat attention, K, V over all the heads
-    z = self.concat_heads(z) # shape (B,P,1,D)
+    mean_z = self.concat_heads(mean_z) # shape (B,P,1,D)
     K = self.concat_heads(K) # shape (B,P,S,D)
     V = self.concat_heads(V) # shape (B,P,S,D)
 
-    # --------------------------------------------------Add the noise using the reparametrization trick------------------------------------------------------------------------------
-
-    total_depth = tf.shape(z)[-1]
-
-    # adding a Gaussian noise using the reparametrization trick.
-
-    #initialize sigma as a 'positive' diagonal matrix as a start
-    if self.sigma_scalar=='learned':
-      diag=tf.Variable(tf.linalg.diag(tf.random.uniform(shape=(total_depth,), dtype=tf.float32)), dtype=tf.float32)
-      self.sigma = tf.matmul(diag, diag, transpose_b=True)
-    else:
-      sigma_tensor=tf.constant(self.sigma_scalar, shape=(total_depth,), dtype=tf.float32)
-      self.sigma = tf.Variable(tf.linalg.diag(sigma_tensor), dtype=tf.float32)
-      self.sigma = tf.stop_gradient(self.sigma)
-
-    #compute the $\epsilon$ of the reparametrized noise.
-    if self.noise:
-      gaussian_noise = tf.random.normal(shape=tf.shape(z), seed=seed, name='gaussian_noise_z') # shape (B,P,1,D)
-    else:
-      gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
-
-    #TODO: remove the commented code below eventually (old way to do the reparam. trick but useless for a diagonal gaussian noise.)
-    # # tensordot multiplication for sigma and epsilon (fixed gaussian noise)
-    # stddev = tf.tensordot(self.sigma, gaussian_noise, axes=[0, 3]) # shape (D,B,1,D)
-    # # permuting dimensions to have a tensor of shape (B, P, 1, D)
-    # stddev = tf.transpose(stddev, perm=[1, 2, 3, 0])
-    stddev = tf.scalar_mul(self.sigma_scalar, gaussian_noise)
-
-    mu = self.dense(z)
-    z = mu + stddev
-    self.stddev = tf.scalar_mul(1/self.sigma_scalar, (z - mu)) # used in the computation of the loss.
+    # add a dense layer and noise (with reparametrization trick to mean_z
+    z = self.compute_z_noise(mean_z=mean_z)
 
     return (z, K, V), attn_weights # shapes: z (B,P,1,D), K (B,P,S,D), V (B,P,S,D)
 
@@ -211,7 +241,7 @@ if __name__ == "__main__":
   d_model = 512
   dec_timestep = 20
   sigma = 'learned'
-  noise = False
+  noise = True
 
   x = tf.ones(shape=(B, num_particles, num_heads, 1, int(d_model/num_heads)))
   K = tf.random.uniform(shape=(B, num_particles, num_heads, S, int(d_model/num_heads)))
