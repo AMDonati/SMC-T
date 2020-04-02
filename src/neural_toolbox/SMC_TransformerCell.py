@@ -151,7 +151,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
     return w
 
-  def inference_function(self, inputs, K, V, num_samples, t, inf_timestep):
+  def inference_function(self, inputs, K, V, num_samples, t, inf_timestep, layer_norm=True):
     '''
     :param inputs preprocessed: input data > shape (B,P,1,D) of t=0 of (B,P*N,1,D) if t > 0
     :param K: key matrix in self_attention > shape (B,P,S,D)
@@ -197,10 +197,16 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       inputs_N = tf.tile(inputs, multiples=[1,num_samples,1,1]) # (B,N*P,1,D)
     else:
       inputs_N = inputs
-    out1 = self.layernorm1(z + inputs_N) # (B, N*P, 1, D)
+    if layer_norm:
+      out1 = self.layernorm1(z + inputs_N) # (B, N*P, 1, D)
+    else:
+      out1 = z
     ffn_output = self.ffn(out1)  # (B, N*P, 1, D)
     ffn_output = self.dropout3(ffn_output, training=False) # (B, N, P, 1, D)
-    r_t_N_P = self.layernorm3(ffn_output + out1)  # (B, N*P, 1, D) # $r^{m,i}$
+    if layer_norm:
+      r_t_N_P = self.layernorm3(ffn_output + out1)  # (B, N*P, 1, D) # $r^{m,i}$
+    else:
+      r_t_N_P = ffn_output
     mean_pred_N_P = self.output_layer(r_t_N_P)
     X_pred_N_P = mean_pred_N_P + tf.random.normal(shape=tf.shape(mean_pred_N_P), stddev=self.omega)# (B,NP,1,F)
 
