@@ -323,14 +323,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       print('z resampled', z[:,:,:,0])
 
     # get the normalized mean of z,k,q,v for the SMC loss.
-    mean_z = self.mha_smc.noise_z_norm # shape (B,P,1,D)
-    mean_k = self.mha_smc.noise_k_norm
-    mean_v = self.mha_smc.noise_v_norm
-    mean_q = self.mha_smc.noise_q_norm
+    noise_z = self.mha_smc.noise_z_norm # shape (B,P,1,D)
+    noise_k = self.mha_smc.noise_k_norm
+    noise_v = self.mha_smc.noise_v_norm
+    noise_q = self.mha_smc.noise_q_norm
 
-    list_means = [mean_z, mean_k, mean_v, mean_q]
+    list_noise = [noise_z, noise_k, noise_v, noise_q]
 
-    output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, list_means, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
     if len(tf.shape(w_squeezed)) == 2:
       w = tf.expand_dims(w_squeezed, axis=-1)

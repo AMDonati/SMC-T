@@ -326,7 +326,7 @@ class SMC_Transformer(tf.keras.Model):
       # get epsilon for each layer for the Encoder
       list_epsilon = self.encoder.list_stddev
       # add the one from the last layer
-      list_epsilon.append(self.means_seq)
+      list_epsilon.append(self.noises_seq)
       # get the list of sigmas from the list of the Encoder's layer
       list_layers=self.encoder.dec_layers
       list_sigma = [l.mha1.sigma for l in list_layers]
@@ -341,9 +341,9 @@ class SMC_Transformer(tf.keras.Model):
     # one-layer case.
     elif self.num_layers == 1:
       #sigma=self.cell.mha_smc.sigma
-      list_means=self.means_seq
+      list_noises=self.noises_seq
 
-      SMC_loss_tensor = compute_SMC_ll_one_layer(list_means=list_means)
+      SMC_loss_tensor = compute_SMC_ll_one_layer(list_means=list_noises)
       # multiply by -1/2 to get the right formula.
       #TODO: refactor this: put the -1/2 in the compute_SMC_ll_one_layer.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
@@ -454,7 +454,7 @@ class SMC_Transformer(tf.keras.Model):
     avg_prediction = outputs[3]
     max_prediction = outputs[4] # (B,S,V)
 
-    list_means_0_T = outputs[5] # (B,S,P,D) > for computing the loss function.
+    list_noise_0_T = outputs[5] # (B,S,P,D) > for computing the loss function.
 
     K = new_states[0] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
@@ -471,9 +471,9 @@ class SMC_Transformer(tf.keras.Model):
     w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T = tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
 
-    list_means_0_T = [tf.transpose(mean, perm=[0,2,1,3]) for mean in list_means_0_T] # shape (B,P,S,D)
+    list_noise_0_T = [tf.transpose(noise, perm=[0,2,1,3]) for noise in list_noise_0_T] # shape (B,P,S,D)
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
-    self.means_seq = list_means_0_T
+    self.noises_seq = list_noise_0_T
 
     attn_weights_SMC_layer = outputs[6] # shape (B,S,P,H,S)
     attn_weights_SMC_layer = tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
