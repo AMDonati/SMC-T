@@ -146,7 +146,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
-def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, output_path, sample_pred=False, variance_learned_per_timestep=False):
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, output_path, sample_pred=False, layer_norm=True, variance_learned_per_timestep=False):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -251,7 +251,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
       obs_features_NP = tf.tile(obs_features_NP, multiples=[1,NP,1,1]) # (B,NP,1,F=2)
       X_pred_NP = tf.concat([X_pred_NP, obs_features_NP], axis=-1)
     X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
-    X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t)
+    X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t, layer_norm=layer_norm)
     list_X_pred_NP.append(X_pred_NP)
     list_r_NP.append(r_N_P)
 

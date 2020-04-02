@@ -269,7 +269,8 @@ class SMC_Transformer(tf.keras.Model):
     else:
       gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
     #TODO: check this with Sylvain.
-    z = z + tf.scalar_mul(self.sigma, gaussian_noise)
+    if self.sigma !='learned':
+      z = z + tf.scalar_mul(self.sigma, gaussian_noise)
 
     # initialize w0
     #TODO: add the FFN layers after z before taking the final layer. (not essential. It is as if r was initializing equal to V finally).
@@ -498,7 +499,7 @@ if __name__ == "__main__":
   num_heads = 1
   dff = 128
   maximum_position_encoding = seq_len
-  sigma = 0.1
+  sigma = 'learned'
   omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'

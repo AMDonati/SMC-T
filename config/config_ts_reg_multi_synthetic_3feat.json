@@ -22,15 +22,15 @@
   "smc": {
     "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "False",
-    "sigma" : 0.05,
+    "noise_SMC_layer": "True",
+    "sigma" : "learned",
     "omega" : 0.3
   },
 
   "optim": {
       "BATCH_SIZE": 2000,
       "learning_rate": 0.001,
-      "EPOCHS": 1,
+      "EPOCHS": 2,
       "custom_schedule": "True"
   },
 

@@ -40,8 +40,8 @@ if __name__ == "__main__":
   #---- parsing arguments --------------------------------------------------------------
 
   parser = argparse.ArgumentParser()
-  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
+  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_10_noise_True_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
   default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False'
@@ -55,7 +55,7 @@ if __name__ == "__main__":
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
-  parser.add_argument("-omega", default=1, type=float, help="value of the external covariance of the gaussian noise")
+  parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
 
   args=parser.parse_args()
@@ -138,7 +138,7 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [50,100,500]
+  list_p_inf = [5,10,20]
   N_est = args.N_est
   omega = args.omega
   dropout_rate = args.dropout_rate
@@ -218,7 +218,8 @@ if __name__ == "__main__":
                                                                                                 num_timesteps=num_timesteps,
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
-                                                                                                output_path=output_path)
+                                                                                                output_path=output_path,
+                                                                                                layer_norm=False)
       logger.info('learned std: {}'.format(list_learned_std))
 
       list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,

@@ -406,7 +406,6 @@ if __name__ == "__main__":
     #------------------- TRAINING ON THE DATASET - SMC_TRANSFORMER ----------------------------------------------------------------------------------------------------------------------
 
     if train_smc_transformer:
-
       logger.info('starting the training of the smc transformer...')
       logger.info("number of training samples: {}".format(training_samples))
       logger.info("steps per epoch: {}".format(steps_per_epochs))
