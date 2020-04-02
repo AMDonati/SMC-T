@@ -30,7 +30,7 @@
   "optim": {
       "BATCH_SIZE": 256,
       "learning_rate": 0.001,
-      "EPOCHS": 20,
+      "EPOCHS": 30,
       "custom_schedule": "True"
   },
 
