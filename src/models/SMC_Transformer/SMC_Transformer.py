@@ -146,7 +146,7 @@ class SMC_Transformer(tf.keras.Model):
 
   def __init__(self, num_layers, d_model, num_heads, dff,
                target_vocab_size, num_particles, seq_len, sigma, noise_encoder, noise_SMC_layer, data_type, task_type, rate, omega,
-               target_feature, maximum_position_encoding=None, resampling=True, test=False):
+               target_feature, maximum_position_encoding=None, resampling=True, layer_norm=True, test=False):
     super(SMC_Transformer, self).__init__()
 
     # add Encoder if num_layers > 1:
@@ -181,6 +181,7 @@ class SMC_Transformer(tf.keras.Model):
                                 omega=omega,
                                 task_type=task_type,
                                 resampling=resampling,
+                                layer_norm=layer_norm,
                                 rate=rate,
                                 target_feature=target_feature,
                                 test=test)  # put here the Transformer cell.
@@ -214,6 +215,8 @@ class SMC_Transformer(tf.keras.Model):
     self.noise_SMC_layer = noise_SMC_layer
     self.maximum_position_encoding = maximum_position_encoding
     self.target_feature = target_feature
+
+    self.layer_norm = layer_norm
 
     # to test the class SMC_Transformer.
     self.test = test
@@ -551,6 +554,7 @@ if __name__ == "__main__":
     task_type = task_type,
     target_feature = target_feature,
     rate = rate,
+    layer_norm=True,
     test = test)
 
 

@@ -20,7 +20,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
   def __init__(self, d_model, num_heads, dff, target_vocab_size,
               num_particles, seq_len,
-              num_layers, sigma, noise, task_type, rate, omega, target_feature, maximum_position_encoding=None, training=True, resampling=True, test=False,
+              num_layers, sigma, noise, task_type, rate, omega, target_feature, maximum_position_encoding=None, training=True, resampling=True, layer_norm=True, test=False,
       **kwargs):
     #TODO: remove default Value for omega and target feature.
     '''
@@ -66,6 +66,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     self.training = training
     self.resampling = resampling
+    self.layer_norm = True
 
     self.layer_num = num_layers
     self.task_type=task_type
@@ -268,12 +269,16 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # computing r from z:
     z = self.dropout1(z, training=self.training)
     x = tf.expand_dims(x, axis=2)
-    out1 = self.layernorm1(z + x) # r corresponds here to r^(l-1) (input of the cell).
+    if self.layer_norm:
+      out1 = self.layernorm1(z + x) # r corresponds here to r^(l-1) (input of the cell).
+    else:
+      out1 = z
     ffn_output = self.ffn(out1)  # (B, P, 1, D)
-    #ffn_output = self.ffn(z) #TODO: remove this line to come back to normal.
     ffn_output = self.dropout3(ffn_output, training=self.training)
-    #r_ = self.dropout3(ffn_output, training=self.training) #TODO: comment this line to come back to normal with layernorm.
-    r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
+    if self.layer_norm:
+      r_ = self.layernorm3(ffn_output + out1)  # (B, P, 1, D) # r_ corresponds to r^l.
+    else:
+      r_ = ffn_output
     # 3. FOR SMC: compute the new set of weights.
     predictions = self.output_layer(r_)  # (B,P,1,V)
 
