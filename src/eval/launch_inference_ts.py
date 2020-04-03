@@ -41,7 +41,7 @@ if __name__ == "__main__":
   #---- parsing arguments --------------------------------------------------------------
   #results_ws155_632020
   parser = argparse.ArgumentParser()
-  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
+  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020'
   exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
@@ -58,6 +58,7 @@ if __name__ == "__main__":
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
+  parser.add_argument("-layer_norm", default=False, type=bool, help="layer norm or no layerm in Transformer model.")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -140,10 +141,11 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [10,50,100]
+  list_p_inf = [10,50]
   N_est = args.N_est
   omega = args.omega
   dropout_rate = args.dropout_rate
+  layer_norm = args.layer_norm
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
@@ -151,8 +153,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_learned'
-  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], N, N_est, sigma)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}_N_{}_N-est_{}_sigma_{}_omega_learned'
+  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -186,6 +188,7 @@ if __name__ == "__main__":
                                     data_type=data_type,
                                     task_type=task_type,
                                     resampling=resampling,
+                                    layer_norm=layer_norm,
                                     target_feature=target_feature)
 
   # get checkpoint path for SMC_Transformer
@@ -211,6 +214,8 @@ if __name__ == "__main__":
     for p_inf in list_p_inf:
       logger.info('inference results for number of particles: {}'.format(p_inf))
       logger.info('initial std...: {}'.format(omega))
+      if not layer_norm:
+        logger.info("inference without layer norm...")
 
       (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                 smc_transformer=smc_transformer,
@@ -221,7 +226,7 @@ if __name__ == "__main__":
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
                                                                                                 output_path=output_path,
-                                                                                                layer_norm=True)
+                                                                                                layer_norm=layer_norm)
       logger.info('learned std: {}'.format(list_learned_std))
 
       list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
