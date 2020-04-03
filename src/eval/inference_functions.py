@@ -1,6 +1,7 @@
 import tensorflow as tf
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.Transformer_without_enc import Transformer
+from models.Baselines.LSTMs import build_LSTM_for_regression
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import numpy as np
 import scipy.stats
@@ -69,6 +70,63 @@ def inference_Baseline_T_MC_Dropout_1D(inputs, transformer, transformer_w_dropou
   return MC_Dropout_predictions, list_true_preds
 
 
+def MC_Dropout_LSTM(lstm_model, inp_model, mc_samples):
+  '''
+  :param LSTM_hparams: shape_input_1, shape_input_2, shape_ouput, num_units, dropout_rate
+  :param inp_model: array of shape (B,S,F)
+  :param mc_samples:
+  :return:
+  '''
+  list_predictions = []
+  for i in range(mc_samples):
+      predictions_test = lstm_model(inputs=inp_model) # (B,S,1)
+      list_predictions.append(predictions_test)
+  predictions_test_MC_Dropout = tf.stack(list_predictions, axis=1)  # shape (B, N, S, 1)
+
+  return predictions_test_MC_Dropout
+
+def inference_LSTM_MC_Dropout_1D(inputs, lstm_model, lstm_w_dropout, num_mc_samples, num_timesteps, output_path):
+  '''
+  :param inputs:
+  :param lstm_model:
+  :param lstm_w_dropout:
+  :param num_mc_samples:
+  :param num_timesteps:
+  :param output_path:
+  :return:
+  '''
+  s = tf.shape(inputs)[1] - num_timesteps
+  inp_model = inputs[:, :s, :]
+  inp_inference = inputs[:, s:, :]
+  # forward pass on the first s inputs:
+  predictions = lstm_model(inp_model) # predictions (B,s,1)
+
+  last_pred = predictions[:,-1,:] # (B,1)
+  #last_pred = tf.expand_dims(last_pred, axis=1)
+  list_true_preds = []
+  for t in range(num_timesteps):
+    obs_feat = inp_inference[:,t,1:]
+    new_input = tf.concat([last_pred,obs_feat], axis=1) # (B,F)
+    new_input = tf.expand_dims(new_input, axis=1)
+    inp_model = tf.concat([inp_model, new_input], axis=1) # (B,s+1,F)
+    if t == num_timesteps - 1:
+      MC_Dropout_predictions = MC_Dropout_LSTM(lstm_model=lstm_w_dropout, inp_model=inp_model, mc_samples=num_mc_samples)
+    predictions = lstm_model(inp_model)
+    last_pred = predictions[:,-1,:]
+    list_true_preds.append(last_pred)
+
+  # select only the inference part (number of timesteps):
+  MC_Dropout_predictions = MC_Dropout_predictions[:,:,s:,:].numpy()
+  list_true_preds = [x.numpy() for x in list_true_preds]
+
+  MC_preds_path = os.path.join(output_path, 'LSTM_MC_Dropout_preds_inference.npy')
+  list_true_preds_path = os.path.join(output_path, 'LSTM_true_preds.npy')
+  np.save(file=MC_preds_path, arr=MC_Dropout_predictions)
+  np.save(file=list_true_preds_path, arr=list_true_preds)
+
+  return MC_Dropout_predictions, list_true_preds
+
+
 def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
   '''
   :param inputs: shape (B,S,F)
@@ -112,7 +170,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   for t in range(num_timesteps):
     if tf.shape(X_pred_NP)[-1] == 1:
       #TODO: remove this if loop for the multi-dim case.
-      X_pred_NP = tf.tile(X_pred_NP, multiples = [1, 1, 1, num_init_features]) # mandatory for t >0 (last dim is 1 otherwise and issue pf shape
+      X_pred_NP = tf.tile(X_pred_NP, multiples=[1, 1, 1, num_init_features]) # mandatory for t >0 (last dim is 1 otherwise and issue pf shape
     X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
     X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t)
     list_X_pred_NP.append(X_pred_NP)
@@ -146,7 +204,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
-def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, output_path, sample_pred=False, layer_norm=True, variance_learned_per_timestep=False):
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, output_path, sample_pred=False, layer_norm=True, variance_learned_per_timestep=True):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -157,7 +215,6 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   :param sample_pred:
   :return:
   '''
-
   # ------ inference function -------------------------------------------------------------------------------------------------------------
 
   list_X_pred_NP, list_r_NP = [], []
@@ -185,46 +242,48 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   predictions, _, w_s, (K0_s, V0_s) = outputs
 
   # computing 'learned' omega:
-  true_labels = tf.expand_dims(true_labels, axis=1) # (B,1,s)
-  true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1]) # (B,P,s)
-  predictions= tf.squeeze(predictions, axis=-1)
-  square_diff = tf.square(predictions-true_labels) # (B,P,s)
-  w_s_reshaped = tf.expand_dims(w_s, axis=1) # (B,1,P)
-  learned_variance = tf.matmul(w_s_reshaped, square_diff) # (B,1,s)
-  learned_variance = tf.squeeze(learned_variance, axis=1) # (B,s)
-  learned_variance = tf.reduce_mean(learned_variance, axis=-1) # (B)
-  learned_variance = tf.reduce_mean(learned_variance, axis = 0) # scalar.
-  learned_std = tf.sqrt(learned_variance) # tf.random.normal and np.random.normal takes as input the std and not the variance.
-  list_learned_std = [learned_std.numpy()]
+  if variance_learned_per_timestep:
+    list_learned_std = []
+    for t in range(s-1): #TODO: or s?
+      current_input = inp_model[:,:t+2,:] # caution. here inp_model needs to be of seq length t+1.
+      current_label = true_labels[:, :t+1]
+      outputs_t, _, _ = smc_transformer(inputs=current_input,
+                                      training=False,
+                                      mask=create_look_ahead_mask(t+1))
+      predictions, _, w_t, _ = outputs_t
+      # computing 'learned' omega:
+      current_label = tf.expand_dims(current_label, axis=1)  # (B,1,t+1)
+      current_label = tf.tile(current_label, multiples=[1, num_particles, 1])  # (B,P,t+1)
+      predictions = tf.squeeze(predictions, axis=-1)
+      square_diff = tf.square(predictions - current_label)  # (B,P,t+1)
+      w_t_reshaped = tf.expand_dims(w_t, axis=1)  # (B,1,P)
+      learned_variance = tf.matmul(w_t_reshaped, square_diff)  # (B,1,s)
+      learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
+      learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
+      learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar.
+      learned_std = tf.sqrt(learned_variance)
+      smc_transformer.omega = learned_std
+      smc_transformer.cell.omega = learned_std
+      list_learned_std.append(learned_std.numpy())
+    omega = list_learned_std[-1]
+  else:
+    true_labels = tf.expand_dims(true_labels, axis=1)  # (B,1,s)
+    true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1])  # (B,P,s)
+    predictions = tf.squeeze(predictions, axis=-1)
+    square_diff = tf.square(predictions - true_labels)  # (B,P,s)
+    w_s_reshaped = tf.expand_dims(w_s, axis=1)  # (B,1,P)
+    learned_variance = tf.matmul(w_s_reshaped, square_diff)  # (B,1,s)
+    learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
+    learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
+    learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar.
+    learned_std = tf.sqrt(
+      learned_variance)  # tf.random.normal and np.random.normal takes as input the std and not the variance.
+    list_learned_std = [learned_std.numpy()]
+    # set omega as the learned variance
+    smc_transformer.omega = learned_std
+    smc_transformer.cell.omega = learned_std
+    omega = learned_std
 
-  # set omega as the learned variance
-  smc_transformer.omega = learned_std
-  smc_transformer.cell.omega = learned_std
-  omega = learned_std
-
-  # if variance_learned_per_timestep:
-  #   list_learned_std = []
-  #   for t in range(s-1): #TODO: or s?
-  #     current_input = inp_model[:,:t+1,:] # caution. here inp_model needs to be t+1.
-  #     current_label = true_labels[:, :t]
-  #     outputs_t, _, _ = smc_transformer(inputs=current_input,
-  #                                     training=False,
-  #                                     mask=create_look_ahead_mask(t+1))
-  #     predictions, _, w_t, _ = outputs_t
-  #     # computing 'learned' omega:
-  #     true_labels = tf.expand_dims(current_label, axis=1)  # (B,1,t+1)
-  #     true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1])  # (B,P,t+1)
-  #     predictions = tf.squeeze(predictions, axis=-1)
-  #     square_diff = tf.square(predictions - true_labels)  # (B,P,t+1)
-  #     w_t_reshaped = tf.expand_dims(w_t, axis=1)  # (B,1,P)
-  #     learned_variance = tf.matmul(w_t_reshaped, square_diff)  # (B,1,s)
-  #     learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
-  #     learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
-  #     learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar.
-  #     learned_std = tf.sqrt(learned_variance)
-  #     smc_transformer.omega = learned_std
-  #     smc_transformer.cell.omega = learned_std
-  #     list_learned_std.append(learned_std)
 
   # preprocessing initial input:
   input = inp_model[:, -1, :] # (B,1,F)
@@ -263,31 +322,22 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
       new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
       r = tf.reshape(r, shape=new_shape) # (B,-1,N,P,1,D)
       r = tf.squeeze(r, axis=1) # (B,N,P,1,D)
-      # select n* and p*:
-      p_ = tf.random.categorical(logits=w_s, num_samples=1)
-      uniform_logits = tf.constant([[1/N for _ in range(N)] for _ in range(tf.shape(r)[0])])
-      n_ = tf.random.categorical(logits=uniform_logits, num_samples=1)
-      r_=tf.gather(r, p_, axis=2, batch_dims=1)
-      r_=tf.gather(r_, n_, axis=1, batch_dims=1) # (B,1,1,1,D)
-      r_= tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
 
-    # list_pred_t = []
-    #   for _ in range(N_est):
-    #     #TODO: use here numpy.random.normal, instead of tf.random.normal.
-    #     mean_r_=smc_transformer.final_layer(r_) #TODO: transform this into a numpy_array to avoid the for loop.
-    #     X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
-    #     list_pred_t.append(X_pred)
-    #   tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
-    #   tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
-    #   list_preds_multistep.append(tensor_pred_t)
-    # tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
-
-      mean_r_ = smc_transformer.final_layer(r_) # (B,1,1)
-      mean_r_ = tf.squeeze(mean_r_, axis=-1)
-      mean_r_ = mean_r_.numpy() # (B,1)
-      batch_size = mean_r_.shape[0]
-      X_pred = np.random.normal(loc=mean_r_, scale=omega, size=(batch_size, N_est))
-      list_preds_multistep.append(X_pred)
+      list_pred_t = []
+      for _ in range(N_est):
+        # select n* and p*:
+        p_ = tf.random.categorical(logits=w_s, num_samples=1)
+        uniform_logits = tf.constant([[1/N for _ in range(N)] for _ in range(tf.shape(r)[0])])
+        n_ = tf.random.categorical(logits=uniform_logits, num_samples=1)
+        r_ = tf.gather(r, p_, axis=2, batch_dims=1)
+        r_ = tf.gather(r_, n_, axis=1, batch_dims=1) # (B,1,1,1,D)
+        r_ = tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
+        mean_r_ = smc_transformer.final_layer(r_)  # (B,1,1)
+        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F=1)
+        list_pred_t.append(X_pred)
+      tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1,F=1)
+      tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
+      list_preds_multistep.append(tensor_pred_t.numpy())
 
     # -------------------------------- computing mean for each N*P Gaussian distribution to plot the complete distribution -----------------
     # get the mean of the mix of gaussian distributions from r
@@ -401,7 +451,7 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
   list_preds_sampled = [x.numpy() for x in list_preds_sampled]
   list_mean_per_timestep = [m.numpy for m in list_mean_per_timestep]
 
-  #----- saving true empirical distrib and gaussian mean for plotting needs------------------------
+  #----- saving true empirical distrib and gaussian mean for plotting needs ------------------------
   true_distrib_path = output_path + '/' + 'true_empirical_distrib.npy'
   true_means_path = output_path + '/' + 'true_gaussian_means.npy'
   np.save(file=true_distrib_path, arr=list_preds_sampled)
@@ -475,7 +525,8 @@ if __name__ == "__main__":
                                                                                             num_timesteps=num_timesteps,
                                                                                             output_path=output_path,
                                                                                             sample_pred=True,
-                                                                                            sigma=0.1)
+                                                                                            sigma=0.1,
+                                                                                            variance_learned_per_timestep=False)
 
   print('number of timesteps predicted', len(list_preds_sampled))
   print('example of preds', list_preds_sampled[0])
@@ -490,11 +541,11 @@ if __name__ == "__main__":
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
 
   list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=inputs,
-                                                                                  matrix_A=A_3D,
-                                                                                  cov_matrix=cov_matrix_3D,
-                                                                                  N_est=N_est,
-                                                                                  num_timesteps=num_timesteps,
-                                                                                  output_path=output_path)
+                                                                            matrix_A=A_3D,
+                                                                            cov_matrix=cov_matrix_3D,
+                                                                            N_est=N_est,
+                                                                            num_timesteps=num_timesteps,
+                                                                            output_path=output_path)
 
 
   print('number of timesteps predicted - empirical distribution', len(list_preds_sampled))
@@ -525,15 +576,34 @@ if __name__ == "__main__":
                             maximum_position_encoding=maximum_position_encoding_baseline,
                             data_type=data_type,
                             rate=rate)
+  transformer_w_dropout = Transformer(num_layers=num_layers,
+                            d_model=d_model,
+                            num_heads=num_heads,
+                            dff=dff,
+                            target_vocab_size=target_vocab_size,
+                            maximum_position_encoding=maximum_position_encoding_baseline,
+                            data_type=data_type,
+                            rate=0.1)
 
-  output_path_T = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/temp' + '/' + 'Baseline_T_MC_Dropout_preds.npy'
+  output_path_T = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/temp'
 
-  MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset,
+  MC_Dropout_predictions, list_true_preds = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset,
                                                               transformer=transformer,
+                                                              transformer_w_dropout=transformer_w_dropout,
                                                               num_mc_samples=num_mc_samples,
-                                                              dropout_rate=0.1,
                                                               num_timesteps=1,
                                                               output_path=output_path_T)
+
+  # ------------ test of MC-DROPOUT LSTM predictions ----------------------------------------------------------------------------------
+
+  lstm = build_LSTM_for_regression(shape_input_1=S, shape_input_2=num_feat, shape_output=target_vocab_size, rnn_units=20, dropout_rate=0)
+  lstm_w_dropout = build_LSTM_for_regression(shape_input_1=S, shape_input_2=num_feat, shape_output=target_vocab_size, rnn_units=20, dropout_rate=0.1)
+  LSTM_MCDropout_predictions, list_LSTM_preds = inference_LSTM_MC_Dropout_1D(inputs=test_dataset,
+                                                                             lstm_model=lstm,
+                                                                             lstm_w_dropout=lstm_w_dropout,
+                                                                             num_mc_samples=num_mc_samples,
+                                                                             num_timesteps=4,
+                                                                             output_path=output_path_T)
 
   # ----------- computation of the KL divergence ----------------------------------------------------------------------------------------
   #KL_measure = tf.keras.losses.KLDivergence()

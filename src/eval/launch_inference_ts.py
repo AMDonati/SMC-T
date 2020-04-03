@@ -16,6 +16,7 @@ import numpy as np
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.Transformer_without_enc import Transformer
+from models.Baselines.LSTMs import build_LSTM_for_regression
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger
@@ -25,9 +26,9 @@ from train.loss_functions import CustomSchedule
 from eval.inference_functions import inference_function_multistep_1D
 from eval.inference_functions import generate_empirical_distribution_1D
 from eval.inference_functions import inference_Baseline_T_MC_Dropout_1D
+from eval.inference_functions import inference_LSTM_MC_Dropout_1D
 import statistics
 #import tensorflow_probability as tfp
-
 import ot
 from utils.KL_divergences_estimators import naive_estimator
 
@@ -38,13 +39,13 @@ import os
 if __name__ == "__main__":
 
   #---- parsing arguments --------------------------------------------------------------
-
+  #results_ws155_632020
   parser = argparse.ArgumentParser()
-  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_10_noise_True_sigma_0.05'
+  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
-  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str,
@@ -53,7 +54,7 @@ if __name__ == "__main__":
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
   #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
@@ -131,6 +132,7 @@ if __name__ == "__main__":
   # -------------- uploading the test dataset --------------------------------------------------------------------------------------------------------------------------
   test_dataset = np.load(test_data_path)
   seq_len = test_dataset.shape[1] - 1
+  num_features = test_dataset.shape[-1]
   # convert it into a tf.tensor
   test_dataset = tf.convert_to_tensor(test_dataset, dtype=tf.float32)
 
@@ -138,7 +140,7 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [5,10,20]
+  list_p_inf = [10,50,100]
   N_est = args.N_est
   omega = args.omega
   dropout_rate = args.dropout_rate
@@ -149,8 +151,8 @@ if __name__ == "__main__":
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_{}'
-  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], N, N_est, sigma, omega)
+  folder_template = 'num-timesteps_{}_p_inf_{}-{}-{}-_N_{}_N-est_{}_sigma_{}_omega_learned'
+  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], list_p_inf[2], N, N_est, sigma)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -202,8 +204,8 @@ if __name__ == "__main__":
   #list_num_samples = [500, 1000, 5000, 10000, 50000]
   cov_matrix_3D = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
-
   list_KL_exp = []
+
   inference_smc_T = True
   if inference_smc_T:
     for p_inf in list_p_inf:
@@ -219,7 +221,7 @@ if __name__ == "__main__":
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
                                                                                                 output_path=output_path,
-                                                                                                layer_norm=False)
+                                                                                                layer_norm=True)
       logger.info('learned std: {}'.format(list_learned_std))
 
       list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
@@ -257,6 +259,7 @@ if __name__ == "__main__":
   # --------------------------- inference function for MC Dropout Baseline Transformer -----------------------------------------------------------------------------
   # get the hparams:
   inference_mc_dropout = False
+
   if inference_mc_dropout:
     Baseline_T_path = args.baseline_T_path
     config_T_path = os.path.join(Baseline_T_path, 'config.json')
@@ -272,7 +275,6 @@ if __name__ == "__main__":
     rate = hparams_T["model"]["rate"]  # p_dropout
     max_pos_enc_bas_str = hparams_T["model"]["maximum_position_encoding_baseline"]
     maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
-
     # task params
     data_type = hparams_T["task"]["data_type"]
     task_type = hparams_T["task"]["task_type"]
@@ -329,6 +331,58 @@ if __name__ == "__main__":
                                                                 num_mc_samples=N_est,
                                                                 num_timesteps=num_timesteps,
                                                                 output_path=Baseline_T_path)
+
+    # ------------- MC Dropout on LSTM ------------------------------------------------------------------------------------------
+    LSTM_path = args.baseline_T_path
+    config_LSTM_path = os.path.join(LSTM_path, 'config.json')
+    checkpoint_LSTM_path = os.path.join(LSTM_path, "checkpoints")
+    with open(config_LSTM_path) as f:
+      hparams_LSTM = json.load(f)
+
+    # optim params
+    learning_rate = hparams_LSTM["optim"]["learning_rate"]
+    EPOCHS = hparams_LSTM["optim"]["EPOCHS"]
+    # adding RNN hyper-parameters
+    rnn_units = hparams_LSTM["RNN_hparams"]["rnn_units"]
+    rnn_dropout_rate = hparams_LSTM["RNN_hparams"]["rnn_dropout_rate"]
+    # data params
+    target_feature = hparams["data"]["target_feature"]
+    if target_feature == "None":
+      target_feature = None
+    target_vocab_size = 1 if target_feature is not None else num_features
+
+    optimizer = tf.keras.optimizers.Adam(learning_rate,
+                                         beta_1=0.9,
+                                         beta_2=0.98,
+                                         epsilon=1e-9)
+
+    lstm = build_LSTM_for_regression(shape_input_1=seq_len, shape_input_2=num_features, shape_output=target_vocab_size,
+                                     rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
+    lstm_w_dropout = build_LSTM_for_regression(shape_input_1=seq_len, shape_input_2=num_features,
+                                               shape_output=target_vocab_size,
+                                               rnn_units=20, dropout_rate=0.1)
+    # restore 2 LSTM
+    LSTM_ckpt_path = os.path.join(checkpoint_LSTM_path, "RNN_baseline_1")
+    LSTM_ckpt = tf.train.Checkpoint(model=lstm, optimizer=optimizer)
+    LSTM_dropout_ckpt = tf.train.Checkpoint(model=lstm_w_dropout, optimizer=optimizer)
+    LSTM_ckpt_manager = tf.train.CheckpointManager(LSTM_ckpt, LSTM_ckpt_path, max_to_keep=EPOCHS)
+    LSTM_dropout_ckpt_manager = tf.train.CheckpointManager(LSTM_dropout_ckpt, LSTM_ckpt_path, max_to_keep=EPOCHS)
+    _ = restoring_checkpoint(ckpt_manager=LSTM_ckpt_manager,
+                             ckpt=LSTM_ckpt,
+                             args_load_ckpt=True,
+                             logger=logger)
+    _ = restoring_checkpoint(ckpt_manager=LSTM_dropout_ckpt_manager,
+                             ckpt=LSTM_dropout_ckpt,
+                             args_load_ckpt=True,
+                             logger=logger)
+    test_dataset_LSTM = test_dataset[:, :-1, :]  # (5000, 24, 3)
+    logger.info("starting MC Dropout inference on a trained LSTM...")
+    LSTM_MC_Dropout_predictions, list_LSTM_preds = inference_LSTM_MC_Dropout_1D(inputs=test_dataset_LSTM,
+                                                                                lstm_model=lstm,
+                                                                                lstm_w_dropout=lstm_w_dropout,
+                                                                                num_mc_samples=N_est,
+                                                                                num_timesteps=num_timesteps,
+                                                                                output_path=LSTM_path)
 
   # ------------------------------------------------------- saving results on a csv file ---------------------------------------------------------------
 

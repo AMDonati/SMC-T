@@ -17,15 +17,38 @@ from utils.utils_train import saving_training_history
 from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
-def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, logger, num_train):
-  #TODO: add the building of the LSTM here.
+def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, checkpoint_path, args, logger, num_train):
+  # creating checkpoint manager
+  # ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
+  # LSTM_ckpt_path = os.path.join(checkpoint_path, "LSTM_{}".format(num_train))
+  # ckpt_manager = tf.train.CheckpointManager(ckpt, LSTM_ckpt_path, max_to_keep=EPOCHS)
+  # # if a checkpoint exists, restore the latest checkpoint.
+  # start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args_load_ckpt=args.load_ckpt, ckpt=ckpt, logger=logger)
+  # if start_epoch is None:
+  #   start_epoch = 0
+  # remaining_epochs = EPOCHS - start_epoch
+
+  LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_Baseline_{}".format(num_train))
+  LSTM_ckpt_path = LSTM_ckpt_path+'/'+'LSTM-{epoch}'
+
   start_epoch = 0
+  callbacks = [
+    tf.keras.callbacks.ModelCheckpoint(
+      filepath=LSTM_ckpt_path,
+      monitor='val_loss',
+      save_best_only=True,
+      save_weights_only=True,
+      verbose=0)
+  ]
   model.compile(optimizer=optimizer,
                 loss='mse')
+
+  # --- starting the training ... -----------------------------------------------
   start_training = time.time()
   rnn_history = model.fit(train_dataset_for_RNN,
                           epochs=EPOCHS,
                           validation_data=val_dataset_for_RNN,
+                          callbacks=callbacks,
                           verbose=2)
 
   train_loss_history_rnn = rnn_history.history['loss']
@@ -40,6 +63,8 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
                           csv_fname=csv_fname,
                           logger=logger,
                           start_epoch=start_epoch)
+  # save checkpoints:
+  #ckpt_manager.save()
 
   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
   logger.info('training of a RNN Baseline for a timeseries dataset done...')

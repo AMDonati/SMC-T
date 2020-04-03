@@ -79,11 +79,11 @@ if __name__ == "__main__":
   parser.add_argument("-data_folder", type=str, default='../../data/synthetic_dataset.npy', help="path for the data folder")
 
   #TODO: ask Florian why when removing default value, it is not working...
-  parser.add_argument("-train_baseline", type=bool, default=False, help="Training a Baseline Transformer?")
-  parser.add_argument("-train_smc_T", type=bool, default=True, help="Training the SMC Transformer?")
-  parser.add_argument("-train_rnn", type=bool, default=False, help="Training a Baseline RNN?")
+  parser.add_argument("-train_baseline", type=bool, default=True, help="Training a Baseline Transformer?")
+  parser.add_argument("-train_smc_T", type=bool, default=False, help="Training the SMC Transformer?")
+  parser.add_argument("-train_rnn", type=bool, default=True, help="Training a Baseline RNN?")
   parser.add_argument("-skip_training", type=bool, default=False, help="skip training and directly evaluate?")
-  parser.add_argument("-eval", type=bool, default=True, help="evaluate after training?")
+  parser.add_argument("-eval", type=bool, default=False, help="evaluate after training?")
 
   parser.add_argument("-load_ckpt", type=bool, default=True, help="loading and restoring existing checkpoints?")
   args = parser.parse_args()
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     hparams = json.load(f)
 
   # model params
-  num_layers = hparams["model"]["num_layers"]
+  num_layers = hparams["model"]["num_layers"]#
   num_heads = hparams["model"]["num_heads"]
   d_model = hparams["model"]["d_model"]
   dff = hparams["model"]["dff"]
@@ -179,12 +179,12 @@ if __name__ == "__main__":
                                                               VAL_SPLIT=VAL_SPLIT,
                                                               VAL_SPLIT_cv=VAL_SPLIT_cv,
                                                               cv=cv)
-    val_data_path = 'data/val_data_synthetic_3_feat.npy'
-    train_data_path = 'data/train_data_synthetic_3_feat.npy'
-    test_data_path = 'data/test_data_synthetic_3_feat.npy'
-    #val_data_path = '../../data/val_data_synthetic_3_feat.npy'
-    #train_data_path = '../../data/train_data_synthetic_3_feat.npy'
-    #test_data_path = '../../data/test_data_synthetic_3_feat.npy'
+    #val_data_path = 'data/val_data_synthetic_3_feat.npy'
+    #train_data_path = 'data/train_data_synthetic_3_feat.npy'
+    #test_data_path = 'data/test_data_synthetic_3_feat.npy'
+    val_data_path = '../../data/val_data_synthetic_3_feat.npy'
+    train_data_path = '../../data/train_data_synthetic_3_feat.npy'
+    test_data_path = '../../data/test_data_synthetic_3_feat.npy'
     np.save(val_data_path, val_data)
     np.save(train_data_path, train_data)
     np.save(test_data_path, test_data)
@@ -239,10 +239,13 @@ if __name__ == "__main__":
   print("steps per epochs", steps_per_epochs)
 
   # -------define hyperparameters----------------------------------------------------------------------------------------------------------------
-
+  optimizer_LSTM = tf.keras.optimizers.Adam(learning_rate,
+                                       beta_1=0.9,
+                                       beta_2=0.98,
+                                       epsilon=1e-9)
   if custom_schedule == "True":
     print("learning rate with custom schedule...")
-    learning_rate=CustomSchedule(d_model)
+    learning_rate = CustomSchedule(d_model)
 
   optimizer = tf.keras.optimizers.Adam(learning_rate,
                                        beta_1=0.9,
@@ -291,34 +294,40 @@ if __name__ == "__main__":
     os.makedirs(checkpoint_path)
 
   #-------------------- Building the RNN Baseline & the associated training algo --------------------------------------------------------------------------
-
-  model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
+  model = build_LSTM_for_regression(shape_input_1=seq_len,
+                                    shape_input_2=num_features,
+                                    shape_output=target_vocab_size,
+                                    rnn_units=rnn_units,
+                                    dropout_rate=rnn_dropout_rate,
+                                    training=True)
+  #model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
 
   # Directory where the checkpoints will be saved
-  checkpoint_dir = os.path.join(checkpoint_path, "RNN_baseline")
-  if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
-  # Name of the checkpoint files
-  checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
-  checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
-                                                           save_weights_only=True)
+  # LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_baseline")
+  # if not os.path.exists(LSTM_ckpt_path):
+  #   os.makedirs(LSTM_ckpt_path)
+  # # Name of the checkpoint files
+  # checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+  # checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
+  #                                                          save_weights_only=True)
 
   #---------------------- TRAINING OF A SIMPLE RNN BASELINE -------------------------------------------------------------------------------------------------------
   if args.skip_training:
     logger.info("skipping training...")
   else:
     if args.train_rnn:
-      #TODO: add the checkpoints for the training of the LSTM.
       if not cv:
         for (inp, _) in train_dataset_for_RNN.take(1):
           pred_temp = model(inp)
         print('LSTM summary', model.summary())
 
         train_LSTM(model=model,
-                 optimizer=optimizer,
+                 optimizer=optimizer_LSTM,
                  EPOCHS=EPOCHS,
                  train_dataset_for_RNN=train_dataset_for_RNN,
                  val_dataset_for_RNN=val_dataset_for_RNN,
+                 checkpoint_path=checkpoint_path,
+                 args=args,
                  output_path=output_path,
                  logger=logger,
                  num_train=1)
@@ -335,6 +344,8 @@ if __name__ == "__main__":
                    EPOCHS=EPOCHS,
                    train_dataset_for_RNN=train_dataset_for_RNN,
                    val_dataset_for_RNN=val_dataset_for_RNN,
+                   checkpoint_path=LSTM_ckpt_path,
+                   args=args,
                    output_path=output_path,
                    logger=logger,
                    num_train=train_num+1)
@@ -363,7 +374,6 @@ if __name__ == "__main__":
     # -------------------------------------------TRAIN ON THE DATASET - CLASSIC TRANSFORMER -------------------------------------------
 
     if train_classic_transformer:
-
       logger.info("training the baseline Transformer on a time-series dataset...")
       logger.info("number of training samples: {}".format(training_samples))
       logger.info("steps per epoch:{}".format(steps_per_epochs))
