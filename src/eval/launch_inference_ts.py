@@ -52,9 +52,9 @@ if __name__ == "__main__":
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[10,20,50], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[12], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=10, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   output_path = os.path.join(output_path, 'inference_results')
   folder_template = 'num-timesteps_{}_N_{}_N-est_{}_sigma_{}_omega_learned'
-  out_folder = folder_template.format(num_timesteps, list_p_inf[0],list_p_inf[1], N, N_est, sigma)
+  out_folder = folder_template.format(num_timesteps, N, N_est, sigma)
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------

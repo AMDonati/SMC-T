@@ -4,7 +4,6 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 from train.train_step_functions import train_step_classic_T
 from train.train_step_functions import train_step_SMC_T
-
 from train.loss_functions import loss_function_regression
 
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
