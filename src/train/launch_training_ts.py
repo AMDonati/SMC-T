@@ -1,9 +1,4 @@
-#TODO: debug the case when the number of epochs is the same. (training is done...)
-# basic logging tutorial: https://docs.python.org/3/howto/logging.html#logging-basic-tutorial
-
 #TODO - to improve the transformer performance - label smoothing and change order of layers.dense / layers.norm.
-
-#TODO: add on the config file for the reegression case, an additional hparams for omega (covariance of the gaussian noise.).
 
 """# to store:
 # in a fichier .log: for each epoch, the average loss (train & val dataset),
@@ -26,7 +21,6 @@ ALL INPUTS CAN BE OF SHAPE (B,S,F) (F=1 for NLP / univariate time_series case, F
 """
 
 import tensorflow as tf
-from models.Baselines.Transformer_without_enc import Transformer
 
 from train.loss_functions import CustomSchedule
 from train.train_functions import train_baseline_transformer
@@ -104,6 +98,8 @@ if __name__ == "__main__":
   maximum_position_encoding_baseline = None if max_pos_enc_bas_str == "None" else max_pos_enc_bas_str
   max_pos_enc_smc_str = hparams["model"]["maximum_position_encoding_smc"]
   maximum_position_encoding_smc = None if max_pos_enc_smc_str == "None" else max_pos_enc_smc_str
+  layer_norm = hparams["model"]["layer_norm"]
+  layer_norm = True if layer_norm == "True" else False
   mc_dropout_samples = hparams["model"]["mc_dropout_samples"]
 
   # task params
@@ -154,8 +150,6 @@ if __name__ == "__main__":
     index_name = hparams["data"]["index_name"]
 
   test_loss = False
-
-  #TODO: add target_vocab_size & num_features
 
   #------------------ UPLOAD the training dataset ----------------------------------------------------------------------------------------------------------------------
 
@@ -537,76 +531,6 @@ if __name__ == "__main__":
                                stats=stats,
                                output_path=output_path,
                                logger=logger)
-
-    ##-----------------old code scripts --------------------------------------------------------------------------------------------------------------
-
-      # TEST THE LOSS ON A BATCH
-      #TODO: adapt this for our case.
-      # for input_example_batch, target_example_batch in dataset.take(1):
-      #   example_batch_predictions = model(input_example_batch)
-      #   print(example_batch_predictions.shape, "# (batch_size, sequence_length, vocab_size)")
-      # example_batch_loss = loss(target_example_batch, example_batch_predictions)
-      # print("Prediction shape: ", example_batch_predictions.shape, " # (batch_size, sequence_length, vocab_size)")
-      # print("scalar_loss:      ", example_batch_loss.numpy().mean())
-
-      # if args.train_rnn:
-      #   logger.info("training a RNN Baseline on the nlp dataset...")
-      #   logger.info("number of training samples: {}".format(training_samples))
-      #   logger.info("steps per epoch:{}".format(steps_per_epochs))
-      #
-      #   start_training = time.time()
-      #
-      #   for epoch in range(EPOCHS):
-      #     start = time.time()
-      #     train_accuracy.reset_states()
-      #     val_accuracy.reset_states()
-      #     # initializing the hidden state at the start of every epoch
-      #     # initally hidden is None
-      #     hidden = model.reset_states()
-      #
-      #
-      #     for (inp, target) in train_dataset:
-      #         if task_type == 'classification':
-      #         # CAUTION: in a tf.keras.layers.LSTM, the input tensor needs to be of shape 3 (B,S,Features).
-      #           loss, train_acc_batch = train_step_rnn_classif(inp,
-      #                                                        target,
-      #                                                        model=model,
-      #                                                        optimizer=optimizer,
-      #                                                        accuracy_metric=train_accuracy)
-      #         elif task_type == 'regression':
-      #           predictions=model(inp)
-      #           loss = train_step_rnn_regression(inp=inp,
-      #                                        target=target,
-      #                                        model=model,
-      #                                        optimizer=optimizer)
-      #
-      #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
-      #
-      #     # computing train and val acc for the current epoch:
-      #
-      #     for (inp_val, tar_val) in val_dataset:
-      #       # inp_val needs to be of shape (B,S,F) : length=3
-      #       inp_val = tf.expand_dims(inp_val, axis=-1)
-      #       predictions_val = model(inp_val)
-      #       # computing the validation accuracy for each batch...
-      #       if task_type == 'classification':
-      #         val_accuracy_batch = val_accuracy(tar_val, predictions_val)
-      #
-      #     if task_type == 'classification':
-      #       train_acc = train_accuracy.result()
-      #       val_acc=val_accuracy.result()
-      #     elif task_type == 'regression':
-      #       train_acc = 0
-      #       val_acc = 0
-      #
-      #     logger.info('Epoch {} - Loss {} - train acc {} - val acc {}'.format(epoch + 1, loss, train_acc, val_acc))
-      #     logger.info('Time taken for 1 epoch {} sec\n'.format(time.time() - start))
-      #
-      #     model.save_weights(checkpoint_prefix.format(epoch=epoch))
-      #
-      #   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
-      #   logger.info('training of a RNN Baseline (GRU) for a nlp dataset done...')
-      #   logger.info(">>>--------------------------------------------------------------------------------------------------------------------------------------------------------------<<<")
 
 
 

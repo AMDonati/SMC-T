@@ -52,7 +52,7 @@ if __name__ == "__main__":
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  #parser.add_argument("-p_inf", default=15, type=int, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[10,20,50], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   parser.add_argument("-N_est", default=5000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
@@ -141,7 +141,7 @@ if __name__ == "__main__":
   num_timesteps = args.num_timesteps
   N = args.N
   sigma = args.sigma
-  list_p_inf = [10,50]
+  list_p_inf = args.p_inf
   N_est = args.N_est
   omega = args.omega
   dropout_rate = args.dropout_rate
@@ -204,7 +204,6 @@ if __name__ == "__main__":
 
   # ------------------------------------- compute latest statistics as a check -----------------------------------------------------------------------------------------
   # ------------------------------------- compute inference timesteps --------------------------------------------------------------------------------------------------
-  #list_num_samples = [500, 1000, 5000, 10000, 50000]
   cov_matrix_3D = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
   list_KL_exp = []

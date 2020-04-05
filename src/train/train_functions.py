@@ -18,15 +18,6 @@ from utils.utils_train import saving_model_outputs
 from utils.utils_train import restoring_checkpoint
 
 def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_RNN, output_path, checkpoint_path, args, logger, num_train):
-  # creating checkpoint manager
-  # ckpt = tf.train.Checkpoint(model=model, optimizer=optimizer)
-  # LSTM_ckpt_path = os.path.join(checkpoint_path, "LSTM_{}".format(num_train))
-  # ckpt_manager = tf.train.CheckpointManager(ckpt, LSTM_ckpt_path, max_to_keep=EPOCHS)
-  # # if a checkpoint exists, restore the latest checkpoint.
-  # start_epoch = restoring_checkpoint(ckpt_manager=ckpt_manager, args_load_ckpt=args.load_ckpt, ckpt=ckpt, logger=logger)
-  # if start_epoch is None:
-  #   start_epoch = 0
-  # remaining_epochs = EPOCHS - start_epoch
 
   LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_Baseline_{}".format(num_train))
   LSTM_ckpt_path = LSTM_ckpt_path+'/'+'LSTM-{epoch}'
@@ -63,8 +54,6 @@ def train_LSTM(model, optimizer, EPOCHS, train_dataset_for_RNN, val_dataset_for_
                           csv_fname=csv_fname,
                           logger=logger,
                           start_epoch=start_epoch)
-  # save checkpoints:
-  #ckpt_manager.save()
 
   logger.info('Training time for {} epochs: {}'.format(EPOCHS, time.time() - start_training))
   logger.info('training of a RNN Baseline for a timeseries dataset done...')
@@ -77,8 +66,6 @@ def train_baseline_transformer(hparams, optimizer, seq_len, target_vocab_size, t
   # storing the losses & accuracy in a list for each epoch
   average_losses_baseline = []
   val_losses_baseline = []
-  # training_accuracies_baseline = []
-  # val_accuracies_baseline = []
 
   # getting the hyperparameters.
   num_layers = hparams["model"]["num_layers"]
@@ -238,6 +225,8 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   rate = hparams["model"]["rate"]
   max_pos_enc_smc_str = hparams["model"]["maximum_position_encoding_smc"]
   maximum_position_encoding_smc = None if max_pos_enc_smc_str == "None" else max_pos_enc_smc_str
+  layer_norm = hparams["model"]["layer_norm"]
+  layer_norm = True if layer_norm == "True" else False
   num_particles = hparams["smc"]["num_particles"]
   noise_encoder_str = hparams["smc"]["noise_encoder"]
   noise_encoder = True if noise_encoder_str == "True" else False
@@ -267,6 +256,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
                                     data_type=data_type,
                                     task_type=task_type,
                                     resampling=resampling,
+                                    layer_norm=layer_norm,
                                     target_feature=target_feature,
                                     rate=rate)
 
@@ -296,6 +286,9 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
       start_epoch = 0
     else:
       logger.info("starting training after checkpoint restoring from epoch {}".format(start_epoch))
+
+  if not layer_norm:
+    logger.info("Training a SMC Transformer without layer norm...")
 
   start_training = time.time()
 
