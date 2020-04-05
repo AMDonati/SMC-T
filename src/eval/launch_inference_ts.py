@@ -52,7 +52,7 @@ if __name__ == "__main__":
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[12], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[100], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
   parser.add_argument("-N_est", default=10, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
