@@ -6,11 +6,12 @@ from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 import numpy as np
 import scipy.stats
 import os
-
 import ot
+import tensorflow_probability as tfp
 
 from utils.KL_divergences_estimators import naive_estimator
 from eval.Transformer_dropout import MC_Dropout_Transformer
+
 
 #import scipy.stats.wasserstein_distance as wass_distance
 #import scipy.stats.entropy as KL_distance
@@ -166,7 +167,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s,F)
   diff = true_labels - predictions  # (B,P,s,F)
   diff = tf.expand_dims(diff, axis=-2)  # (B,P,s,1,F)
-  matmul = tf.matmul(diff, diff, transpose_a=True)  # (B,P,s,F,F)
+  matmul = tf.matmul(diff, diff, transpose_a=True)  # (B,P,s,F,F) #TODO: check this formula on a simple example.
   w_s_reshaped = tf.reshape(w_s, shape=(tf.shape(w_s)[0], tf.shape(w_s)[1], 1, 1, 1))
   covariance_matrix = tf.reduce_sum(w_s_reshaped * matmul, axis=1)  # (B,s,F,F)
   covariance_matrix = tf.reduce_mean(covariance_matrix, axis=1)  # (B,F,F)
@@ -175,9 +176,8 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   learned_std_multivariate = tf.sqrt(variance_part)
 
   # set omega as the learned variance
-  smc_transformer.omega = learned_std_multivariate
-  smc_transformer.cell.omega = learned_std_multivariate
-  omega = learned_std_multivariate
+  smc_transformer.omega = covariance_matrix
+  smc_transformer.cell.omega = covariance_matrix
 
   # preprocessing initial input:
   input = inputs[:, -1, :] # (B,1,F)
@@ -220,18 +220,20 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
         r_ = tf.gather(r_, n_, axis=1, batch_dims=1)  # (B,1,1,1,D)
         r_ = tf.squeeze(tf.squeeze(r_, axis=1), axis=1)  # (B,1,D)
         mean_r_ = smc_transformer.final_layer(r_)  # (B,1,F)
-        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=omega)  # (B,1,F)
+        mean_r_ = tf.squeeze(mean_r_) # (B,F)
+        distrib = tfp.distributions.MultivariateNormalFullCovariance(loc=mean_r_, covariance_matrix=covariance_matrix)
+        X_pred = distrib.sample(sample_shape=()) # (B,F)
+
+        #X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=omega)  # (B,1,F)
         list_pred_t.append(X_pred)
-      tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1,F)
-      tensor_pred_t = tf.squeeze(tensor_pred_t, axis=-2)  # (B, N_est, F)
+      tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B, N_est,F)
       list_preds_multistep.append(tensor_pred_t.numpy())
 
     # -------------------------------- computing mean for each N*P Gaussian distribution to plot the complete distribution -----------------
     # get the mean of the mix of gaussian distributions from r
     list_mean_NP = [smc_transformer.final_layer(r_NP) for r_NP in list_r_NP]
     list_mean_NP = [mean.numpy() for mean in list_mean_NP]  # transform list_mean_NP in a numpy array
-    list_mean_NP = [m.reshape(m.shape[0], N, num_particles, m.shape[-1]) for m in
-                    list_mean_NP]  # reshape (B,NP,1,1) to (B,N,P,F)
+    list_mean_NP = [m.reshape(m.shape[0], N, num_particles, m.shape[-1]) for m in list_mean_NP]  # reshape (B,NP,1,1) to (B,N,P,F)
 
     # ------------------------------- save arrays for plotting the predicted probability density function------------------------------------
     list_X_pred_NP = [tf.squeeze(x, axis=-2).numpy() for x in list_X_pred_NP]
@@ -555,11 +557,20 @@ if __name__ == "__main__":
   temp = tf.matmul(w, diff) # (B,P,F,F)
 
   # ------------------------------- test for multi-dim case -------------------------------------------------------------------
-  temp_input = tf.random.uniform(shape=(8,10,20,1,3))
-  matmul = tf.matmul(temp_input, temp_input, transpose_a=True) # (8,10,20,3,3)
+  temp_input = tf.constant([[-4, 1], [-20, 0], [10,-1]], shape=(1,1,3,2)) # (S,F)
+  temp_input = tf.tile(temp_input, [2,5,1,1])
+  temp_input = tf.expand_dims(temp_input, axis=-2) # (B,P,S,1,F)
+  #temp_input = tf.random.uniform(shape=(8,10,20,1,3))
+  matmul = tf.matmul(temp_input, temp_input, transpose_a=True) # (2,5,3,2,2)
   w = tf.ones(shape=(8,10,1,1,1))
   mult = w * matmul
 
+  # ---------------------------- test of numpy.random.normal - multivariate case -----------------------------------------------
+  temp_mean = tf.random.uniform(shape=(8,3))
+  temp_scale = tf.constant([[0.2, 0.01, 0.08], [0, 0.3, 0.05], [0.01, 0.02, 0.4]], dtype=tf.float32)
+  #temp_scale = tf.linalg.diag_part(temp_scale)
+  output = tfp.distributions.MultivariateNormalFullCovariance(loc=temp_mean, covariance_matrix=temp_scale)
+  samples_temp = output.sample(sample_shape=(25,))
 
   # ---------------------- test of multi-step inference function - multivariate case----------------------------------------------------------------------
   num_samples = 5

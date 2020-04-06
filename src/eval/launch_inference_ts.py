@@ -54,9 +54,9 @@ if __name__ == "__main__":
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[10,50,100,250], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[10], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=500, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
@@ -236,6 +236,7 @@ if __name__ == "__main__":
           output_path=output_path,
           layer_norm=layer_norm)
         logger.info('learned std: {}'.format(learned_std))
+        logger.info('covariance matrix: {}'.format(covariance_matrix))
 
         list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
                                                                                   matrix_A=A_3D,

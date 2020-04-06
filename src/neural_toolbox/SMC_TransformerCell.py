@@ -1,5 +1,6 @@
 import tensorflow as tf
 import collections
+import tensorflow_probability as tfp
 
 # additional imports
 from models.SMC_Transformer.self_attention_SMC import MultiHeadAttention_SMC
@@ -208,8 +209,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       r_t_N_P = self.layernorm3(ffn_output + out1)  # (B, N*P, 1, D) # $r^{m,i}$
     else:
       r_t_N_P = ffn_output
-    mean_pred_N_P = self.output_layer(r_t_N_P)
-    X_pred_N_P = mean_pred_N_P + tf.random.normal(shape=tf.shape(mean_pred_N_P), stddev=self.omega)# (B,NP,1,F)
+    mean_pred_N_P = self.output_layer(r_t_N_P) # (B,NP,1,F)
+    if self.target_feature is not None:
+      X_pred_N_P = mean_pred_N_P + tf.random.normal(shape=tf.shape(mean_pred_N_P), stddev=self.omega)# (B,NP,1,F)
+    else:
+      distrib_N_P = tfp.distributions.MultivariateNormalFullCovariance(loc=mean_pred_N_P, covariance_matrix=self.omega)
+      X_pred_N_P = distrib_N_P.sample(sample_shape=()) # (B,NP,1,F)
 
     return X_pred_N_P, r_t_N_P, (sampled_K, sampled_V)
 
