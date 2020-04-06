@@ -240,11 +240,13 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
     sampled_distrib_path = output_path + '/' + 'preds_sampled_per_timestep_P_{}.npy'.format(num_particles)
     sampling_weights_path = output_path + '/' + 'sampling_weights_P_{}.npy'.format(num_particles)
     all_preds_path = output_path + '/' + 'list_X_pred_NP_P_{}.npy'.format(num_particles)
+    covariance_matrix_path = output_path + '/' + 'covariance_matrix_P_{}.npy'.format(num_particles)
 
     np.save(file=gaussian_means_path, arr=list_mean_NP)
     np.save(file=sampled_distrib_path, arr=list_preds_multistep)
     np.save(file=sampling_weights_path, arr=w_s)
     np.save(file=all_preds_path, arr=list_X_pred_NP)
+    np.save(file=covariance_matrix_path, arr=covariance_matrix)
 
   return (list_r_NP, list_X_pred_NP), list_preds_multistep, w_s, (learned_std_multivariate, covariance_matrix)
 
