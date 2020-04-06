@@ -42,15 +42,15 @@ if __name__ == "__main__":
 
   shape_input_1 = tf.shape(train_data)[1].numpy()
   shape_input_2 = tf.shape(train_data)[-1].numpy()
-  shape_output = 1
+  shape_output = 3
   rnn_units = 20
   dropout_rate = 0.1
   model = build_LSTM_for_regression(shape_input_1=shape_input_1,
                                     shape_input_2=shape_input_2,
-                                         shape_output=shape_output,
-                                         rnn_units=rnn_units,
-                                         dropout_rate=dropout_rate,
-                                         training=True)
+                                    shape_output=shape_output,
+                                    rnn_units=rnn_units,
+                                    dropout_rate=dropout_rate,
+                                    training=True)
 
   optimizer = tf.keras.optimizers.Adam()
   model.compile(optimizer=optimizer,

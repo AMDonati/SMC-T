@@ -225,7 +225,7 @@ if __name__ == "__main__":
     steps_per_epochs = int(train_data.shape[0] / BATCH_SIZE)
   else:
     num_features = train_data[0].shape[-1]
-    target_vocab_size = num_features
+    target_vocab_size = num_features if target_feature is None else 1
     seq_len = train_data[0].shape[1]-1
     training_samples = train_data[0].shape[0]
     steps_per_epochs = int(train_data[0].shape[0] / BATCH_SIZE)

@@ -506,7 +506,7 @@ if __name__ == "__main__":
   omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'
-  target_feature = 0
+  target_feature = None
   C = F if target_feature is None else 1
   noise_encoder = False
   noise_SMC_layer = True
@@ -553,9 +553,9 @@ if __name__ == "__main__":
     data_type = data_type,
     task_type = task_type,
     target_feature = target_feature,
-    rate = rate,
+    rate=rate,
     layer_norm=True,
-    test = test)
+    test=test)
 
 
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
@@ -590,7 +590,7 @@ if __name__ == "__main__":
   input = tf.expand_dims(input, axis=1) # (B,1,F)
   input = tf.tile(input, multiples=[1, num_particles, 1]) # (B,P,F)
   input = tf.expand_dims(input, axis=2) # (B,P,1,F)
-  input = tf.cast(input, dtype = tf.float32)
+  input = tf.cast(input, dtype=tf.float32)
   input = sample_transformer.input_dense_projection(input) # (B,P,1,D)
 
   inference_dec_timestep = tf.shape(K)[2]

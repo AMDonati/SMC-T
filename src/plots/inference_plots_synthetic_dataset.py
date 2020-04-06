@@ -270,6 +270,7 @@ def plot_multiple_P_one_timestep(list_pred_means, true_means, list_sampled_preds
 
 if __name__ == "__main__":
   file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10-50-100-_N_10_N-est_5000_sigma_0.05_omega_learned'
+  #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_N_10_N-est_5000_sigma_0.05_omega_learned'
   Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10'
 
   #SMC_T inference results:
@@ -298,7 +299,7 @@ if __name__ == "__main__":
   MC_dropout_T_preds = MC_dropout_T_preds.reshape(MC_dropout_T_preds.shape[:-1]) # (B, N_est, num_timesteps)
   baseline_T_preds = baseline_T_preds.reshape(baseline_T_preds.shape[:-1]) # (num_timesteps, B)
 
-  omega_preds = 0.2
+  omega_preds = 0.2256
   omega_true_distrib = 0.2
 
   # # test of compute_gaussian_mixture_function
@@ -346,7 +347,7 @@ if __name__ == "__main__":
   #                         mc_dropout_preds=MC_dropout_T_preds, baseline_T_preds=baseline_T_preds)
 
   # ----- plotting for multiple values of number of particules --------------------------------------------------------------------------------------
-  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10-50-100-_N_10_N-est_5000_sigma_0.05_omega_learned'
+  #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10-50-100-_N_10_N-est_5000_sigma_0.05_omega_learned'
   preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_10.npy')
   sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_10.npy')
   sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_10.npy')

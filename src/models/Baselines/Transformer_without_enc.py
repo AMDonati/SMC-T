@@ -213,17 +213,17 @@ class Transformer(tf.keras.Model):
     return final_output, attention_weights
 
 if __name__ == "__main__":
-  B= 8
-  F = 3
+  B=8
+  F=3
   num_layers = 4
   d_model = 64
   num_heads = 2
   dff = 128
-  maximum_position_encoding = 30
+  maximum_position_encoding = 50
   data_type = 'time_series_multi'
-  C = 300
-  S = 20
-  rate = 0.1
+  C=F
+  S=20
+  rate = 0
 
   sample_transformer = Transformer(
     num_layers=num_layers,
@@ -246,4 +246,4 @@ if __name__ == "__main__":
 
   #print('attention weights', attn_weights) # shape (B,H,D,D)
 
-  print('model output', fn_out.shape) # (B,S,D)
+  print('model output', fn_out.shape) # (B,S,C)
