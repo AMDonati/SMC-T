@@ -24,7 +24,9 @@ from utils.utils_train import restoring_checkpoint
 from utils.utils_train import saving_inference_results
 from train.loss_functions import CustomSchedule
 from eval.inference_functions import inference_function_multistep_1D
+from eval.inference_functions import inference_function_multistep
 from eval.inference_functions import generate_empirical_distribution_1D
+from eval.inference_functions import generate_empirical_distribution
 from eval.inference_functions import inference_Baseline_T_MC_Dropout_1D
 from eval.inference_functions import inference_LSTM_MC_Dropout_1D
 import statistics
@@ -41,24 +43,24 @@ if __name__ == "__main__":
   #---- parsing arguments --------------------------------------------------------------
   #results_ws155_632020
   parser = argparse.ArgumentParser()
-  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
+  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/3_feat_results_642020'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_None_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
-  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_None_cv_False__rnn-units_10'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str,
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[100], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[10,50,100,250], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=10, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=1000, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
-  parser.add_argument("-layer_norm", default=False, type=bool, help="layer norm or no layerm in Transformer model.")
+  parser.add_argument("-layer_norm", default=True, type=bool, help="layer norm or no layerm in Transformer model.")
 
   args=parser.parse_args()
   output_path = args.out_folder
@@ -170,7 +172,7 @@ if __name__ == "__main__":
                                        beta_1=0.9,
                                        beta_2=0.98,
                                        epsilon=1e-9)
-  target_vocab_size = 1
+  target_vocab_size = num_features if target_feature is None else 1
   # create a SMC_Transformer
   smc_transformer = SMC_Transformer(num_layers=num_layers,
                                     d_model=d_model,
@@ -216,7 +218,35 @@ if __name__ == "__main__":
       if not layer_norm:
         logger.info("inference without layer norm...")
 
-      (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=test_dataset,
+      # re-initializing omega with initial scalar value
+      smc_transformer.omega = omega
+      smc_transformer.cell.omega = omega
+
+      if target_feature is None:
+
+        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, (learned_std, covariance_matrix) = inference_function_multistep(
+          inputs=test_dataset,
+          smc_transformer=smc_transformer,
+          N_prop=N,
+          N_est=N_est,
+          num_particles=p_inf,
+          num_timesteps=num_timesteps,
+          sample_pred=True,
+          sigma=sigma,
+          output_path=output_path,
+          layer_norm=layer_norm)
+        logger.info('learned std: {}'.format(learned_std))
+
+        list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
+                                                                                  matrix_A=A_3D,
+                                                                                  cov_matrix=cov_matrix_3D,
+                                                                                  N_est=N_est,
+                                                                                  num_timesteps=num_timesteps,
+                                                                                  output_path=output_path)
+
+      else:
+
+        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                 smc_transformer=smc_transformer,
                                                                                                 N_prop=N,
                                                                                                 N_est=N_est,
@@ -226,9 +256,9 @@ if __name__ == "__main__":
                                                                                                 sigma=sigma,
                                                                                                 output_path=output_path,
                                                                                                 layer_norm=layer_norm)
-      logger.info('learned std: {}'.format(list_learned_std))
+        logger.info('learned std: {}'.format(list_learned_std))
 
-      list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
+        list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                 matrix_A=A_3D,
                                                                                 cov_matrix=cov_matrix_3D,
                                                                                 N_est=N_est,

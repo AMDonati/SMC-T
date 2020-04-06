@@ -472,10 +472,14 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
   :param num_timesteps: number of timesteps for the inference
   :return:
   '''
-  last_input = inputs[:,-1,:] # (B,F)
+  s = tf.shape(inputs)[1] - num_timesteps
+  inp_model = inputs[:, :s, :]
+  inp_inference = inputs[:, s:, :]
+  last_input = inp_model[:, -1, :]  # (B,F)
   num_features = tf.shape(last_input)[-1]
   list_preds_sampled = []
   list_mean_per_timestep = []
+
   for t in range(num_timesteps):
     list_pred_t = []
     mean = tf.matmul(last_input, matrix_A)
@@ -486,8 +490,7 @@ def generate_empirical_distribution(inputs, matrix_A, cov_matrix, N_est, num_tim
     sample_ind = np.random.randint(0, N_est)
     last_input = list_pred_t[sample_ind] # (B,F)
     tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,F)
-    list_preds_sampled.append(tensor_pred_t[:,:,0])
-  #tensor_preds_sampled = tf.stack(list_preds_sampled, axis=2) # (B, N_est, S)
+    list_preds_sampled.append(tensor_pred_t)
 
   list_preds_sampled = [x.numpy() for x in list_preds_sampled]
   list_mean_per_timestep = [m.numpy for m in list_mean_per_timestep]
@@ -556,7 +559,7 @@ if __name__ == "__main__":
   mult = w * matmul
 
 
-  # ---------------------- test of multi-step inference function ----------------------------------------------------------------------
+  # ---------------------- test of multi-step inference function - multivariate case----------------------------------------------------------------------
   num_samples = 5
   N_est = 25
   num_timesteps = 4
@@ -575,7 +578,29 @@ if __name__ == "__main__":
     sample_pred=True,
     sigma=0.1)
 
+  # ------------------- test for multistep inference function - univariate case -----------------------------------------------------------------
 
+  target_feature = 0
+  C = 1
+  omega = 0.3
+
+  sample_transformer = SMC_Transformer(
+    num_layers=num_layers,
+    d_model=d_model,
+    num_heads=num_heads,
+    dff=dff,
+    target_vocab_size=C,
+    maximum_position_encoding=maximum_position_encoding,
+    num_particles=num_particles_training,
+    seq_len=seq_len,
+    sigma=sigma,
+    omega=omega,
+    noise_encoder=noise_encoder,
+    noise_SMC_layer=noise_SMC_layer,
+    data_type=data_type,
+    task_type=task_type,
+    target_feature=target_feature,
+    rate=rate)
 
   (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=inputs,
                                                                                             smc_transformer=sample_transformer,
@@ -593,7 +618,7 @@ if __name__ == "__main__":
   print('number of examples per preds', (list_preds_sampled[0].shape[1]))
   print('std learned', list_learned_std)
 
-  list_gaussian_means = np.load(file=output_path + '/' + 'pred_gaussian_means_per_timestep.npy')
+  #list_gaussian_means = np.load(file=output_path + '/' + 'pred_gaussian_means_per_timestep.npy')
 
   #--------------- test of generate_empirical_distribution ----------------------------------------------------------------------------
 
@@ -612,9 +637,19 @@ if __name__ == "__main__":
   print('example of preds - empirical distribution', list_preds_sampled[0])
   print('number of examples per preds', list_preds_sampled[0].shape[1])
 
-  true_gaussian_means = np.load(output_path + '/' + 'true_gaussian_means.npy')
+  #true_gaussian_means = np.load(output_path + '/' + 'true_gaussian_means.npy')
 
-  #------ test of MC Dropout inference function -----------------------------------------------------
+
+  # -------------- test of generate empirical distribution - multivariate case -------------------------------------------------------------
+
+  list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=inputs,
+                                                                            matrix_A=A_3D,
+                                                                            cov_matrix=cov_matrix_3D,
+                                                                            N_est=N_est,
+                                                                            num_timesteps=num_timesteps,
+                                                                            output_path=output_path)
+
+  #------ test of MC Dropout inference function -----------------------------------------------------------------------------------------
   B = 8
   S = 24
   num_feat = 3
