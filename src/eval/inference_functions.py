@@ -127,7 +127,7 @@ def inference_LSTM_MC_Dropout_1D(inputs, lstm_model, lstm_w_dropout, num_mc_samp
   return MC_Dropout_predictions, list_true_preds
 
 
-def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=False):
+def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sample_pred=True, variance_learned_per_timestep=False):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -142,15 +142,76 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   N = N_prop
 
   # call of the smc_transformer on inputs:
-  s = tf.shape(inputs)[1]
+  s = tf.shape(inputs)[1] - num_timesteps
   mask = create_look_ahead_mask(s)
   smc_transformer.noise_SMC_layer = True
+  smc_transformer.cell.noise = True
+  smc_transformer.cell.mha_smc.noise = True
   smc_transformer.num_particles = num_particles
   smc_transformer.cell.num_particles = num_particles
-  outputs, _, _ = smc_transformer(inputs=inputs,
+  smc_transformer.sigma = sigma
+  smc_transformer.cell.mha_smc.sigma_scalar = sigma
+
+  inp_model = inputs[:, :s, :]  # (1:s-1) used as the input tensor of the SMC Cell.
+  true_labels = inputs[:, 1:s, :]  # (B,s,F)
+  inp_inference = inputs[:, s:, :]
+  outputs, _, _ = smc_transformer(inputs=inp_model,
                                   training=False,
                                   mask=mask)
-  _, _, w_s, (K0_s, V0_s) = outputs
+  predictions, _, w_s, (K0_s, V0_s) = outputs # predictions (B,P,s,F)
+
+  # ----- computation of the learned std ------------------------------------------------------------------------------------------------------------------------------
+  # computing 'learned' omega:
+  if variance_learned_per_timestep:
+    list_learned_std = []
+    for t in range(s-1): #TODO: or s?
+      current_input = inp_model[:,:t+2,:] # caution. here inp_model needs to be of seq length t+1.
+      current_label = true_labels[:, :t+1, :]
+      outputs_t, _, _ = smc_transformer(inputs=current_input,
+                                      training=False,
+                                      mask=create_look_ahead_mask(t+1))
+      predictions, _, w_t, _ = outputs_t # predictions (B,P,S,F)
+      # computing 'learned' omega:
+      current_label = tf.expand_dims(current_label, axis=1)  # (B,1,t+1)
+      current_label = tf.tile(current_label, multiples=[1, num_particles, 1])  # (B,P,t+1)
+      predictions = tf.squeeze(predictions, axis=-1)
+      square_diff = tf.square(predictions - current_label)  # (B,P,t+1)
+      w_t_reshaped = tf.expand_dims(w_t, axis=1)  # (B,1,P)
+      learned_variance = tf.matmul(w_t_reshaped, square_diff)  # (B,1,s)
+      learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
+      learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
+      learned_variance = tf.reduce_mean(learned_variance, axis=0)  # here should be of shape (F,F) or (F,1)?
+      #TODO: change here.
+      learned_std = tf.sqrt(learned_variance)
+      smc_transformer.omega = learned_std
+      smc_transformer.cell.omega = learned_std
+      list_learned_std.append(learned_std.numpy())
+    omega = list_learned_std[-1]
+  else:
+    true_labels = tf.expand_dims(true_labels, axis=1)  # (B,1,s,F)
+    true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s,F)
+    diff = true_labels - predictions
+    matmul = tf.matmul(diff, diff, transpose_a=True)  # (B,P,s)
+    w_s_reshaped = tf.expand_dims(w_s, axis=1)  # (B,1,P)
+    learned_variance = tf.matmul(w_s_reshaped, matmul)  # (B,1,s)
+    learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
+    learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
+    learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar.
+    learned_std = tf.sqrt(
+      learned_variance)  # tf.random.normal and np.random.normal takes as input the std and not the variance.
+    list_learned_std = [learned_std.numpy()]
+    # set omega as the learned variance
+    smc_transformer.omega = learned_std
+    smc_transformer.cell.omega = learned_std
+    omega = learned_std
+
+
+
+
+
+
+
+
   # preprocessing initial input:
   input = inputs[:, -1, :] # (B,1,F)
   input = tf.expand_dims(input, axis=1)  # (B,1,F)
@@ -166,41 +227,58 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   K = K_init
   V= V_init
   X_pred_NP = input # (B,P,1,F)
-  num_init_features = tf.shape(input)[-1]
+
   for t in range(num_timesteps):
-    if tf.shape(X_pred_NP)[-1] == 1:
-      #TODO: remove this if loop for the multi-dim case.
-      X_pred_NP = tf.tile(X_pred_NP, multiples=[1, 1, 1, num_init_features]) # mandatory for t >0 (last dim is 1 otherwise and issue pf shape
     X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
     X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t)
     list_X_pred_NP.append(X_pred_NP)
     list_r_NP.append(r_N_P)
 
-  # getting sampled predictions from the list of r_NP:
+  # ---------------------------------------------------------sampling N_est predictions for each timestep -------------------------------#
   list_preds_multistep = []
   if sample_pred:
     for r in list_r_NP:
       # reshape to have a tensor of shape (B,N,P,1,D)
       new_shape = (tf.shape(r)[0], -1, N, num_particles, tf.shape(r)[-2], tf.shape(r)[-1])
-      r = tf.reshape(r, shape=new_shape) # (B,-1,N,P,1,D)
-      r = tf.squeeze(r, axis=1) # (B,N,P,1,D)
-      # select n* and p*:
-      p_ = tf.random.categorical(logits=w_s, num_samples=1)
-      uniform_logits = tf.constant([[1/N for _ in range(N)] for _ in range(tf.shape(r)[0])])
-      n_ = tf.random.categorical(logits=uniform_logits, num_samples=1)
-      r_=tf.gather(r, p_, axis=2, batch_dims=1)
-      r_=tf.gather(r_, n_, axis=1, batch_dims=1) # (B,1,1,1,D)
-      r_= tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
+      r = tf.reshape(r, shape=new_shape)  # (B,-1,N,P,1,D)
+      r = tf.squeeze(r, axis=1)  # (B,N,P,1,D)
 
       list_pred_t = []
       for _ in range(N_est):
-        mean_r_=smc_transformer.final_layer(r_)
-        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F)
+        # select n* and p*:
+        p_ = tf.random.categorical(logits=w_s, num_samples=1)
+        uniform_logits = tf.constant([[1 / N for _ in range(N)] for _ in range(tf.shape(r)[0])])
+        n_ = tf.random.categorical(logits=uniform_logits, num_samples=1)
+        r_ = tf.gather(r, p_, axis=2, batch_dims=1)
+        r_ = tf.gather(r_, n_, axis=1, batch_dims=1)  # (B,1,1,1,D)
+        r_ = tf.squeeze(tf.squeeze(r_, axis=1), axis=1)  # (B,1,D)
+        mean_r_ = smc_transformer.final_layer(r_)  # (B,1,F)
+        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=omega)  # (B,1,F)
         list_pred_t.append(X_pred)
-      tensor_pred_t = tf.stack(list_pred_t, axis=1) # (B,N_est,1,1)
-      tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
-      list_preds_multistep.append(tensor_pred_t)
-    tensor_preds_multistep = tf.stack(list_preds_multistep, axis=2)
+      tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1,F)
+      tensor_pred_t = tf.squeeze(tensor_pred_t, axis=-2)  # (B, N_est, F)
+      list_preds_multistep.append(tensor_pred_t.numpy())
+
+    # -------------------------------- computing mean for each N*P Gaussian distribution to plot the complete distribution -----------------
+    # get the mean of the mix of gaussian distributions from r
+    list_mean_NP = [smc_transformer.final_layer(r_NP) for r_NP in list_r_NP]
+    list_mean_NP = [mean.numpy() for mean in list_mean_NP]  # transform list_mean_NP in a numpy array
+    list_mean_NP = [m.reshape(m.shape[0], N, num_particles, m.shape[-1]) for m in
+                    list_mean_NP]  # reshape (B,NP,1,1) to (B,N,P,F)
+
+    # ------------------------------- save arrays for plotting the predicted probability density function------------------------------------
+    list_X_pred_NP = [tf.squeeze(x, axis=-2).numpy() for x in list_X_pred_NP]
+    w_s = w_s.numpy()
+    gaussian_means_path = output_path + '/' + 'pred_gaussian_means_per_timestep_P_{}.npy'.format(num_particles)
+    sampled_distrib_path = output_path + '/' + 'preds_sampled_per_timestep_P_{}.npy'.format(num_particles)
+    sampling_weights_path = output_path + '/' + 'sampling_weights_P_{}.npy'.format(num_particles)
+    all_preds_path = output_path + '/' + 'list_X_pred_NP_P_{}.npy'.format(num_particles)
+
+    np.save(file=gaussian_means_path, arr=list_mean_NP)
+    np.save(file=sampled_distrib_path, arr=list_preds_multistep)
+    np.save(file=sampling_weights_path, arr=w_s)
+    np.save(file=all_preds_path, arr=list_X_pred_NP)
+
 
   return (list_r_NP, list_X_pred_NP), (list_preds_multistep, tensor_preds_multistep)
 
@@ -230,8 +308,6 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   smc_transformer.cell.num_particles = num_particles
   smc_transformer.sigma = sigma
   smc_transformer.cell.mha_smc.sigma_scalar = sigma
-
-  omega_init = smc_transformer.omega
 
   inp_model = inputs[:,:s,:] # (1:s-1) used as the input tensor of the SMC Cell.
   true_labels = inputs[:,1:s,0] # (B,s)
@@ -333,7 +409,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
         r_ = tf.gather(r_, n_, axis=1, batch_dims=1) # (B,1,1,1,D)
         r_ = tf.squeeze(tf.squeeze(r_, axis=1), axis=1) # (B,1,D)
         mean_r_ = smc_transformer.final_layer(r_)  # (B,1,1)
-        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=smc_transformer.omega) # (B,1,F=1)
+        X_pred = mean_r_ + tf.random.normal(shape=tf.shape(mean_r_), stddev=omega) # (B,1,F=1)
         list_pred_t.append(X_pred)
       tensor_pred_t = tf.stack(list_pred_t, axis=1)  # (B,N_est,1,F=1)
       tensor_pred_t = tf.squeeze(tf.squeeze(tensor_pred_t, axis=-1), axis=-1) # (B, N_est)
@@ -358,7 +434,6 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
     np.save(file=sampling_weights_path, arr=w_s)
     np.save(file=all_preds_path, arr=list_X_pred_NP)
 
-  #TODO: transform list_X_pred_NP into a numpy array as well for consistency.
   return (list_mean_NP, list_X_pred_NP), list_preds_multistep, w_s, list_learned_std
 
 

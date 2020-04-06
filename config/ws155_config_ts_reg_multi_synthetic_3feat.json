@@ -5,7 +5,7 @@
      "VAL_SPLIT": 0.5,
      "VAL_SPLIT_cv": 0.9,
      "cv": "False",
-     "target_feature": 0
+     "target_feature": "None"
    },
 
   "model": {
@@ -16,14 +16,15 @@
       "rate": 0,
       "maximum_position_encoding_baseline": 50,
       "maximum_position_encoding_smc": "None",
+      "layer_norm": "True",
       "mc_dropout_samples": 10
   },
 
   "smc": {
-    "num_particles": 10,
+    "num_particles": 1,
     "noise_encoder": "False",
-    "noise_SMC_layer": "True",
-    "sigma" : "learned",
+    "noise_SMC_layer": "False",
+    "sigma" : 0.05,
     "omega" : 0.3
   },
 
