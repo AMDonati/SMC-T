@@ -462,11 +462,12 @@ class SMC_Transformer(tf.keras.Model):
     r0_T = outputs[0] # (B,S,P,D)
     Z0_T = outputs[1] # (B,S,P,D)
 
-    avg_prediction_after_softmax = outputs[2]
-    avg_prediction = outputs[3]
-    max_prediction = outputs[4] # (B,S,V)
+    # avg_prediction_after_softmax = outputs[2]
+    # avg_prediction = outputs[3]
+    # max_prediction = outputs[4] # (B,S,V)
 
-    list_noise_0_T = outputs[5] # (B,S,P,D) > for computing the loss function.
+    #list_noise_0_T = outputs[5]# (B,S,P,D) > for computing the loss function.
+    list_noise_0_T = outputs[2]
 
     K = new_states[0] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
@@ -489,7 +490,8 @@ class SMC_Transformer(tf.keras.Model):
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.noises_seq = list_noise_0_T
 
-    attn_weights_SMC_layer = outputs[6] # shape (B,S,P,H,S)
+    #attn_weights_SMC_layer = outputs[6] # shape (B,S,P,H,S)
+    attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
     attn_weights_SMC_layer = tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
 
     if self.num_layers == 1:
@@ -500,7 +502,8 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, (K,V,U_T)), (avg_prediction_after_softmax, avg_prediction, max_prediction), attn_weights
+    return (Y0_T, Z0_T, w_T, (K,V,U_T)), attn_weights
+  # (avg_prediction_after_softmax, avg_prediction, max_prediction),
 
 if __name__ == "__main__":
   num_particles = 10
@@ -574,14 +577,14 @@ if __name__ == "__main__":
 
   mask = create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights, (K,V,U)), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
+  (predictions, trajectories, weights, (K,V,U)), attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
   print('final predictions - one sample', predictions[0,:,:,:])
   print('final K - one sample', K[0,:,:,0])
   print('w_T', weights)
 
-  inference_pred, good_avg_pred, max_pred = predictions_metric
+  #inference_pred, good_avg_pred, max_pred = predictions_metric
   #print('Transformer output', predictions.shape)  # (B,P,S,C)
   #print('final z', trajectories.shape) # (B,P,S,D)
   #print('weights', weights.shape) # (B,P,1)

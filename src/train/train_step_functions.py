@@ -96,8 +96,6 @@ def train_step_SMC_T(inputs,
   The updated loss, the training accuracy (from average predictions and from max predictions).
   '''
 
-  #TODO: add the computation of the mse on the average pred of the SMC Transformer for a 'fair' comparison with the Baseline Transformer.
-
   if targets is None:
     tar_inp = inputs[:, :-1]
     tar_real = inputs[:, 1:]
@@ -109,14 +107,14 @@ def train_step_SMC_T(inputs,
   mask_transformer = create_look_ahead_mask(seq_len)
 
   with tf.GradientTape() as tape:
-    (predictions, trajectories, weights, ind_matrix), predictions_metric, attn_weights = smc_transformer(inputs=tar_inp,
+    (predictions, trajectories, weights, ind_matrix), attn_weights = smc_transformer(inputs=tar_inp,
                                                                                              training=True,
                                                                                              mask=mask_transformer)
     # predictions: shape (B,P,S,C) > sequence of log_probas for the classification task.
     # trajectories: shape (B,P,S,D) = [z0,z1,z2,...,zT]
     # weights: shape (B,P,1) = w_T: used in the computation of the loss.
 
-    train_inf_pred_batch, train_avg_pred_batch, train_max_pred_batch = predictions_metric
+    #train_inf_pred_batch, train_avg_pred_batch, train_max_pred_batch = predictions_metric
 
     if smc_transformer.task_type == 'classification':
       assert tf.shape(predictions)[-1] > 2
@@ -146,14 +144,13 @@ def train_step_SMC_T(inputs,
 
   optimizer.apply_gradients(zip(gradients, smc_transformer.trainable_variables))
 
-
-  if smc_transformer.task_type == 'classification':
-    train_inf_batch = train_accuracy(tar_real, train_inf_pred_batch)  # accuracy from average_predictions for now.
-    train_avg_acc_batch = train_accuracy(tar_real, train_avg_pred_batch)  # average over logits instead of after softmax (inference case).
-    train_max_acc_batch = train_accuracy(tar_real, train_max_pred_batch)
-    train_metrics = (train_inf_batch, train_avg_acc_batch, train_max_acc_batch)
-  else:
-    train_metrics = (loss_mse, loss_mse_from_avg_pred, loss_mse_std)
+  # if smc_transformer.task_type == 'classification':
+  #   train_inf_batch = train_accuracy(tar_real, train_inf_pred_batch)  # accuracy from average_predictions for now.
+  #   train_avg_acc_batch = train_accuracy(tar_real, train_avg_pred_batch)  # average over logits instead of after softmax (inference case).
+  #   train_max_acc_batch = train_accuracy(tar_real, train_max_pred_batch)
+  #   train_metrics = (train_inf_batch, train_avg_acc_batch, train_max_acc_batch)
+  # else:
+  train_metrics = (loss_mse, loss_mse_from_avg_pred, loss_mse_std)
 
   if perplexity_metric is not None:
     train_perplexity = perplexity_metric(tar_real, predictions)

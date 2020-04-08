@@ -273,7 +273,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   # check the pass forward.
   for input_example_batch, target_example_batch in train_dataset.take(2):
     # input_model = tf.concat([input_example_batch, target_example_batch[:,-1,:]], axis = 1)
-    (example_batch_predictions, traj, _, _), predictions_metric, _ = smc_transformer(inputs=input_example_batch,
+    (example_batch_predictions, traj, _, _), _ = smc_transformer(inputs=input_example_batch,
                                                                                      training=True,
                                                                                      mask=create_look_ahead_mask(
                                                                                        seq_len))
@@ -325,9 +325,8 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
     avg_train_loss_std = sum_train_loss_std / (batch + 1)
 
     # compute the validation accuracy on the validation dataset:
-    # TODO: here consider a validation set with a batch_size equal to the number of samples.
     for batch_val, (inp, tar) in enumerate(val_dataset):
-      (predictions_val, _, weights_val, ind_matrix_val), predictions_metric, attn_weights_val = smc_transformer(
+      (predictions_val, _, weights_val, ind_matrix_val), attn_weights_val = smc_transformer(
         inputs=inp,
         training=False,
         mask=create_look_ahead_mask(seq_len))
@@ -402,7 +401,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
   logger.info("computing metrics at the end of training...")
   train_loss_mse, train_loss_mse_avg_pred, train_loss_std, val_loss_mse, val_loss_mse_avg_pred, val_loss_std = [], [], [], [], [], []
   for batch_train, (inp, tar) in enumerate(train_dataset):
-    (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+    (predictions_train, _, weights_train, _), attn_weights_train = smc_transformer(
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))
@@ -415,7 +414,7 @@ def train_SMC_transformer(hparams, optimizer, seq_len, target_vocab_size, resamp
     train_loss_std.append(train_loss_mse_std_batch.numpy())
 
   for batch_val, (inp, tar) in enumerate(val_dataset):
-    (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+    (predictions_val, _, weights_val, _), attn_weights_val = smc_transformer(
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))

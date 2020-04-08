@@ -10,7 +10,7 @@ def compute_latest_statistics(smc_transformer, train_dataset, val_dataset, seq_l
   train_loss_mse, train_loss_mse_avg_pred, train_loss_std, val_loss_mse, val_loss_mse_avg_pred, val_loss_std = [], [], [], [], [], []
   predictions_validation_set = []
   for batch_train, (inp, tar) in enumerate(train_dataset):
-    (predictions_train, _, weights_train, _), predictions_metric, attn_weights_train = smc_transformer(
+    (predictions_train, _, weights_train, _), attn_weights_train = smc_transformer(
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))
@@ -24,7 +24,7 @@ def compute_latest_statistics(smc_transformer, train_dataset, val_dataset, seq_l
     train_loss_std.append(train_loss_mse_std_batch.numpy())
 
   for batch_val, (inp, tar) in enumerate(val_dataset):
-    (predictions_val, _, weights_val, _), _, attn_weights_val = smc_transformer(
+    (predictions_val, _, weights_val, _), attn_weights_val = smc_transformer(
       inputs=inp,
       training=False,
       mask=create_look_ahead_mask(seq_len))
@@ -66,7 +66,7 @@ def compute_latest_statistics(smc_transformer, train_dataset, val_dataset, seq_l
 
 def evaluate_SMC_Transformer(smc_transformer, test_dataset, seq_len, task, stats, output_path, logger):
   for (test_data, y_test) in test_dataset:
-    (predictions_test, _, weights_test, _), _, attn_weights_test = smc_transformer(
+    (predictions_test, _, weights_test, _), attn_weights_test = smc_transformer(
       inputs=test_data,
       training=False,
       mask=create_look_ahead_mask(seq_len))

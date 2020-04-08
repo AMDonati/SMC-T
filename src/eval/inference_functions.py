@@ -156,10 +156,10 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   inp_model = inputs[:, :s, :]  # (1:s-1) used as the input tensor of the SMC Cell.
   true_labels = inputs[:, 1:s, :]  # (B,s,F)
   inp_inference = inputs[:, s:, :]
-  outputs, _, _ = smc_transformer(inputs=inp_model,
+  outputs, _ = smc_transformer(inputs=inp_model,
                                   training=False,
                                   mask=mask)
-  predictions, _, w_s, (K0_s, V0_s) = outputs # predictions (B,P,s,F)
+  predictions, _, w_s, (K0_s, V0_s, Us) = outputs # predictions (B,P,s,F)
 
   # ----- computation of the learned std ------------------------------------------------------------------------------------------------------------------------------
   # computing 'learned' omega:
@@ -167,7 +167,7 @@ def inference_function_multistep(inputs, smc_transformer, N_prop, N_est, num_par
   true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s,F)
   diff = true_labels - predictions  # (B,P,s,F)
   diff = tf.expand_dims(diff, axis=-2)  # (B,P,s,1,F)
-  matmul = tf.matmul(diff, diff, transpose_a=True)  # (B,P,s,F,F) #TODO: check this formula on a simple example.
+  matmul = tf.matmul(diff, diff, transpose_a=True)  # (B,P,s,F,F)
   w_s_reshaped = tf.reshape(w_s, shape=(tf.shape(w_s)[0], tf.shape(w_s)[1], 1, 1, 1))
   covariance_matrix = tf.reduce_sum(w_s_reshaped * matmul, axis=1)  # (B,s,F,F)
   covariance_matrix = tf.reduce_mean(covariance_matrix, axis=1)  # (B,F,F)
@@ -282,15 +282,15 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   inp_model = inputs[:,:s,:] # (1:s-1) used as the input tensor of the SMC Cell.
   true_labels = inputs[:,1:s,0] # (B,s)
   inp_inference = inputs[:,s:,:]
-  outputs, _, _ = smc_transformer(inputs=inp_model,
+  outputs, _ = smc_transformer(inputs=inp_model,
                                   training=False,
                                   mask=mask) # (B,P,s,1)
-  predictions, _, w_s, (K0_s, V0_s) = outputs
+  predictions, _, w_s, (K0_s, V0_s, Us) = outputs
 
   # computing 'learned' omega:
   if variance_learned_per_timestep:
     list_learned_std = []
-    for t in range(s-1): #TODO: or s?
+    for t in range(s-1):
       current_input = inp_model[:,:t+2,:] # caution. here inp_model needs to be of seq length t+1.
       current_label = true_labels[:, :t+1]
       outputs_t, _, _ = smc_transformer(inputs=current_input,
@@ -557,13 +557,13 @@ if __name__ == "__main__":
   temp = tf.matmul(w, diff) # (B,P,F,F)
 
   # ------------------------------- test for multi-dim case -------------------------------------------------------------------
-  temp_input = tf.constant([[-4, 1], [-20, 0], [10,-1]], shape=(1,1,3,2)) # (S,F)
-  temp_input = tf.tile(temp_input, [2,5,1,1])
-  temp_input = tf.expand_dims(temp_input, axis=-2) # (B,P,S,1,F)
-  #temp_input = tf.random.uniform(shape=(8,10,20,1,3))
-  matmul = tf.matmul(temp_input, temp_input, transpose_a=True) # (2,5,3,2,2)
-  w = tf.ones(shape=(8,10,1,1,1))
-  mult = w * matmul
+  # temp_input = tf.constant([[-4, 1], [-20, 0], [10,-1]], shape=(1,1,3,2), dtype=tf.float32) # (S,F)
+  # temp_input = tf.tile(temp_input, [2,5,1,1])
+  # temp_input = tf.expand_dims(temp_input, axis=-2) # (B,P,S,1,F)
+  # #temp_input = tf.random.uniform(shape=(8,10,20,1,3))
+  # matmul = tf.matmul(temp_input, temp_input, transpose_a=True) # (2,5,3,2,2)
+  # w = tf.ones(shape=(8,10,1,1,1), dtype=tf.float32)
+  # mult = w * matmul
 
   # ---------------------------- test of numpy.random.normal - multivariate case -----------------------------------------------
   temp_mean = tf.random.uniform(shape=(8,3))

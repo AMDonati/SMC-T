@@ -294,16 +294,6 @@ if __name__ == "__main__":
                                     rnn_units=rnn_units,
                                     dropout_rate=rnn_dropout_rate,
                                     training=True)
-  #model = build_LSTM_for_regression(rnn_units=rnn_units, dropout_rate=rnn_dropout_rate)
-
-  # Directory where the checkpoints will be saved
-  # LSTM_ckpt_path = os.path.join(checkpoint_path, "RNN_baseline")
-  # if not os.path.exists(LSTM_ckpt_path):
-  #   os.makedirs(LSTM_ckpt_path)
-  # # Name of the checkpoint files
-  # checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
-  # checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
-  #                                                          save_weights_only=True)
 
   #---------------------- TRAINING OF A SIMPLE RNN BASELINE -------------------------------------------------------------------------------------------------------
   if args.skip_training:
@@ -338,7 +328,7 @@ if __name__ == "__main__":
                    EPOCHS=EPOCHS,
                    train_dataset_for_RNN=train_dataset_for_RNN,
                    val_dataset_for_RNN=val_dataset_for_RNN,
-                   checkpoint_path=LSTM_ckpt_path,
+                   checkpoint_path=checkpoint_path,
                    args=args,
                    output_path=output_path,
                    logger=logger,
