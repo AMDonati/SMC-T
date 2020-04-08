@@ -306,7 +306,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
       learned_variance = tf.matmul(w_t_reshaped, square_diff)  # (B,1,s)
       learned_variance = tf.squeeze(learned_variance, axis=1)  # (B,s)
       learned_variance = tf.reduce_mean(learned_variance, axis=-1)  # (B)
-      learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar.
+      learned_variance = tf.reduce_mean(learned_variance, axis=0)  # scalar. #TODO: remove this mean over the number of samples in the test dataset.
       learned_std = tf.sqrt(learned_variance)
       smc_transformer.omega = learned_std
       smc_transformer.cell.omega = learned_std

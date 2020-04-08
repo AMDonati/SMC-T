@@ -13,7 +13,8 @@ import collections
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'w', 'I'])
+#TODO here: add a state to this, U for the computation of the gradient used in the estimation of omega.
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'U', 'w', 'I'])
 
 # -------- Class Decoder and Class Transformer-------------------------------------------------------------------------------------------------------------
 # class Decoder that takes a SMC Decoder Layers as input.
@@ -187,7 +188,6 @@ class SMC_Transformer(tf.keras.Model):
                                 test=test)  # put here the Transformer cell.
 
     # for pre_processing words in the one_layer case.
-    #TODO: add a one tf.keras.layers.Dense() for the regression / time_series case.
     if task_type == 'classification':
       self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
     if maximum_position_encoding is not None:
@@ -376,6 +376,7 @@ class SMC_Transformer(tf.keras.Model):
     # initialize the attention parameters
     batch_size = tf.shape(inputs)[0]
     seq_len = tf.shape(inputs)[1]
+    num_features = tf.shape(inputs)[-1]
 
     if self.data_type=='nlp':
       # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
@@ -415,14 +416,21 @@ class SMC_Transformer(tf.keras.Model):
       initial_word_id = inputs[:, 0, self.target_feature]
     else:
       initial_word_id = inputs[:, 0, :]
+
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
                                                            seq_length=seq_len,
                                                            initial_word_id=initial_word_id)
+    if self.target_feature is None:
+      U0 = tf.zeros(shape=(batch_size, self.num_particles, 1, num_features), dtype=tf.float32)
+    else:
+      U0 = tf.zeros(shape=(batch_size, self.num_particles, 1 , 1), dtype=tf.float32)
     if self.test:
       print('inputs(x)', inputs)
       print('K0 from init function', K0[:,:,:,0])
+
     initial_state = NestedState(K=K0,
                                 V=V0,
+                                U=U0,
                                 w=w0,
                                 I=I0)
 
@@ -466,8 +474,10 @@ class SMC_Transformer(tf.keras.Model):
     V = new_states[1] # (B,P,S+1,D)
     V = V[:,:,1:,:] # (B,S,P,D)
 
-    w_T = new_states[2]
-    I = new_states[3]
+    U_T = new_states[2] # (B,P,1,F)
+
+    w_T = new_states[3]
+    I = new_states[4]
 
     Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
     Y0_T = tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
@@ -490,12 +500,12 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, (K,V)), (avg_prediction_after_softmax, avg_prediction, max_prediction), attn_weights
+    return (Y0_T, Z0_T, w_T, (K,V,U_T)), (avg_prediction_after_softmax, avg_prediction, max_prediction), attn_weights
 
 if __name__ == "__main__":
   num_particles = 10
   seq_len = 5
-  b = 1
+  b = 8
   F = 3 # multivariate case.
   num_layers = 1
   d_model = 12
@@ -506,7 +516,7 @@ if __name__ == "__main__":
   omega = 0.25
   data_type = 'time_series_multi'
   task_type = 'regression'
-  target_feature = None
+  target_feature = 0
   C = F if target_feature is None else 1
   noise_encoder = False
   noise_SMC_layer = True
@@ -558,14 +568,17 @@ if __name__ == "__main__":
     test=test)
 
 
-  inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(b, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
+  inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(1, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
+  inputs = tf.tile(inputs, multiples=[b,1,1])
+
+
   mask = create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights, (K,V)), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
+  (predictions, trajectories, weights, (K,V,U)), predictions_metric, attn_weights = sample_transformer(inputs=inputs,
                                                                                               training=True,
                                                                                               mask=mask)
-  print('final predictions', predictions)
-  print('final K', K[:,:,:,0])
+  print('final predictions - one sample', predictions[0,:,:,:])
+  print('final K - one sample', K[0,:,:,0])
   print('w_T', weights)
 
   inference_pred, good_avg_pred, max_pred = predictions_metric

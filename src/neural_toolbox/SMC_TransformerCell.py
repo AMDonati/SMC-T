@@ -14,7 +14,7 @@ from models.SMC_Transformer.transformer_utils import resample_z
 from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'w', 'I'])
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'U', 'w', 'I'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
@@ -83,6 +83,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # internal states: K,V,w,I.
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
+                                  U=tf.TensorShape([self.num_particles, 1, self.target_vocab_size]),
                                   w=tf.TensorShape([self.num_particles, 1]),
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
@@ -133,7 +134,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if len(tf.shape(predictions)) == 4:
       predictions = tf.squeeze(predictions, axis=-2)  # shape (B,P,F)
     # expanding and tiling x over the particle dimensions to have the right shape
-    y = tf.expand_dims(y, axis=1) # (B,1,F,1)
+    y = tf.expand_dims(y, axis=1) # (B,1,F)
     y = tf.tile(y, multiples=[1, self.num_particles, 1])
 
     # multivariate case: selecting the target feature as the ground truth (labels)
@@ -242,9 +243,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # unnesting inputs
     x, y = tf.nest.flatten(inputs)  # r output prev transformer, y: label/target
     y = tf.cast(y, dtype=tf.float32)
-    y = tf.squeeze(y, axis=-1)
-    # getting x
-    K, V, w, I = states
+    y = tf.squeeze(y, axis=-1) # (B,F) # y before selecting the target feature if needed.
+    # getting states
+    K, V, U, w, I = states
     I = tf.cast(I, dtype=tf.int32)
 
     if self.test:
@@ -290,6 +291,18 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if self.test:
       print('predictions', predictions)
 
+    # computation of the new U:
+    #TODO implement the multivariate case. (cf inference functions.)
+    if self.target_feature is not None:
+      y = y[:, self.target_feature]
+      y = tf.expand_dims(y, axis=-1) # (B,1)
+    y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
+    y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
+    square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
+    U = U + 1/2 * (self.omega - square_diff)
+    # adding a tf.stop_gradient on U.
+    U = tf.stop_gradient(U)
+
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     if self.task_type == 'classification':
@@ -298,9 +311,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     elif self.task_type == 'regression':
       w_squeezed = self.compute_w_regression(predictions=predictions, y=y)
 
-    # add a tf.stop_gradient on the weights to have backpropagation on these parameters:
+    # add a tf.stop_gradient on the weights to avoid backpropagation on these parameters:
     w_squeezed=tf.stop_gradient(w_squeezed)
-    #TODO: add an assert that the sum over num of particles of w is equal to 1.
     predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
     # compute the average prediction & max_prediction for the set of particles from predictions & w
@@ -323,15 +335,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # update the genealogy indices matrix from the weights.
     # TODO: remove this function & consider only the current indice i_t.
     i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
-
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I = tf.stop_gradient(I)
 
-    # resample K, V, and z:
+    # resample K, V, and z, and U:
     if self.resampling:
       K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
       z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
+      U = resample_z(U, I, self.dec_timestep) # (B,P,1,F).
 
     if self.test:
       print('current indices', i_t)
@@ -346,6 +358,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     list_noise = [noise_z, noise_k, noise_v, noise_q]
 
+    #TODO: remove the avg_pred_after_softmax, good_avg_pred, max_prediction.
     output = [r_, z, avg_pred_after_softmax, good_avg_pred, max_prediction, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
     if len(tf.shape(w_squeezed)) == 2:
@@ -355,7 +368,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
-    new_states = NestedState(K=K, V=V, w=w, I=I)
+    new_states = NestedState(K=K, V=V, U=U, w=w, I=I)
 
     self.dec_timestep += 1
 

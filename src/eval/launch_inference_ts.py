@@ -43,20 +43,20 @@ if __name__ == "__main__":
   #---- parsing arguments --------------------------------------------------------------
   #results_ws155_632020
   parser = argparse.ArgumentParser()
-  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/3_feat_results_642020'
-  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_None_cv_False__particles_1_noise_False_sigma_0.05'
+  results_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020'
+  exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
-  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_None_cv_False__rnn-units_10'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10/temp'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str,
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[10,50,100,250], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[10,25,50,100], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=500, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=100, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
@@ -149,6 +149,10 @@ if __name__ == "__main__":
   dropout_rate = args.dropout_rate
   layer_norm = args.layer_norm
 
+  test_one_sample = True
+  size_test_dataset = tf.shape(test_dataset)[0]
+  index = np.random.randint(low=0, high=size_test_dataset)
+
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
 
@@ -157,6 +161,9 @@ if __name__ == "__main__":
   output_path = os.path.join(output_path, 'inference_results')
   folder_template = 'num-timesteps_{}_N_{}_N-est_{}_sigma_{}_omega_learned'
   out_folder = folder_template.format(num_timesteps, N, N_est, sigma)
+  if test_one_sample:
+    out_folder = out_folder + '_sample_{}'.format(index)
+
   output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
@@ -210,8 +217,14 @@ if __name__ == "__main__":
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
   list_KL_exp = []
 
+  if test_one_sample:
+    test_dataset = test_dataset[index,:,:]
+    test_dataset = tf.expand_dims(test_dataset, axis=0)
+
   inference_smc_T = True
   if inference_smc_T:
+    if test_one_sample:
+      logger.info("results for sample: {}".format(index))
     for p_inf in list_p_inf:
       logger.info('inference results for number of particles: {}'.format(p_inf))
       logger.info('initial std...: {}'.format(omega))
@@ -259,7 +272,7 @@ if __name__ == "__main__":
                                                                                                 layer_norm=layer_norm)
         logger.info('learned std: {}'.format(list_learned_std))
 
-        list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
+      list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                 matrix_A=A_3D,
                                                                                 cov_matrix=cov_matrix_3D,
                                                                                 N_est=N_est,
