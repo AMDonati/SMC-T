@@ -462,12 +462,7 @@ class SMC_Transformer(tf.keras.Model):
     r0_T = outputs[0] # (B,S,P,D)
     Z0_T = outputs[1] # (B,S,P,D)
 
-    # avg_prediction_after_softmax = outputs[2]
-    # avg_prediction = outputs[3]
-    # max_prediction = outputs[4] # (B,S,V)
-
-    #list_noise_0_T = outputs[5]# (B,S,P,D) > for computing the loss function.
-    list_noise_0_T = outputs[2]
+    list_noise_0_T = outputs[2] # (B,S,P,D) > for computing the loss function.
 
     K = new_states[0] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
@@ -490,7 +485,6 @@ class SMC_Transformer(tf.keras.Model):
     # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
     self.noises_seq = list_noise_0_T
 
-    #attn_weights_SMC_layer = outputs[6] # shape (B,S,P,H,S)
     attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
     attn_weights_SMC_layer = tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
 
@@ -503,7 +497,6 @@ class SMC_Transformer(tf.keras.Model):
     self.pass_forward = True
 
     return (Y0_T, Z0_T, w_T, (K,V,U_T)), attn_weights
-  # (avg_prediction_after_softmax, avg_prediction, max_prediction),
 
 if __name__ == "__main__":
   num_particles = 10
@@ -574,7 +567,6 @@ if __name__ == "__main__":
   inputs = tf.constant([[[1,1,1],[2,2,2],[3,3,3],[4,4,4],[5,5,5]]], shape=(1, seq_len, F), dtype=tf.int32) # ok works with len(tf.shape(inputs)==3.
   inputs = tf.tile(inputs, multiples=[b,1,1])
 
-
   mask = create_look_ahead_mask(seq_len)
 
   (predictions, trajectories, weights, (K,V,U)), attn_weights = sample_transformer(inputs=inputs,
@@ -583,15 +575,6 @@ if __name__ == "__main__":
   print('final predictions - one sample', predictions[0,:,:,:])
   print('final K - one sample', K[0,:,:,0])
   print('w_T', weights)
-
-  #inference_pred, good_avg_pred, max_pred = predictions_metric
-  #print('Transformer output', predictions.shape)  # (B,P,S,C)
-  #print('final z', trajectories.shape) # (B,P,S,D)
-  #print('weights', weights.shape) # (B,P,1)
-  #print('indices matrix for element 0', ind_matrix[0,:,:])
-  #print('inference predictions', inference_pred.shape)  # (B,P,V)
-  #print('good average predictions', good_avg_pred.shape)  # (B,P,V)
-  #print('max_predictions', max_pred.shape)
 
   if num_layers > 1:
     print('attn weights first layer', attn_weights['encoder_layer1'].shape) # shape (B,P,H,S,S)

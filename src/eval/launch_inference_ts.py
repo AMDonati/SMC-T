@@ -1,13 +1,7 @@
-#TODO: simulations plan
-#TODO: plot the density graph for the true and predicted distrib
 #TODO: implement the KL divergence.
 #TODO: implement a 'learned' omega (cf discussion with Florian on Telegram.) > before that, check that new 'training' code works for one single feature.
-# > OK, oemga learned not easy to implement because used in the computation of w.
-#TODO: new training experiments to assess the impact of the layer norm and the place of the noise.
-#TODO: sigma 'learned'
-#TODO: add comparison with MC Dropout (Transformer and LSTM.)
-
-#TODO: check the 'good' experiments from ws155.
+# > OK, omega learned not easy to implement because used in the computation of w.
+#TODO: separate scripts for MC-Dropout and inference on SMC Transformer.
 
 # https://stackoverflow.com/questions/3220284/how-to-customize-the-time-format-for-python-logging
 
@@ -17,6 +11,7 @@ import numpy as np
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
 from models.Baselines.Transformer_without_enc import Transformer
 from models.Baselines.LSTMs import build_LSTM_for_regression
+from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 
 from utils.utils_train import create_run_dir
 from utils.utils_train import create_logger
@@ -47,7 +42,7 @@ if __name__ == "__main__":
   exp_path = 'time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05'
   default_out_folder = os.path.join(results_path, exp_path)
   default_data_folder = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/data/test_data_synthetic_3_feat.npy'
-  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10/temp'
+  default_Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10'
 
   parser.add_argument("-out_folder", default=default_out_folder, type=str, help="path for the output folder with training result")
   parser.add_argument("-baseline_T_path", default=default_Baseline_T_path, type=str,
@@ -149,22 +144,32 @@ if __name__ == "__main__":
   dropout_rate = args.dropout_rate
   layer_norm = args.layer_norm
 
-  test_one_sample = True
+  k = 0.005
+  alpha = 1
+  num_updates = 50
+
+  test_one_sample = False
   size_test_dataset = tf.shape(test_dataset)[0]
   index = np.random.randint(low=0, high=size_test_dataset)
+  index = 3946
 
   output_path = args.out_folder
   checkpoint_path = os.path.join(output_path, "checkpoints")
 
   if not os.path.isdir(os.path.join(output_path, 'inference_results')):
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
-  output_path = os.path.join(output_path, 'inference_results')
+  else:
+    output_path = os.path.join(output_path, 'inference_results')
   folder_template = 'num-timesteps_{}_N_{}_N-est_{}_sigma_{}_omega_learned'
   out_folder = folder_template.format(num_timesteps, N, N_est, sigma)
   if test_one_sample:
     out_folder = out_folder + '_sample_{}'.format(index)
 
-  output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
+  if not os.path.isdir(os.path.join(output_path, out_folder)):
+    output_path = create_run_dir(path_dir=output_path, path_name=out_folder)
+  else:
+    output_path=os.path.join(output_path, out_folder)
+
 
   # -------------- create the logging -----------------------------------------------------------------------------------------------------------------------------------
   out_file_log = output_path + '/' + 'inference_log.log'
@@ -221,16 +226,18 @@ if __name__ == "__main__":
     test_dataset = test_dataset[index,:,:]
     test_dataset = tf.expand_dims(test_dataset, axis=0)
 
-  inference_smc_T = True
+  inference_smc_T = False
   if inference_smc_T:
     if test_one_sample:
       logger.info("results for sample: {}".format(index))
+
+    logger.info('initial std...: {}'.format(omega))
+    logger.info('hyper-parameters for the stochastic approx. algo: alpha:{} - k:{} -num_updates: {}'.format(alpha, k,
+                                                                                                            num_updates))
+    if not layer_norm:
+      logger.info("inference without layer norm...")
     for p_inf in list_p_inf:
       logger.info('inference results for number of particles: {}'.format(p_inf))
-      logger.info('initial std...: {}'.format(omega))
-      if not layer_norm:
-        logger.info("inference without layer norm...")
-
       # re-initializing omega with initial scalar value
       smc_transformer.omega = omega
       smc_transformer.cell.omega = omega
@@ -251,12 +258,6 @@ if __name__ == "__main__":
         logger.info('learned std: {}'.format(learned_std))
         logger.info('covariance matrix: {}'.format(covariance_matrix))
 
-        list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
-                                                                                  matrix_A=A_3D,
-                                                                                  cov_matrix=cov_matrix_3D,
-                                                                                  N_est=N_est,
-                                                                                  num_timesteps=num_timesteps,
-                                                                                  output_path=output_path)
 
       else:
 
@@ -268,16 +269,28 @@ if __name__ == "__main__":
                                                                                                 num_timesteps=num_timesteps,
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
+                                                                                                num_updates=num_updates,
+                                                                                                alpha=alpha,
+                                                                                                k=k,
                                                                                                 output_path=output_path,
                                                                                                 layer_norm=layer_norm)
-        logger.info('learned std: {}'.format(list_learned_std))
 
-      list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
-                                                                                matrix_A=A_3D,
-                                                                                cov_matrix=cov_matrix_3D,
-                                                                                N_est=N_est,
-                                                                                num_timesteps=num_timesteps,
-                                                                                output_path=output_path)
+
+        logger.info('learned std: {}'.format(list_learned_std))
+        logger.info('<----------------------------------------------------------------------------------------------------------------------------->')
+
+      # list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
+      #                                                                           matrix_A=A_3D,
+      #                                                                           cov_matrix=cov_matrix_3D,
+      #                                                                           N_est=N_est,
+      #                                                                           num_timesteps=num_timesteps,
+      #                                                                           output_path=output_path)
+      # list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
+      #                                                                        matrix_A=A_3D,
+      #                                                                        cov_matrix=cov_matrix_3D,
+      #                                                                        N_est=N_est,
+      #                                                                        num_timesteps=num_timesteps,
+      #                                                                        output_path=output_path)
 
     # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
       #KL_measure = tf.keras.losses.KLDivergence()
@@ -306,7 +319,7 @@ if __name__ == "__main__":
 
   # --------------------------- inference function for MC Dropout Baseline Transformer -----------------------------------------------------------------------------
   # get the hparams:
-  inference_mc_dropout = False
+  inference_mc_dropout = True
 
   if inference_mc_dropout:
     Baseline_T_path = args.baseline_T_path
@@ -371,14 +384,34 @@ if __name__ == "__main__":
                              args_load_ckpt=True,
                              logger=logger)
     test_dataset_T = test_dataset[:,:-1,:] # (5000, 24, 3)
+    Y_test = test_dataset[:, 1:, 0]  # (5000,24)
+    seq_len_T = tf.shape(Y_test)[-1]
+    # checking Transformer loss on the test dataset.
+    Y_preds, _ = transformer(inputs=test_dataset_T,
+                          training=False,
+                          mask=create_look_ahead_mask(seq_len_T))  # (5000,24,1)
+    Y_preds = tf.squeeze(Y_preds)
+    test_loss = tf.keras.losses.MSE(Y_test, Y_preds)
+    test_loss = tf.reduce_mean(test_loss, axis=-1)
+    print('Transformer loss', test_loss.numpy())
 
     logger.info("starting MC Dropout inference on a trained Baseline Transformer...")
-    MC_Dropout_predictions = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset_T,
+    MC_Dropout_predictions, list_true_preds = inference_Baseline_T_MC_Dropout_1D(inputs=test_dataset_T,
                                                                 transformer=transformer,
                                                                 transformer_w_dropout=transformer_w_dropout,
                                                                 num_mc_samples=N_est,
                                                                 num_timesteps=num_timesteps,
                                                                 output_path=Baseline_T_path)
+
+    true_labels_inf = test_dataset[:, 21:, 0]  # (B,4)
+    Transf_preds_inf = tf.stack(list_true_preds, axis=1)  # (B,4,1)
+    Transf_preds_inf = tf.squeeze(Transf_preds_inf)
+
+    loss_inference = tf.keras.losses.MSE(true_labels_inf, Transf_preds_inf)
+    loss_inference = tf.reduce_mean(loss_inference, axis=-1)
+    # loss_inference = tf.reduce_mean(loss_inference, axis=-1)
+    loss_inference = loss_inference.numpy()
+    print('loss inference Transformer', loss_inference) #TODO: compute the loss at one timestep.
 
     # ------------- MC Dropout on LSTM ------------------------------------------------------------------------------------------
     LSTM_path = args.baseline_T_path
@@ -424,6 +457,21 @@ if __name__ == "__main__":
                              args_load_ckpt=True,
                              logger=logger)
     test_dataset_LSTM = test_dataset[:, :-1, :]  # (5000, 24, 3)
+    Y_test = test_dataset[:,1:,0] # (5000,24)
+
+    # checking LSTM loss on the test dataset.
+    #Y_preds = lstm.predict(test_dataset_LSTM)
+    Y_preds = lstm(test_dataset_LSTM) # (5000,24,1)
+    Y_preds = tf.squeeze(Y_preds)
+    test_loss = tf.keras.losses.MSE(Y_test, Y_preds)
+    test_loss = tf.reduce_mean(test_loss, axis=-1)
+    # test_loss_2 = tf.square(Y_test - Y_preds)
+    # test_loss_2 = tf.reduce_mean(test_loss_2, axis=-1)
+    # test_loss_2 = tf.reduce_mean(test_loss_2, axis=-1)
+    print('test loss', test_loss.numpy())
+    #print('test loss 2', test_loss_2.numpy())
+
+
     logger.info("starting MC Dropout inference on a trained LSTM...")
     LSTM_MC_Dropout_predictions, list_LSTM_preds = inference_LSTM_MC_Dropout_1D(inputs=test_dataset_LSTM,
                                                                                 lstm_model=lstm,
@@ -431,6 +479,15 @@ if __name__ == "__main__":
                                                                                 num_mc_samples=N_est,
                                                                                 num_timesteps=num_timesteps,
                                                                                 output_path=LSTM_path)
+    true_labels_inf = test_dataset[:,21:,0] # (B,4)
+    LSTM_preds_inf = tf.stack(list_LSTM_preds, axis=1) # (B,4,1)
+    LSTM_preds_inf = tf.squeeze(LSTM_preds_inf)
+
+    loss_inference = tf.keras.losses.MSE(true_labels_inf, LSTM_preds_inf)
+    loss_inference = tf.reduce_mean(loss_inference, axis=-1)
+    #loss_inference = tf.reduce_mean(loss_inference, axis=-1)
+    loss_inference = loss_inference.numpy()
+    print('loss inference LSTM', loss_inference)
 
   # ------------------------------------------------------- saving results on a csv file ---------------------------------------------------------------
 

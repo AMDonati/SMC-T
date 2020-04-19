@@ -88,15 +88,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
     # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
-    # self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]), # r^l
-    #                     tf.TensorShape([self.num_particles, 1, self.d_model]), # z
-    #                     tf.TensorShape([1, self.target_vocab_size]), #  inference prediction (after softmax).
-    #                     tf.TensorShape([1, self.target_vocab_size]), # inference prediction (before softmax).
-    #                     tf.TensorShape([1, self.target_vocab_size]), # max_prediction
-    #                     tf.TensorShape([self.num_particles, 1, self.d_model]), # epsilon
-    #                     tf.TensorShape([self.num_particles, 1, self.seq_len])) # attention_weights
-
-    # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
     self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),  # r^l
                         tf.TensorShape([self.num_particles, 1, self.d_model]),  # z
                         tf.TensorShape([self.num_particles, 1, self.d_model]),  # epsilon
@@ -305,7 +296,9 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
     y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
     square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
-    U = U + 1/2 * (self.omega - square_diff)
+    mean_square_diff = tf.reduce_mean(square_diff, axis=1)
+    U = U + 1/2 * ((self.omega)**2 - square_diff) # omega is the stddev, omega**2: variance.
+    mean_U = tf.reduce_mean(U, axis=1)
     # adding a tf.stop_gradient on U.
     U = tf.stop_gradient(U)
 
@@ -319,22 +312,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # add a tf.stop_gradient on the weights to avoid backpropagation on these parameters:
     w_squeezed=tf.stop_gradient(w_squeezed)
-    predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
-
-    # # compute the average prediction & max_prediction for the set of particles from predictions & w
-    # if len(tf.shape(w_squeezed)) == 2:
-    #   w_for_pred = tf.expand_dims(w_squeezed, axis=-1)
-    # else:
-    #   w_for_pred = w_squeezed
-    # good_avg_pred = tf.expand_dims(tf.reduce_mean(predictions, axis=1), axis=1)  # weights=1/M because of the resampling happening at the beginning of the cell.
-    #
-    # # predictions after softmax: inference formula for N=1
-    # log_probas = tf.nn.softmax(predictions, axis=-1)  # shape (B,P,1,V)
-    # avg_pred_after_softmax = tf.expand_dims(tf.reduce_mean(log_probas, axis=1), axis=1)  # shape (B,1,V)
-    #
-    # # max prediction:
-    # argmax_w = tf.argmax(w_for_pred, axis=1)  # (B, 1)
-    # max_prediction = tf.gather(predictions, argmax_w, axis=1, batch_dims=1)  # (B,1,V)
+    #predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
@@ -366,7 +344,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     #TODO: remove the avg_pred_after_softmax, good_avg_pred, max_prediction.
     output = [r_, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
-    # avg_pred_after_softmax, good_avg_pred, max_prediction.
 
     if len(tf.shape(w_squeezed)) == 2:
       w = tf.expand_dims(w_squeezed, axis=-1)
