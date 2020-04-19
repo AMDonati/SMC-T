@@ -100,6 +100,7 @@ if __name__ == "__main__":
 
   # -------------- uploading the test dataset --------------------------------------------------------------------------------------------------------------------------
   train_dataset = np.load(train_data_path) # (B,S,F)
+  train_dataset = train_dataset[:1000,:,:]
   seq_len = train_dataset.shape[1] - 1
   num_features = train_dataset.shape[-1]
   # convert it into a tf.tensor
@@ -109,7 +110,7 @@ if __name__ == "__main__":
   # ---------------preparing the output path for inference -------------------------------------------------------------------------------------------------------------
   sigma = 0.05
   omega = 0.3
-  num_iter = 20
+  num_iter = 10
   list_particles = [10,25,50,100]
   list_omega_init = [0.05,0.1,0.5,1]
 

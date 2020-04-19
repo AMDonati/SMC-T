@@ -43,11 +43,12 @@ def EM_training_algo_1D(train_data, train_labels, smc_transformer, num_particles
     true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s)
     #predictions = tf.squeeze(predictions, axis=-1)  # (B,P,s)
     square_diff = tf.square(predictions - true_labels)  # (B,P,s,1)
-    square_diff = tf.squeeze(square_diff, axis=-1)
-    w_s_reshaped = tf.expand_dims(w_s, axis=1)  # (B,1,P)
-    sigma_obs_k = tf.matmul(w_s_reshaped, square_diff)  # (B,1,s)
-    sigma_obs_k = tf.squeeze(sigma_obs_k, axis=1)  # (B,s)
-    sigma_obs_k = tf.reduce_mean(sigma_obs_k, axis=-1)  # (B)
+    square_diff = tf.squeeze(square_diff, axis=-1) # (B,P,s)
+    sigma_obs_k = tf.reduce_mean(square_diff, axis=-1) # (B,P) # mean over timesteps.
+    #w_s_reshaped = tf.expand_dims(w_s, axis=1)  # (B,1,P)
+    #sigma_obs_k = tf.matmul(w_s_reshaped, square_diff)  # (B,1,s)
+   # sigma_obs_k = tf.squeeze(sigma_obs_k, axis=1)  # (B,s)
+    sigma_obs_k = tf.reduce_sum(w_s * sigma_obs_k, axis=-1)  # (B)
     sigma_obs_k = tf.reduce_mean(sigma_obs_k, axis=0)  # scalar.
     list_sigma_obs.append(sigma_obs_k.numpy())
 
