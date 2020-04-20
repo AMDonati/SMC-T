@@ -132,6 +132,8 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       noise_k = tf.transpose(noise_k, perm=[1, 2, 3, 0])  # (B,P,1,D)
       noise_v = tf.transpose(noise_v, perm=[1, 2, 3, 0])  # (B,P,1,D)
       noise_q = tf.transpose(noise_q, perm=[1, 2, 3, 0])  # (B,P,1,D)
+      #TODO: caution between stddev and variance (between learned case and fixed case.)
+      #TODO: Sigma: covariance, sigma: stddev.
     else:
       noise_k = tf.scalar_mul(self.sigma_scalar, gaussian_noise_k) # (B,P,1,D)
       noise_q = tf.scalar_mul(self.sigma_scalar, gaussian_noise_q)
@@ -151,7 +153,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       self.noise_q_norm = tf.transpose(self.noise_q_norm, perm=[1, 2, 3, 0])  # (B,P,1,D)
       self.noise_v_norm = tf.transpose(self.noise_v_norm, perm=[1, 2, 3, 0])  # (B,P,1,D)
     else:
-      self.noise_k_norm = tf.scalar_mul(1/self.sigma_scalar, k - mean_k) # (B,P,1,D)
+      self.noise_k_norm = tf.scalar_mul(1/self.sigma_scalar, k - mean_k) # (B,P,1,D) #TODO: check the loss formula and generalize to multi-D.
       self.noise_q_norm = tf.scalar_mul(1/self.sigma_scalar, q - mean_q)
       self.noise_v_norm = tf.scalar_mul(1/self.sigma_scalar, v - mean_v)
 
@@ -173,7 +175,7 @@ class MultiHeadAttention_SMC(tf.keras.layers.Layer):
       noise_z = tf.tensordot(self.sigma_z, gaussian_noise_z, axes=[0,3])  # shape (D,B,P,1) - tensordot multiplication for sigma and epsilon (fixed gaussian noise)
       noise_z = tf.transpose(noise_z, perm=[1, 2, 3, 0])  # (B,P,1,D)
     else:
-      noise_z = tf.scalar_mul(self.sigma_scalar, gaussian_noise_z)
+      noise_z = tf.scalar_mul(self.sigma_scalar, gaussian_noise_z) # sigma is a stddev.
 
     mu = self.dense(mean_z)
     z = mu + noise_z

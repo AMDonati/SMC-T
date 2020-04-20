@@ -89,29 +89,29 @@ def resample(params, i_t, t):
   the trajectories of the attention parameters resampling according to i_t.
   """
   #TODO use tf.scatter_nd instead to avoid the for loop on the number of particles?
-  num_particles=tf.shape(params)[1]
+  num_particles = tf.shape(params)[1]
   #i_t=ind_matrix[:,:,t]# shape (B,P)
-  past_params=params[:,:,:t+1,:] # (B,P,t,D)
-  future_params=params[:,:,t+1:,:] #(B,P,S-t,D)
-  rows_new_params=[]
+  past_params = params[:,:,:t+1,:] # (B,P,t,D)
+  future_params = params[:,:,t+1:,:] #(B,P,S-t,D)
+  rows_new_params = []
   for m in range(num_particles):
-    i_t_m=i_t[:,m] # shape B
+    i_t_m = i_t[:,m] # shape B
     # reshaping to (B,1)
-    i_t_m=tf.expand_dims(i_t_m, axis=-1)
-    row_m_new_params=tf.gather(past_params, i_t_m, axis=1, batch_dims=1) # shape (B,1,t-1,D)
+    i_t_m = tf.expand_dims(i_t_m, axis=-1)
+    row_m_new_params = tf.gather(past_params, i_t_m, axis=1, batch_dims=1) # shape (B,1,t-1,D)
     # squeezing on 2nd dim:
-    row_m_new_params=tf.squeeze(row_m_new_params, axis=1)
+    row_m_new_params = tf.squeeze(row_m_new_params, axis=1)
     rows_new_params.append(row_m_new_params)
   # stacking the new rows in the a new tensor
-  new_params=tf.stack(rows_new_params, axis=1) # add a tf.expand_dims? # (B,P,t-1,D)
-  new_params=tf.concat([new_params, future_params], axis=2) # concatenating new_params (until t-1) and old params (from t)
+  new_params = tf.stack(rows_new_params, axis=1) # add a tf.expand_dims? # (B,P,t-1,D)
+  new_params = tf.concat([new_params, future_params], axis=2) # concatenating new_params (until t-1) and old params (from t)
 
   return new_params
 
 
-def resample_z(z, indices, dec_timestep):
-  curr_ind=indices[:,:,dec_timestep]
-  z_resampl=tf.gather(z, curr_ind, batch_dims=1)
+def resample_z(z, curr_ind):
+  #curr_ind = indices[:,:,dec_timestep]
+  z_resampl = tf.gather(z, curr_ind, batch_dims=1)
   return z_resampl
 
 def sample_and_keep_indices(prev_sampling_weights, ind_matrix, num_particles, dec_timestep, indices=None):  # add a mask argument?
@@ -198,11 +198,11 @@ def compute_direct_update_cov_matrix(self):
     return list_upd_sigmas
 
 if __name__ == "__main__":
-  test_resample_z=False
-  test_resample=True
-  test_sample_and_keep_indices=False
+  test_resample_z = True
+  test_resample = True
+  test_sample_and_keep_indices = False
 
-  # --- test of positional encoding ----------------------------------------------------------------------------------
+  # --- test of positional encoding -------------------------------------------------------------------------------------------------------------------
   b=8
   S=20
   pe_target=10
@@ -211,15 +211,15 @@ if __name__ == "__main__":
   pos_enc=positional_encoding(position=pe_target, d_model=d_model)
   #inputs+=pos_enc[:,:,:]
   #print('inputs', input.shape)
-  #---- resampling z test-------------------------------------------------------------------------------------------------
+  #---- resampling z test--------------------------------------------------------------------------------------------------------------------------------
 
   if test_resample_z:
-    z=tf.random.uniform(shape=(8,10,64))
-    indices=tf.ones(shape=(8,10,20), dtype=tf.int32)
-    z_resampl=resample_z(z, indices, 5)
+    z = tf.constant([[[1,1],[2,2],[3,3],[4,4],[5,5]],[[6,6],[7,7],[8,8],[9,9],[10,10]]])
+    indices = tf.constant([[[0],[0],[1],[2],[1]],[[1],[1],[4],[4],[1]]])
+    z_resampl = resample_z(z, indices, 0)
     print('z resampled', z_resampl.shape)
 
-  #---------- test of corrected resample function-------------------------------------------------------------------------
+  #---------- test of corrected resample function-----------------------------------------------------------------------------------------------------------
 
   if test_resample:
     B=2
@@ -231,7 +231,6 @@ if __name__ == "__main__":
                              [[0, 1, 3, 2], [3, 3, 2, 0], [1, 2, 3, 1]]], shape=(B, S, P))
     ind_matrix = tf.transpose(ind_matrix, perm=[0,2,1])
     #ind_matrix = tf.tile(tf.expand_dims(ind_matrix, axis=0), multiples=[B, 1, 1])  # (B,P,S)
-
 
     print('indices_matrices', ind_matrix[0,:,:].numpy())
 

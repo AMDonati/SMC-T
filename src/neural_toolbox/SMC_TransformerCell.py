@@ -142,7 +142,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     mu_t = y - predictions # (B,P,F)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    log_w = tf.scalar_mul(-1 / 2 * self.omega, log_w) #TODO: here, add the omega learned option.
+    scalar = -1/(2*(self.omega)**2)
+    log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) #TODO: 1/(2*omega^2)
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
@@ -257,12 +258,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # multi-head attention:
     input_mha = tf.expand_dims(x, axis=2)  # shape (B,P,1,D)
     inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
-    if self.dec_timestep < self.seq_len:
-      # store (K,V) only in that case.
-      (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
-    else:
-      # otherwise K,V is not updated.
-      (z, KK, VV), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
+    (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
     if self.test:
       print('K after propagation', K[:,:,:,0])
@@ -296,9 +292,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
     y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
     square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
-    mean_square_diff = tf.reduce_mean(square_diff, axis=1)
     U = U + 1/2 * ((self.omega)**2 - square_diff) # omega is the stddev, omega**2: variance.
-    mean_U = tf.reduce_mean(U, axis=1)
     # adding a tf.stop_gradient on U.
     U = tf.stop_gradient(U)
 
@@ -322,12 +316,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I = tf.stop_gradient(I)
 
+    i_t = tf.squeeze(i_t, axis=-1)
     # resample K, V, and z, and U:
     if self.resampling:
-      K = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
-      V = resample(params=K, i_t=tf.squeeze(i_t, axis=-1), t=self.dec_timestep)
-      z = resample_z(z, I, self.dec_timestep)  # if z is of shape (B,P,D).
-      U = resample_z(U, I, self.dec_timestep) # (B,P,1,F).
+      K = resample(params=K, i_t=i_t, t=self.dec_timestep)
+      V = resample(params=K, i_t=i_t, t=self.dec_timestep)
+      z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D).
+      U = resample_z(z=U, curr_ind=i_t) # (B,P,1,F).
 
     if self.test:
       print('current indices', i_t)
@@ -342,7 +337,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     list_noise = [noise_z, noise_k, noise_v, noise_q]
 
-    #TODO: remove the avg_pred_after_softmax, good_avg_pred, max_prediction.
     output = [r_, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
     if len(tf.shape(w_squeezed)) == 2:

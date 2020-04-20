@@ -1,6 +1,7 @@
 import tensorflow as tf
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from models.SMC_Transformer.SMC_Transformer import SMC_Transformer
+import numpy as np
 
 
 def EM_training_algo_1D(train_data, train_labels, smc_transformer, num_particles, sigma, omega_init, num_iter):
@@ -36,19 +37,19 @@ def EM_training_algo_1D(train_data, train_labels, smc_transformer, num_particles
     outputs, _ = smc_transformer(inputs=train_data,
                                  training=False,
                                  mask=mask)  # (B,P,s,1)
-    predictions, _, w_s, _ = outputs
+    predictions, _, w_s, (K,V,U) = outputs
+    index = np.random.randint(0,num_particles)
+    sample_pred = predictions[index,:,:,0]
+    sample_pred = sample_pred.numpy()
+    K_sampl = K[index,:,:,0].numpy()
 
     # compute $\sigma_obs_k$
     true_labels = tf.expand_dims(train_labels, axis=1)  # (B,1,s)
-    true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s)
-    #predictions = tf.squeeze(predictions, axis=-1)  # (B,P,s)
+    true_labels = tf.tile(true_labels, multiples=[1, num_particles, 1, 1])  # (B,P,s,1)
     square_diff = tf.square(predictions - true_labels)  # (B,P,s,1)
     square_diff = tf.squeeze(square_diff, axis=-1) # (B,P,s)
     sigma_obs_k = tf.reduce_mean(square_diff, axis=-1) # (B,P) # mean over timesteps.
-    #w_s_reshaped = tf.expand_dims(w_s, axis=1)  # (B,1,P)
-    #sigma_obs_k = tf.matmul(w_s_reshaped, square_diff)  # (B,1,s)
-   # sigma_obs_k = tf.squeeze(sigma_obs_k, axis=1)  # (B,s)
-    sigma_obs_k = tf.reduce_sum(w_s * sigma_obs_k, axis=-1)  # (B)
+    sigma_obs_k = tf.reduce_mean(sigma_obs_k, axis=-1)  # (B)
     sigma_obs_k = tf.reduce_mean(sigma_obs_k, axis=0)  # scalar.
     list_sigma_obs.append(sigma_obs_k.numpy())
 

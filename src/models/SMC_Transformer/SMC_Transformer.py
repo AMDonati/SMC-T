@@ -499,7 +499,7 @@ class SMC_Transformer(tf.keras.Model):
     return (Y0_T, Z0_T, w_T, (K,V,U_T)), attn_weights
 
 if __name__ == "__main__":
-  num_particles = 10
+  num_particles = 5
   seq_len = 5
   b = 8
   F = 3 # multivariate case.

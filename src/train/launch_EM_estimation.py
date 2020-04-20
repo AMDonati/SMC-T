@@ -67,7 +67,7 @@ if __name__ == "__main__":
   if task == 'synthetic':
     omega = hparams["smc"]["omega"]
   # computing manually resampling parameter
-  resampling = False if num_particles == 1 else True
+  resampling = True
 
   # optim params
   BATCH_SIZE = hparams["optim"]["BATCH_SIZE"]
@@ -110,7 +110,7 @@ if __name__ == "__main__":
   # ---------------preparing the output path for inference -------------------------------------------------------------------------------------------------------------
   sigma = 0.05
   omega = 0.3
-  num_iter = 10
+  num_iter = 20
   list_particles = [10,25,50,100]
   list_omega_init = [0.05,0.1,0.5,1]
 
@@ -179,5 +179,5 @@ if __name__ == "__main__":
 
 
       logger.info('learned std: {}'.format(list_std_k))
-      logger.info('learned simga_obs:{}'.format(list_sigma_obs))
-      logger.info('<----------------------------------------------------------------------------------------------------------------------------->')
+      logger.info('learned sigma_obs:{}'.format(list_sigma_obs))
+      logger.info('<-------------------------------------------------------------------------------------------------------------------------------------------->')
