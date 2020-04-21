@@ -21,7 +21,8 @@ def create_logger(out_file_log):
   ch = logging.StreamHandler()
   ch.setLevel(logging.INFO)
   # create formatter
-  formatter = logging.Formatter('%(asctime)s - %(message)s')
+  formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s",
+                              "%Y-%m-%d %H:%M:%S")
   # add formatter to ch
   ch.setFormatter(formatter)
   # add ch to logger
