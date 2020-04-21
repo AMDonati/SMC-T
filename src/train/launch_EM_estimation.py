@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
   # -------------- uploading the test dataset --------------------------------------------------------------------------------------------------------------------------
   train_dataset = np.load(train_data_path) # (B,S,F)
-  train_dataset = train_dataset[:1000,:,:]
+  #train_dataset = train_dataset[:1000,:,:]
   seq_len = train_dataset.shape[1] - 1
   num_features = train_dataset.shape[-1]
   # convert it into a tf.tensor
