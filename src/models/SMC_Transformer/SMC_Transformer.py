@@ -14,7 +14,7 @@ import collections
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
 #TODO here: add a state to this, U for the computation of the gradient used in the estimation of omega.
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'U', 'w', 'I'])
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R', 'w', 'I'])
 
 # -------- Class Decoder and Class Transformer-------------------------------------------------------------------------------------------------------------
 # class Decoder that takes a SMC Decoder Layers as input.
@@ -209,6 +209,7 @@ class SMC_Transformer(tf.keras.Model):
       #assert target_feature is not None
     self.task_type = task_type
 
+    self.seq_len = seq_len
     self.sigma = sigma
     self.omega = omega
     self.noise_encoder = noise_encoder
@@ -361,11 +362,10 @@ class SMC_Transformer(tf.keras.Model):
   def call(self, inputs, training, mask):
     '''
     -args:
-      -input tensor: transformer input data : sequence of words id. > shape (B,S,1) or (B,S,F)
+      -input tensor: transformer input data : sequence of words id. > shape (B,S+1,1) or (B,S,F)
       -targets: target tensor > shape (B,S). No need for that actually...
       -training: for dropout layers
       -look_ahead_mask:
-      -eval timestep: to remove?
     -returns
       -final_output: Y0:S > shape (?, P, S, V)
       -decoder output (before output layer): Z0:S > shape (B,P,S,D)
@@ -373,25 +373,28 @@ class SMC_Transformer(tf.keras.Model):
     # if necessary
     self.cell.training = training
 
+    # check dimensionality of inputs (B,S,F)
+    assert len(tf.shape(inputs)) == 3
+
     # initialize the attention parameters
     batch_size = tf.shape(inputs)[0]
-    seq_len = tf.shape(inputs)[1]
+    seq_len_total = tf.shape(inputs)[1] # S+1
+    assert self.seq_len == seq_len_total - 1
     num_features = tf.shape(inputs)[-1]
+
+    # splitting between input_data and targets(y)
+    input_data = inputs[:,:-1,:] # (B,S,F)
+    y = tf.expand_dims(inputs[:, 1:, :], axis=-1) # (B,S,F,1)
 
     if self.data_type=='nlp':
       # process input_tensor (embedding + positional_encoding + tile) to have a shape of (B,P,S,D)
-      input_tensor_processed = tf.expand_dims(inputs, axis=-1)
+      input_tensor_processed = tf.expand_dims(input_data, axis=-1)
       input_tensor_processed = self.preprocess_words(input_tensor_processed, 0, training=training)  # dim (B, S, D)
       input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1])  # dim (B,P,S,D)
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
 
     elif self.data_type=='time_series_uni' or "time_series_multi":
-      if len(tf.shape(inputs)) == 2: # shape(B,S)
-        input_tensor_processed = tf.expand_dims(inputs, axis=-1) # shape (B,S,F)
-      else:
-        input_tensor_processed = inputs
-      # add the particle dimension
-      input_tensor_processed = tf.expand_dims(input_tensor_processed, axis=1) # (B,1,S,F)
+      input_tensor_processed = tf.expand_dims(input_data, axis=1) # (B,1,S,F)
       input_tensor_processed = tf.tile(input_tensor_processed, multiples=[1, self.num_particles, 1, 1]) # (B,P,S,F)
 
     else:
@@ -405,7 +408,6 @@ class SMC_Transformer(tf.keras.Model):
       x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     elif self.num_layers == 1:
-      # casting input_tensor_processed to tf.float32 so that it can be processed by the input_layer.
       input_tensor_processed = tf.cast(input_tensor_processed, dtype=tf.float32)
       x = self.input_dense_projection(input_tensor_processed) # one dense layer to have a tensor of shape (B,P,S,D)
       x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
@@ -413,33 +415,33 @@ class SMC_Transformer(tf.keras.Model):
     # 'dummy' initialization of cell's internal state for memory efficiency.
     if self.target_feature is not None:
       assert self.target_feature < tf.shape(inputs)[-1]
-      initial_word_id = inputs[:, 0, self.target_feature]
+      initial_word_id = input_data[:, 0, self.target_feature]
     else:
-      initial_word_id = inputs[:, 0, :]
+      initial_word_id = input_data[:, 0, :]
 
     (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
-                                                           seq_length=seq_len,
+                                                           seq_length=seq_len_total,
                                                            initial_word_id=initial_word_id)
-    if self.target_feature is None:
-      U0 = tf.zeros(shape=(batch_size, self.num_particles, 1, num_features), dtype=tf.float32)
-    else:
-      U0 = tf.zeros(shape=(batch_size, self.num_particles, 1 , 1), dtype=tf.float32)
+
+    R0 = tf.zeros(shape=tf.shape(K0), dtype=tf.float32)
+
+    # if self.target_feature is None:
+    #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1, num_features), dtype=tf.float32)
+    # else:
+    #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1 , 1), dtype=tf.float32)
     if self.test:
-      print('inputs(x)', inputs)
-      print('K0 from init function', K0[:,:,:,0])
+      print('inputs(x)', input_data)
+      #print('K0 from init function', K0[:,:,:,0])
 
     initial_state = NestedState(K=K0,
                                 V=V0,
-                                U=U0,
+                                R=R0,
                                 w=w0,
                                 I=I0)
 
     def step_function(inputs, states):
-      return self.cell(inputs, states)
+       return self.cell(inputs, states)
 
-    # taking the first S-1 sequence elements for x (input data), & elements 1 to S for y (used for computing w)
-    x = x[:,:seq_len-1,:,:]
-    y = tf.expand_dims(inputs[:,1:,:], axis=-1)
     inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #x > (B,S,P,D)
 
     if self.test:
@@ -453,39 +455,28 @@ class SMC_Transformer(tf.keras.Model):
 
     # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ----------------------------------------------------------
 
-    # last_output > (B,P,1,D)
-    last_output = [tf.squeeze(out, axis=-2) for out in last_output] # (B,P,D)
-    outputs = [tf.squeeze(out, axis=-2) for out in outputs]  # (B,S,P,D) for r,z,epsilon, (B,S,P,H,S) for attn_weights
-
-    r_T = last_output[0]
-    z_T = last_output[1]
-    r0_T = outputs[0] # (B,S,P,D)
+    # outputs
+    outputs = [tf.squeeze(out, axis=-2) for out in outputs]  # (B,S,P,D) for r,z,list_noises, (B,S,P,H,S) for attn_weights
     Z0_T = outputs[1] # (B,S,P,D)
-
     list_noise_0_T = outputs[2] # (B,S,P,D) > for computing the loss function.
+    attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
 
+    # states
     K = new_states[0] # (B,P,S+1,D)
     K = K[:,:,1:,:] # remove first timestep (dummy init.) # (B,P,S,D)
-
     V = new_states[1] # (B,P,S+1,D)
     V = V[:,:,1:,:] # (B,S,P,D)
-
-    U_T = new_states[2] # (B,P,1,F)
-
+    R = new_states[2] # (B,P,S+1,D)
+    R = R[:,:,1:,:] # (B,P,S,D)
     w_T = new_states[3]
-    I = new_states[4]
 
-    Y0_T = self.final_layer(r0_T) # (B,S,P,C) used to compute the categorical cross_entropy loss. # logits.
-    Y0_T = tf.transpose(Y0_T, perm=[0,2,1,3]) # (B,P,S,C)
+    Y0_T = self.final_layer(R) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
 
     w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T = tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
-
     list_noise_0_T = [tf.transpose(noise, perm=[0,2,1,3]) for noise in list_noise_0_T] # shape (B,P,S,D)
-    # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
-    self.noises_seq = list_noise_0_T
+    self.noises_seq = list_noise_0_T # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
 
-    attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
     attn_weights_SMC_layer = tf.transpose(attn_weights_SMC_layer, perm=[0,2,3,1,4])
 
     if self.num_layers == 1:
@@ -496,10 +487,10 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, (K,V,U_T)), attn_weights
+    return (Y0_T, Z0_T, w_T, (K,V,R)), attn_weights
 
 if __name__ == "__main__":
-  num_particles = 5
+  num_particles = 10
   seq_len = 5
   b = 8
   F = 3 # multivariate case.
@@ -551,7 +542,7 @@ if __name__ == "__main__":
     target_vocab_size = C,
     maximum_position_encoding = maximum_position_encoding,
     num_particles = num_particles,
-    seq_len = seq_len,
+    seq_len = seq_len-1,
     sigma = sigma,
     omega = omega,
     noise_encoder = noise_encoder,
@@ -570,8 +561,8 @@ if __name__ == "__main__":
   mask = create_look_ahead_mask(seq_len)
 
   (predictions, trajectories, weights, (K,V,U)), attn_weights = sample_transformer(inputs=inputs,
-                                                                                              training=True,
-                                                                                              mask=mask)
+                                                                                    training=True,
+                                                                                    mask=mask)
   print('final predictions - one sample', predictions[0,:,:,:])
   print('final K - one sample', K[0,:,:,0])
   print('w_T', weights)

@@ -14,7 +14,7 @@ from models.SMC_Transformer.transformer_utils import resample_z
 from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'U', 'w', 'I'])
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R', 'w', 'I'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
@@ -67,10 +67,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     self.training = training
     self.resampling = resampling
-    self.layer_norm = True
+    if self.num_particles > 1:
+      assert self.resampling == True
+    self.layer_norm = layer_norm
 
     self.layer_num = num_layers
-    self.task_type=task_type
+    self.task_type = task_type
 
     # for unit tests of SMC_Transformer_cell & SMC_transformer
     self.test = test
@@ -83,7 +85,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # internal states: K,V,w,I.
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
-                                  U=tf.TensorShape([self.num_particles, 1, self.target_vocab_size]),
+                                  R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   w=tf.TensorShape([self.num_particles, 1]),
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
@@ -243,13 +245,15 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     y = tf.cast(y, dtype=tf.float32)
     y = tf.squeeze(y, axis=-1) # (B,F) # y before selecting the target feature if needed.
     # getting states
-    K, V, U, w, I = states
+    K, V, R, w, I = states
     I = tf.cast(I, dtype=tf.int32)
 
     if self.test:
       print('x', x[:,:,0])
       print('y', y)
-      print('K before propagation', K[:,:,:,0])
+
+    # ----------------------- resampling K,V,and z ------------------------------------------------------------------------------
+
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
@@ -260,9 +264,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     inputs_mha = [input_mha for _ in range(3)]  # trick to have an 'inputs' in the function call of the class MultiHeadAttention
     (z, K, V), attn_weights = self.mha_smc(inputs=inputs_mha, timestep=self.dec_timestep, K=K, V=V)
 
-    if self.test:
-      print('K after propagation', K[:,:,:,0])
-      print('z', z[:,:,:,0])
+    K_sampl = K[0,:,:,0]
 
     # TODO: demander à Florian s'il faut changer l'ordre des layernorm/FFN.
     # computing r from z:
@@ -281,20 +283,26 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # 3. FOR SMC: compute the new set of weights.
     predictions = self.output_layer(r_)  # (B,P,1,V)
 
+    # storing r_t in R:
+    R_past = R[:,:,:self.dec_timestep,:]
+    R_future = R[:,:,self.dec_timestep+1:,:]
+    R = tf.concat([R_past, r_, R_future], axis=-2)
+    R_sampl = R[0,:,:,0]
+
     if self.test:
       print('predictions', predictions)
 
-    # computation of the new U:
-    #TODO implement the multivariate case. (cf inference functions.)
-    if self.target_feature is not None:
-      y = y[:, self.target_feature]
-      y = tf.expand_dims(y, axis=-1) # (B,1)
-    y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
-    y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
-    square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
-    U = U + 1/2 * ((self.omega)**2 - square_diff) # omega is the stddev, omega**2: variance.
-    # adding a tf.stop_gradient on U.
-    U = tf.stop_gradient(U)
+    # # computation of the new U:
+    # #TODO implement the multivariate case. (cf inference functions.)
+    # if self.target_feature is not None:
+    #   y = y[:, self.target_feature]
+    #   y = tf.expand_dims(y, axis=-1) # (B,1)
+    # y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
+    # y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
+    # square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
+    # U = U + 1/2 * ((self.omega)**2 - square_diff) # omega is the stddev, omega**2: variance.
+    # # adding a tf.stop_gradient on U.
+    # U = tf.stop_gradient(U)
 
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
@@ -305,7 +313,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       w_squeezed = self.compute_w_regression(predictions=predictions, y=y)
 
     # add a tf.stop_gradient on the weights to avoid backpropagation on these parameters:
-    w_squeezed=tf.stop_gradient(w_squeezed)
+    w_squeezed = tf.stop_gradient(w_squeezed)
     #predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
     #-----------------end of weights computation--------------------------------------------------------------------
@@ -321,13 +329,18 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if self.resampling:
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=K, i_t=i_t, t=self.dec_timestep)
+      R = resample(params=R, i_t=i_t, t=self.dec_timestep)
       z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D).
-      U = resample_z(z=U, curr_ind=i_t) # (B,P,1,F).
+
+    K_resampl = K[0,:,:,0]
+    R_resampl = R[0,:,:,0]
 
     if self.test:
       print('current indices', i_t)
-      print('K resampled', K[:,:,:,0])
-      print('z resampled', z[:,:,:,0])
+      print('K before resampling', K_sampl)
+      print('K resampled', K_resampl)
+      print('R before resampling', R_sampl)
+      print('R resampled', R_resampl)
 
     # get the normalized mean of z,k,q,v for the SMC loss.
     noise_z = self.mha_smc.noise_z_norm # shape (B,P,1,D)
@@ -346,7 +359,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     else:
       raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
 
-    new_states = NestedState(K=K, V=V, U=U, w=w, I=I)
+    new_states = NestedState(K=K, V=V, R=R, w=w, I=I)
 
     self.dec_timestep += 1
 
@@ -457,6 +470,9 @@ if __name__ == "__main__":
   #------- checking the aspect of the resampling weights ------------------------------------------------------
   for b in range(batch_size):
     print('w_{}'.format(b), w[b, :, :])
+
+
+
 
   # ------ draft of the code for inference function --------------------------------------------------
 
