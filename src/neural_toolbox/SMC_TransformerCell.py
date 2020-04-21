@@ -90,7 +90,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
                                   I=tf.TensorShape([self.num_particles, self.seq_len]))
 
     # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
-    self.output_size = (tf.TensorShape([self.num_particles, 1, self.d_model]),  # r^l
+    self.output_size = (tf.TensorShape([self.num_particles]),  # i_t
                         tf.TensorShape([self.num_particles, 1, self.d_model]),  # z
                         tf.TensorShape([self.num_particles, 1, self.d_model]),  # epsilon
                         tf.TensorShape([self.num_particles, 1, self.seq_len]))  # attention_weights
@@ -144,8 +144,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     mu_t = y - predictions # (B,P,F)
     log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    scalar = -1/(2*(self.omega)**2)
-    log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) #TODO: 1/(2*omega^2)
+    #log_w = tf.square(mu_t)
+    log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) # omega here is the stddev.
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
@@ -324,7 +324,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
     I = tf.stop_gradient(I)
 
-    i_t = tf.squeeze(i_t, axis=-1)
+    i_t = tf.squeeze(i_t, axis=-1) # (B,P)
     # resample K, V, and z, and U:
     if self.resampling:
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
@@ -350,7 +350,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     list_noise = [noise_z, noise_k, noise_v, noise_q]
 
-    output = [r_, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    output = [i_t, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
     if len(tf.shape(w_squeezed)) == 2:
       w = tf.expand_dims(w_squeezed, axis=-1)

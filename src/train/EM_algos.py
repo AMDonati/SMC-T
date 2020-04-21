@@ -37,11 +37,12 @@ def EM_training_algo_1D(train_data, train_labels, smc_transformer, num_particles
     outputs, _ = smc_transformer(inputs=train_data,
                                  training=False,
                                  mask=mask)  # (B,P,s,1)
-    predictions, _, w_s, (K,V,U) = outputs
+    predictions, _, w_s, (K,V,R) = outputs
     index = np.random.randint(0,num_particles)
     sample_pred = predictions[index,:,:,0]
     sample_pred = sample_pred.numpy()
     K_sampl = K[index,:,:,0].numpy()
+    R_sampl = R[index,:,:,0].numpy()
 
     # compute $\sigma_obs_k$
     true_labels = tf.expand_dims(train_labels, axis=1)  # (B,1,s)

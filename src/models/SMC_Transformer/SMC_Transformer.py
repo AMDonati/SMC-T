@@ -456,7 +456,9 @@ class SMC_Transformer(tf.keras.Model):
     # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ----------------------------------------------------------
 
     # outputs
-    outputs = [tf.squeeze(out, axis=-2) for out in outputs]  # (B,S,P,D) for r,z,list_noises, (B,S,P,H,S) for attn_weights
+    outputs =[outputs[0]] + [tf.squeeze(out, axis=-2) for out in outputs[1:]]  # (B,S,P,D) for z,list_noises, (B,S,P,H,S) for attn_weights
+    # first output i_t: not reshaped.
+    indices_matrix = outputs[0] # (B,S,P)
     Z0_T = outputs[1] # (B,S,P,D)
     list_noise_0_T = outputs[2] # (B,S,P,D) > for computing the loss function.
     attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
@@ -474,6 +476,7 @@ class SMC_Transformer(tf.keras.Model):
 
     w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
     Z0_T = tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
+    indices_matrix = tf.transpose(indices_matrix, perm=[0,2,1]) # (B,P,S)
     list_noise_0_T = [tf.transpose(noise, perm=[0,2,1,3]) for noise in list_noise_0_T] # shape (B,P,S,D)
     self.noises_seq = list_noise_0_T # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
 
@@ -487,7 +490,7 @@ class SMC_Transformer(tf.keras.Model):
 
     self.pass_forward = True
 
-    return (Y0_T, Z0_T, w_T, (K,V,R)), attn_weights
+    return (Y0_T, indices_matrix, w_T, (K,V,R)), attn_weights
 
 if __name__ == "__main__":
   num_particles = 10
