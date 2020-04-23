@@ -306,8 +306,8 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   smc_transformer.cell.mha_smc.num_particles = num_particles
   smc_transformer.sigma = sigma
   smc_transformer.cell.mha_smc.sigma_scalar = sigma
-  smc_transformer.omega == omega
-  smc_transformer.cell.omega == omega
+  smc_transformer.omega = omega
+  smc_transformer.cell.omega = omega
 
   inp_model = inputs[:,:s,:] # (1:s-1) used as the input tensor of the SMC Cell.
   #true_labels = inputs[:,1:s,0] # (B,s)

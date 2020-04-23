@@ -112,7 +112,7 @@ if __name__ == "__main__":
   omega = 0.3
   num_iter = 20
   list_particles = [10,25,50,100]
-  list_omega_init = [0.05,0.1,0.5,1]
+  list_omega_init = [0.3,0.5,1]
 
   checkpoint_path = os.path.join(output_path, "checkpoints")
 

@@ -160,7 +160,7 @@ if __name__ == "__main__":
     output_path = create_run_dir(path_dir=output_path, path_name='inference_results')
   else:
     output_path = os.path.join(output_path, 'inference_results')
-  folder_template = 'num-timesteps_{}_N_{}_N-est_{}_sigma_{}_omega_learned'
+  folder_template = 'num-timesteps_{}_N_{}_N-est_{}_sigma_{}_omega_0.76'
   out_folder = folder_template.format(num_timesteps, N, N_est, sigma)
   if test_one_sample:
     out_folder = out_folder + '_sample_{}'.format(index)
@@ -239,46 +239,46 @@ if __name__ == "__main__":
     #                                                                                                         num_updates))
     if not layer_norm:
       logger.info("inference without layer norm...")
-    for p_inf in list_p_inf:
-      logger.info('inference results for number of particles: {}'.format(p_inf))
-      # re-initializing omega with initial scalar value
-      #smc_transformer.omega = omega
-      #smc_transformer.cell.omega = omega
-
-      if target_feature is None:
-
-        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, (learned_std, covariance_matrix) = inference_function_multistep(
-          inputs=test_dataset,
-          smc_transformer=smc_transformer,
-          N_prop=N,
-          N_est=N_est,
-          num_particles=p_inf,
-          num_timesteps=num_timesteps,
-          sample_pred=True,
-          sigma=sigma,
-          output_path=output_path,
-          layer_norm=layer_norm)
-        logger.info('learned std: {}'.format(learned_std))
-        logger.info('covariance matrix: {}'.format(covariance_matrix))
-
-
-      else:
-
-        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
-                                                                                                smc_transformer=smc_transformer,
-                                                                                                N_prop=N,
-                                                                                                N_est=N_est,
-                                                                                                num_particles=p_inf,
-                                                                                                num_timesteps=num_timesteps,
-                                                                                                sample_pred=True,
-                                                                                                sigma=sigma,
-                                                                                                omega=omega_inf,
-                                                                                                output_path=output_path,
-                                                                                                layer_norm=layer_norm)
+    # for p_inf in list_p_inf:
+    #   logger.info('inference results for number of particles: {}'.format(p_inf))
+    #   # re-initializing omega with initial scalar value
+    #   #smc_transformer.omega = omega
+    #   #smc_transformer.cell.omega = omega
+    #
+    #   if target_feature is None:
+    #
+    #     (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, (learned_std, covariance_matrix) = inference_function_multistep(
+    #       inputs=test_dataset,
+    #       smc_transformer=smc_transformer,
+    #       N_prop=N,
+    #       N_est=N_est,
+    #       num_particles=p_inf,
+    #       num_timesteps=num_timesteps,
+    #       sample_pred=True,
+    #       sigma=sigma,
+    #       output_path=output_path,
+    #       layer_norm=layer_norm)
+    #     logger.info('learned std: {}'.format(learned_std))
+    #     logger.info('covariance matrix: {}'.format(covariance_matrix))
+    #
+    #
+    #   else:
+    #
+    #     (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
+    #                                                                                             smc_transformer=smc_transformer,
+    #                                                                                             N_prop=N,
+    #                                                                                             N_est=N_est,
+    #                                                                                             num_particles=p_inf,
+    #                                                                                             num_timesteps=num_timesteps,
+    #                                                                                             sample_pred=True,
+    #                                                                                             sigma=sigma,
+    #                                                                                             omega=omega_inf,
+    #                                                                                             output_path=output_path,
+    #                                                                                             layer_norm=layer_norm)
 
 
         #logger.info('learned std: {}'.format(list_learned_std))
-        logger.info('<----------------------------------------------------------------------------------------------------------------------------->')
+        #logger.info('<----------------------------------------------------------------------------------------------------------------------------->')
 
     list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
                                                                                 matrix_A=A_3D,
@@ -286,12 +286,12 @@ if __name__ == "__main__":
                                                                                 N_est=N_est,
                                                                                 num_timesteps=num_timesteps,
                                                                                 output_path=output_path)
-    list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
-                                                                             matrix_A=A_3D,
-                                                                             cov_matrix=cov_matrix_3D,
-                                                                             N_est=N_est,
-                                                                             num_timesteps=num_timesteps,
-                                                                             output_path=output_path)
+    #list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
+                                                                             # matrix_A=A_3D,
+                                                                             # cov_matrix=cov_matrix_3D,
+                                                                             # N_est=N_est,
+                                                                             # num_timesteps=num_timesteps,
+                                                                             # output_path=output_path)
 
     # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
       #KL_measure = tf.keras.losses.KLDivergence()

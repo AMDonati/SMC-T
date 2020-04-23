@@ -144,14 +144,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     mu_t = y - predictions # (B,P,F)
     #log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
+    #log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w = tf.square(mu_t)
+    log_w = tf.squeeze(log_w, axis=-1)
+    bool1 = tf.math.is_inf(log_w)
+    has_inf1 = tf.reduce_any(bool1)
     log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) # omega here is the stddev.
-    log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
+    bool2= tf.math.is_inf(log_w)
+    has_inf2 = tf.reduce_any(bool2)
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
-    w = tf.math.exp(log_w)
+    bool3 = tf.math.is_inf(log_w)
+    has_inf3 = tf.reduce_any(bool3)
+    w = tf.math.exp(log_w) #TODO: understand why it outputs inf here...
     # normalization
-    w = w / tf.reduce_sum(w, axis=1, keepdims=True)
+    w = w / tf.reduce_sum(w, axis=1, keepdims=True) #TODO: then outputs nan with the denominator.
+
+    assert len(tf.shape(w)) == 2
 
     # check if w contains a nan number
     bool_tens = tf.math.is_nan(w)
@@ -259,7 +268,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       print('y', y)
 
     # ----------------------- resampling K,V,and z ------------------------------------------------------------------------------
-
     # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
     #if self.resampling:
       #K = resample_old(K, I)
@@ -320,23 +328,23 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     # add a tf.stop_gradient on the weights to avoid backpropagation on these parameters:
     w_squeezed = tf.stop_gradient(w_squeezed)
-    #predictions = tf.squeeze(predictions, axis=-2)  # (B,P,V)
 
     #-----------------end of weights computation--------------------------------------------------------------------
 
     # update the genealogy indices matrix from the weights.
     # TODO: remove this function & consider only the current indice i_t.
-    i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
-    # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    I = tf.stop_gradient(I)
+    # i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
+    # # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
+    # I = tf.stop_gradient(I)
+    i_t = tf.random.categorical(w_squeezed, self.num_particles)  # (B,P,1)
+    i_t = tf.stop_gradient(i_t)
 
-    i_t = tf.squeeze(i_t, axis=-1) # (B,P)
     # resample K, V, and z, and U:
     if self.resampling:
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=K, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
-      z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D).
+      z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D). #TODO: actually useless.
 
     K_resampl = K[0,:,:,0]
     R_resampl = R[0,:,:,0]

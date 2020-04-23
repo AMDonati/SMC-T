@@ -330,7 +330,7 @@ def plot_multiple_P_one_timestep(list_pred_means, true_means, list_sampled_preds
     fig, ax = plt.subplots(1, 1)
     # draw a sample among the samples of the test set:
     index = np.random.randint(low=0, high=batch_size)
-    index = 0
+    #index = 0
     true_mean = true_means[index]  # scalar.
     list_colors = ['b', 'r', 'g']
 
@@ -362,25 +362,25 @@ def plot_multiple_P_one_timestep(list_pred_means, true_means, list_sampled_preds
 
     plt.legend(fontsize=12)
     # plt.title('True pdf versus predicted pdf per timestep for samplne # {}'.format(index), fontsize=16)
-    #plt.show()
+    plt.show()
     fig_path = output_path + '/' + 'true_pdf_vs_pred_pdf_one_timestep_multiples_P_sample_{}_.png'.format(index)
-    plt.savefig(fig_path)
+    #plt.savefig(fig_path)
 
 
 if __name__ == "__main__":
   #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10-50-100-_N_10_N-est_5000_sigma_0.05_omega_learned'
   #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/no_layer_norm_results_142020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_N_10_N-est_5000_sigma_0.05_omega_learned'
   #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/3_feat_results_642020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_None_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_N_10_N-est_5000_sigma_0.05_omega_learned'
-  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_N_10_N-est_100_sigma_0.05_omega_learned_sample_3946'
+  file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_N_10_N-est_500_sigma_0.05_omega_0.76'
 
 
   Baseline_T_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__rnn-units_10'
 
   #SMC_T inference results:
-  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_100.npy')
+  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_25.npy')
   true_gaussian_mean_path = os.path.join(file_path, 'true_gaussian_means.npy')
-  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_100.npy')
-  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_100.npy')
+  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_25.npy')
+  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_25.npy')
   #covariance_matrix_path = os.path.join(file_path, 'covariance_matrix_P_100.npy')
   true_emp_distrib_path = os.path.join(file_path, 'true_empirical_distrib.npy')
   preds_gaussian_means = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, F)
@@ -404,7 +404,7 @@ if __name__ == "__main__":
   MC_dropout_T_preds = MC_dropout_T_preds.reshape(MC_dropout_T_preds.shape[:-1]) # (B, N_est, num_timesteps)
   baseline_T_preds = baseline_T_preds.reshape(baseline_T_preds.shape[:-1]) # (num_timesteps, B)
 
-  omega_preds = 0.2410
+  omega_preds = 0.76
   omega_true_distrib = 0.2
   #stddev_true_distrib = tf.constant([0.2, 0.3, 0.4], dtype=tf.float32)
 
@@ -463,32 +463,25 @@ if __name__ == "__main__":
 
   # ----- plotting for multiple values of number of particules --------------------------------------------------------------------------------------
   #file_path = '/Users/alicemartin/000_Boulot_Polytechnique/07_PhD_thesis/code/SMC-T/output/post_UAI_exp/results_ws155_632020/time_series_multi_synthetic_heads_2_depth_6_dff_24_pos-enc_50_pdrop_0_b_256_target-feat_0_cv_False__particles_1_noise_False_sigma_0.05/inference_results/num-timesteps_4_p_inf_10-50-100-_N_10_N-est_5000_sigma_0.05_omega_learned'
-  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_10.npy')
-  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_10.npy')
-  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_10.npy')
+  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_5.npy')
+  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_5.npy')
+  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_5.npy')
   true_gaussian_mean_path = os.path.join(file_path, 'true_gaussian_means.npy')
   true_emp_distrib_path = os.path.join(file_path, 'true_empirical_distrib.npy')
-  preds_gaussian_means_10 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
-  sampling_weights_10 = np.load(sampling_weights_path)
-  sampled_pred_distrib_10 = np.load(sampled_pred_distrib_path) # (num_timesteps, B, N_est)
+  preds_gaussian_means_5 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
+  sampling_weights_5 = np.load(sampling_weights_path)
+  sampled_pred_distrib_5 = np.load(sampled_pred_distrib_path) # (num_timesteps, B, N_est)
   true_gaussian_mean = np.load(true_gaussian_mean_path)  # (num_timesteps, B, F)
   true_emp_distrib = np.load(true_emp_distrib_path) # num_timesteps, B, N_est)
 
   true_gaussian_mean = true_gaussian_mean[:, :, 0]
 
-  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_50.npy')
-  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_50.npy')
-  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_50.npy')
-  preds_gaussian_means_50 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
-  sampling_weights_50 = np.load(sampling_weights_path)
-  sampled_pred_distrib_50 = np.load(sampled_pred_distrib_path)  # (num_timesteps, B, N_est)
-
-  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_100.npy')
-  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_100.npy')
-  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_100.npy')
-  preds_gaussian_means_100 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
-  sampling_weights_100 = np.load(sampling_weights_path)
-  sampled_pred_distrib_100 = np.load(sampled_pred_distrib_path)  # (num_timesteps, B, N_est)
+  preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_10.npy')
+  sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_10.npy')
+  sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_10.npy')
+  preds_gaussian_means_10 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
+  sampling_weights_10 = np.load(sampling_weights_path)
+  sampled_pred_distrib_10 = np.load(sampled_pred_distrib_path)  # (num_timesteps, B, N_est)
 
   preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_25.npy')
   sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_25.npy')
@@ -497,13 +490,20 @@ if __name__ == "__main__":
   sampling_weights_25 = np.load(sampling_weights_path)
   sampled_pred_distrib_25 = np.load(sampled_pred_distrib_path)  # (num_timesteps, B, N_est)
 
-  preds_gaussian_means = [preds_gaussian_means_10, preds_gaussian_means_25,  preds_gaussian_means_50, preds_gaussian_means_100]
-  sampling_weights = [sampling_weights_10, sampling_weights_25, sampling_weights_50, sampling_weights_100]
-  sampled_pred_distrib = [sampled_pred_distrib_10, sampled_pred_distrib_25, sampled_pred_distrib_50, sampled_pred_distrib_100]
+  # preds_gaussian_means_path = os.path.join(file_path, 'pred_gaussian_means_per_timestep_P_25.npy')
+  # sampling_weights_path = os.path.join(file_path, 'sampling_weights_P_25.npy')
+  # sampled_pred_distrib_path = os.path.join(file_path, 'preds_sampled_per_timestep_P_25.npy')
+  # preds_gaussian_means_25 = np.load(preds_gaussian_means_path)  # (num_timesteps, B, N, P, 1)
+  # sampling_weights_25 = np.load(sampling_weights_path)
+  # sampled_pred_distrib_25 = np.load(sampled_pred_distrib_path)  # (num_timesteps, B, N_est)
+
+  preds_gaussian_means = [preds_gaussian_means_5, preds_gaussian_means_10, preds_gaussian_means_25]
+  sampling_weights = [sampling_weights_5, sampling_weights_10, sampling_weights_25]
+  sampled_pred_distrib = [sampled_pred_distrib_5, sampled_pred_distrib_10, sampled_pred_distrib_25]
   preds_gaussian_means = [tf.convert_to_tensor(t) for t in preds_gaussian_means]
   sampling_weights = [tf.convert_to_tensor(t) for t in sampling_weights]
 
-  list_omega_preds = [0.2472, 0.2409, 0.2448, 0.2410]
+  list_omega_preds = [0.76, 0.76, 0.76]
 
   t = 0
   true_mean = true_gaussian_mean[t, :]

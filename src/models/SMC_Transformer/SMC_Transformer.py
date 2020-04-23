@@ -429,9 +429,6 @@ class SMC_Transformer(tf.keras.Model):
     #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1, num_features), dtype=tf.float32)
     # else:
     #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1 , 1), dtype=tf.float32)
-    if self.test:
-      print('inputs(x)', input_data)
-      #print('K0 from init function', K0[:,:,:,0])
 
     initial_state = NestedState(K=K0,
                                 V=V0,
@@ -445,6 +442,7 @@ class SMC_Transformer(tf.keras.Model):
     inputs_for_rnn = NestedInput(x=x, y=y) # y > (B,S,F,1), #x > (B,S,P,D)
 
     if self.test:
+      print('inputs(x)', input_data)
       print('y', y)
 
     last_output, outputs, new_states = tf.keras.backend.rnn(step_function=step_function,
