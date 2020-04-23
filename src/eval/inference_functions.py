@@ -362,7 +362,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
       obs_features_NP = tf.tile(obs_features_NP, multiples=[1,NP,1,1]) # (B,NP,1,F=2)
       X_pred_NP = tf.concat([X_pred_NP, obs_features_NP], axis=-1)
     X_pred_NP = smc_transformer.input_dense_projection(X_pred_NP) # (B,P,1,D) or # (B,N*P,1,D)
-    X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s, inf_timestep=t, layer_norm=layer_norm)
+    X_pred_NP, r_N_P, (K, V) = smc_transformer.cell.inference_function(inputs=X_pred_NP, K=K, V=V, num_samples=N, t=t+s-1, inf_timestep=t, layer_norm=layer_norm)
     list_X_pred_NP.append(X_pred_NP)
     list_r_NP.append(r_N_P)
 
