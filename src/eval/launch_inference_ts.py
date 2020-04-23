@@ -49,9 +49,9 @@ if __name__ == "__main__":
                       help="path for the output folder with training results for the Baseline Transformer")
   parser.add_argument("-data_path", default=default_data_folder, type=str, help="path for the test data folder")
   parser.add_argument("-num_timesteps", default=4, type=int, help="number of timesteps for doing inference")
-  parser.add_argument("-p_inf", default=[10,25,50,100], type=list, help="number of particles generated for inference")
+  parser.add_argument("-p_inf", default=[5,10,25], type=list, help="number of particles generated for inference")
   parser.add_argument("-N", default=10, type=int, help="number of samples for MC sampling")
-  parser.add_argument("-N_est", default=100, type=int, help="number of samples for the empirical distributions")
+  parser.add_argument("-N_est", default=500, type=int, help="number of samples for the empirical distributions")
   parser.add_argument("-sigma", default=0.05, type=float, help="value of the internal noise")
   parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-dropout_rate", default=0.1, type=float, help="dropout rate for MC Dropout algo.")
@@ -201,7 +201,7 @@ if __name__ == "__main__":
                                     seq_len=seq_len,
                                     data_type=data_type,
                                     task_type=task_type,
-                                    resampling=resampling,
+                                    resampling=True,
                                     layer_norm=layer_norm,
                                     target_feature=target_feature)
 
@@ -222,25 +222,28 @@ if __name__ == "__main__":
   A_3D = tf.constant([[0.8, 0.1, 0], [0.2, 0.9, 0.2], [0, 0.1, 0.85]], dtype=tf.float32)
   list_KL_exp = []
 
+  omega_inf = 0.76
+
+  test_one_sample = False
   if test_one_sample:
     test_dataset = test_dataset[index,:,:]
     test_dataset = tf.expand_dims(test_dataset, axis=0)
 
-  inference_smc_T = False
+  inference_smc_T = True
   if inference_smc_T:
     if test_one_sample:
       logger.info("results for sample: {}".format(index))
 
     logger.info('initial std...: {}'.format(omega))
-    logger.info('hyper-parameters for the stochastic approx. algo: alpha:{} - k:{} -num_updates: {}'.format(alpha, k,
-                                                                                                            num_updates))
+    # logger.info('hyper-parameters for the stochastic approx. algo: alpha:{} - k:{} -num_updates: {}'.format(alpha, k,
+    #                                                                                                         num_updates))
     if not layer_norm:
       logger.info("inference without layer norm...")
     for p_inf in list_p_inf:
       logger.info('inference results for number of particles: {}'.format(p_inf))
       # re-initializing omega with initial scalar value
-      smc_transformer.omega = omega
-      smc_transformer.cell.omega = omega
+      #smc_transformer.omega = omega
+      #smc_transformer.cell.omega = omega
 
       if target_feature is None:
 
@@ -261,7 +264,7 @@ if __name__ == "__main__":
 
       else:
 
-        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s, list_learned_std = inference_function_multistep_1D(inputs=test_dataset,
+        (list_mean_NP, list_X_pred_NP), list_preds_sampled, w_s = inference_function_multistep_1D(inputs=test_dataset,
                                                                                                 smc_transformer=smc_transformer,
                                                                                                 N_prop=N,
                                                                                                 N_est=N_est,
@@ -269,28 +272,26 @@ if __name__ == "__main__":
                                                                                                 num_timesteps=num_timesteps,
                                                                                                 sample_pred=True,
                                                                                                 sigma=sigma,
-                                                                                                num_updates=num_updates,
-                                                                                                alpha=alpha,
-                                                                                                k=k,
+                                                                                                omega=omega_inf,
                                                                                                 output_path=output_path,
                                                                                                 layer_norm=layer_norm)
 
 
-        logger.info('learned std: {}'.format(list_learned_std))
+        #logger.info('learned std: {}'.format(list_learned_std))
         logger.info('<----------------------------------------------------------------------------------------------------------------------------->')
 
-      # list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
-      #                                                                           matrix_A=A_3D,
-      #                                                                           cov_matrix=cov_matrix_3D,
-      #                                                                           N_est=N_est,
-      #                                                                           num_timesteps=num_timesteps,
-      #                                                                           output_path=output_path)
-      # list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
-      #                                                                        matrix_A=A_3D,
-      #                                                                        cov_matrix=cov_matrix_3D,
-      #                                                                        N_est=N_est,
-      #                                                                        num_timesteps=num_timesteps,
-      #                                                                        output_path=output_path)
+    list_empirical_dist, list_true_means = generate_empirical_distribution_1D(inputs=test_dataset,
+                                                                                matrix_A=A_3D,
+                                                                                cov_matrix=cov_matrix_3D,
+                                                                                N_est=N_est,
+                                                                                num_timesteps=num_timesteps,
+                                                                                output_path=output_path)
+    list_empirical_dist, list_true_means = generate_empirical_distribution(inputs=test_dataset,
+                                                                             matrix_A=A_3D,
+                                                                             cov_matrix=cov_matrix_3D,
+                                                                             N_est=N_est,
+                                                                             num_timesteps=num_timesteps,
+                                                                             output_path=output_path)
 
     # --------------------------- compute distances ------------------------------------------------------------------------------------------------------------------
       #KL_measure = tf.keras.losses.KLDivergence()
@@ -319,7 +320,7 @@ if __name__ == "__main__":
 
   # --------------------------- inference function for MC Dropout Baseline Transformer -----------------------------------------------------------------------------
   # get the hparams:
-  inference_mc_dropout = True
+  inference_mc_dropout = False
 
   if inference_mc_dropout:
     Baseline_T_path = args.baseline_T_path

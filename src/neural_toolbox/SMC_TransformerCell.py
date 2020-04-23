@@ -143,8 +143,8 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       y = tf.expand_dims(y, axis=-1) # (B, P, 1)
 
     mu_t = y - predictions # (B,P,F)
-    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    #log_w = tf.square(mu_t)
+    #log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
+    log_w = tf.square(mu_t)
     log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) # omega here is the stddev.
     log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
@@ -152,6 +152,12 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w = tf.math.exp(log_w)
     # normalization
     w = w / tf.reduce_sum(w, axis=1, keepdims=True)
+
+    # check if w contains a nan number
+    bool_tens = tf.math.is_nan(w)
+    has_nan = tf.math.reduce_any(bool_tens).numpy()
+    assert has_nan == False
+
     return w
 
   def inference_function(self, inputs, K, V, num_samples, t, inf_timestep, layer_norm=True):

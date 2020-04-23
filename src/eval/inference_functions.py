@@ -279,7 +279,7 @@ def omega_estimation_algorithm(smc_transformer, input_model, mask, num_updates, 
   return list_omegas_estimated, smc_transformer, (w_s, K0_s, V0_s)
 
 
-def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, num_updates, alpha, k, output_path, sample_pred=True, layer_norm=True):
+def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_particles, num_timesteps, sigma, omega, output_path, sample_pred=True, layer_norm=True):
   '''
   :param inputs: shape (B,S,F)
   :param smc_transformer:
@@ -303,33 +303,38 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   smc_transformer.cell.mha_smc.noise = True
   smc_transformer.num_particles = num_particles
   smc_transformer.cell.num_particles = num_particles
+  smc_transformer.cell.mha_smc.num_particles = num_particles
   smc_transformer.sigma = sigma
   smc_transformer.cell.mha_smc.sigma_scalar = sigma
+  smc_transformer.omega == omega
+  smc_transformer.cell.omega == omega
 
   inp_model = inputs[:,:s,:] # (1:s-1) used as the input tensor of the SMC Cell.
   #true_labels = inputs[:,1:s,0] # (B,s)
   inp_inference = inputs[:,s:,:]
 
+  # adapting the seq length to the length of input_model seq.
+  smc_transformer.seq_len = tf.shape(inp_model)[1] - 1
+  smc_transformer.cell.seq_len = tf.shape(inp_model)[1] - 1
+  outputs, _ = smc_transformer(inputs=inp_model,
+                                  training=False,
+                                  mask=mask) # (B,P,s,1)
 
-  # outputs, _ = smc_transformer(inputs=inp_model,
-  #                                 training=False,
-  #                                 mask=mask) # (B,P,s,1)
-  #
-  # predictions, _, w_s, (K0_s, V0_s, Us) = outputs
+  predictions, _, w_s, (K0_s, V0_s, R0_s) = outputs
 
-  # -------- online estimation of omega -----------------------------------------------------------------------------------------------------------
-  list_omegas_estimated, smc_transformer, (w_s, K0_s, V0_s) = omega_estimation_algorithm(smc_transformer=smc_transformer,
-                                                                                         input_model=inp_model,
-                                                                                         mask=mask,
-                                                                                         num_updates=num_updates,
-                                                                                         alpha=alpha,
-                                                                                         k=k)
-  omega = list_omegas_estimated[-1]
-  assert smc_transformer.omega == omega
-  assert smc_transformer.cell.omega == omega
+  # # -------- online estimation of omega -----------------------------------------------------------------------------------------------------------
+  # list_omegas_estimated, smc_transformer, (w_s, K0_s, V0_s) = omega_estimation_algorithm(smc_transformer=smc_transformer,
+  #                                                                                        input_model=inp_model,
+  #                                                                                        mask=mask,
+  #                                                                                        num_updates=num_updates,
+  #                                                                                        alpha=alpha,
+  #                                                                                        k=k)
+  # omega = list_omegas_estimated[-1]
+  # assert smc_transformer.omega == omega
+  # assert smc_transformer.cell.omega == omega
 
   # preprocessing initial input:
-  input = inp_model[:, -1, :] # (B,1,F)
+  input = inp_model[:, -1, :] # (B,1,F) # use last input of inp_model (only use as target in the forward pass above.)
   input = tf.expand_dims(input, axis=1)  # (B,1,F)
   input = tf.expand_dims(input, axis=1) # (B,1,1,F)
   input = tf.tile(input, multiples=[1, num_particles, 1, 1])  # (B,P,1,F)
@@ -340,9 +345,13 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
   future_V = tf.zeros(shape=shape_future)
   K_init = tf.concat([K0_s, future_K], axis=2)
   V_init = tf.concat([V0_s, future_V], axis=2)
-  K = K_init
+  K = K_init # (B,P,s+num_timesteps,D)
   V = V_init
   X_pred_NP = input # (B,P,1,F)
+
+  # adjust seq_len parameter
+  smc_transformer.seq_len = tf.shape(K)[2]
+  smc_transformer.cell.seq_len = tf.shape(K)[2]
 
   for t in range(num_timesteps):
     if tf.shape(X_pred_NP)[-1] == 1:
@@ -401,7 +410,7 @@ def inference_function_multistep_1D(inputs, smc_transformer, N_prop, N_est, num_
     np.save(file=sampling_weights_path, arr=w_s)
     np.save(file=all_preds_path, arr=list_X_pred_NP)
 
-  return (list_mean_NP, list_X_pred_NP), list_preds_multistep, w_s, list_omegas_estimated
+  return (list_mean_NP, list_X_pred_NP), list_preds_multistep, w_s
 
 
 def generate_empirical_distribution_1D(inputs, matrix_A, cov_matrix, N_est, num_timesteps, output_path):

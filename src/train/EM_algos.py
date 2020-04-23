@@ -39,10 +39,17 @@ def EM_training_algo_1D(train_data, train_labels, smc_transformer, num_particles
                                  mask=mask)  # (B,P,s,1)
     predictions, _, w_s, (K,V,R) = outputs
     index = np.random.randint(0,num_particles)
+    index = 20
     sample_pred = predictions[index,:,:,0]
     sample_pred = sample_pred.numpy()
     K_sampl = K[index,:,:,0].numpy()
     R_sampl = R[index,:,:,0].numpy()
+    w_sampl = w_s[index,:].numpy()
+
+    # check if w contains a nan number
+    bool_tens = tf.math.is_nan(w_s)
+    has_nan = tf.math.reduce_any(bool_tens).numpy()
+    assert has_nan == False
 
     # compute $\sigma_obs_k$
     true_labels = tf.expand_dims(train_labels, axis=1)  # (B,1,s)

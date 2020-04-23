@@ -28,7 +28,7 @@ if __name__ == "__main__":
   #parser.add_argument("-omega", default=0.1, type=float, help="value of the external covariance of the gaussian noise")
   parser.add_argument("-num_iter", default=20, type=int, help="number of iterations for EM algo")
 
-  args=parser.parse_args()
+  args = parser.parse_args()
   output_path = args.out_folder
 
   config_path = os.path.join(output_path, 'config.json')
@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
   # -------------- uploading the test dataset --------------------------------------------------------------------------------------------------------------------------
   train_dataset = np.load(train_data_path) # (B,S,F)
-  #train_dataset = train_dataset[:1000,:,:]
+  train_dataset = train_dataset[:1000,:,:]
   seq_len = train_dataset.shape[1] - 1
   num_features = train_dataset.shape[-1]
   # convert it into a tf.tensor
@@ -162,11 +162,14 @@ if __name__ == "__main__":
 
   # ------------------------------------- compute latest statistics as a check -----------------------------------------------------------------------------------------
   # ------------------------------------- EM algo to learn $\sigmas...$ --------------------------------------------------------------------------------------------------
+  #list_particles = [100]
   for omega_init in list_omega_init:
 
     logger.info('initial std...: {}'.format(omega_init))
 
     for num_particles in list_particles:
+
+      #num_particles = 10
       logger.info('EM results for number of particles: {}'.format(num_particles))
 
       list_sigma_obs, list_std_k = EM_training_algo_1D(train_data=train_dataset,
