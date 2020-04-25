@@ -58,10 +58,10 @@ class Encoder(tf.keras.layers.Layer):
     self.dropout = tf.keras.layers.Dropout(rate)
 
     # additional parameters for SMC:
-    self.data_type=data_type
-    self.sigma=sigma
+    self.data_type = data_type
+    self.sigma = sigma
     self.num_particles = num_particles
-    self.noise=noise
+    self.noise = noise
 
   def preprocess_words_input(self, x, training):
     '''pre_process sequence of words by adding embeddings + positional encoding

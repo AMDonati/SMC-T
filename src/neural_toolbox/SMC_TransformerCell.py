@@ -342,7 +342,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # resample K, V, and z, and U:
     if self.resampling:
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
-      V = resample(params=K, i_t=i_t, t=self.dec_timestep)
+      V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
       z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D). #TODO: actually useless.
 

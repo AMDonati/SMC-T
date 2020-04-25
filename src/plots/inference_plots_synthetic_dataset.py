@@ -362,9 +362,9 @@ def plot_multiple_P_one_timestep(list_pred_means, true_means, list_sampled_preds
 
     plt.legend(fontsize=12)
     # plt.title('True pdf versus predicted pdf per timestep for samplne # {}'.format(index), fontsize=16)
-    plt.show()
+    #plt.show()
     fig_path = output_path + '/' + 'true_pdf_vs_pred_pdf_one_timestep_multiples_P_sample_{}_.png'.format(index)
-    #plt.savefig(fig_path)
+    plt.savefig(fig_path)
 
 
 if __name__ == "__main__":
