@@ -11,7 +11,7 @@ from models.SMC_Transformer.transformer_utils import resample
 from models.SMC_Transformer.transformer_utils import resample_z
 
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R', 'w', 'I'])
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 
 class SMC_Transf_Cell(tf.keras.layers.Layer):
@@ -327,7 +327,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     list_noise = [noise_z, noise_k, noise_v, noise_q]
 
-    output = [i_t, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
+    output = [i_t, w_squeezed, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
     new_states = NestedState(K=K, V=V, R=R)
 

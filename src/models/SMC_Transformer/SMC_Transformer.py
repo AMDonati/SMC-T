@@ -4,7 +4,6 @@ from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
 from models.SMC_Transformer.transformer_utils import positional_encoding
 from neural_toolbox.SMC_layers import DecoderLayer
 from neural_toolbox.SMC_TransformerCell import SMC_Transf_Cell
-from models.SMC_Transformer.transformer_utils import initialize_indices_matrix
 from models.SMC_Transformer.transformer_utils import create_look_ahead_mask
 from train.SMC_loss import compute_SMC_log_likelihood
 from train.SMC_loss import compute_SMC_ll_one_layer
@@ -13,8 +12,7 @@ import collections
 # for the sequential process in the Transformer class:
 # use this instead: https://www.tensorflow.org/api_docs/python/tf/keras/layers/RNN?version=stable
 NestedInput = collections.namedtuple('NestedInput', ['x', 'y'])
-#TODO here: add a state to this, U for the computation of the gradient used in the estimation of omega.
-NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R', 'w', 'I'])
+NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R'])
 
 # -------- Class Decoder and Class Transformer-------------------------------------------------------------------------------------------------------------
 # class Decoder that takes a SMC Decoder Layers as input.
@@ -255,8 +253,6 @@ class SMC_Transformer(tf.keras.Model):
         -real: targets > tensor of shape (B,P,S)
         sampling_weights: tensor of shape (B,P) > final resampling_weights for the last decoding timestep
     '''
-    # check that the pass forward has been done when calling this function.
-    assert self.pass_forward is True
 
     # multi-layer case.
     if self.num_layers > 1:
@@ -343,7 +339,7 @@ class SMC_Transformer(tf.keras.Model):
       x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
-    shape = (batch_size, self.num_particles, self.seq_len, self.depth)
+    shape = (batch_size, self.num_particles, self.seq_len+1, self.d_model)
     K0, V0, R0 = tf.zeros(shape=shape, dtype=tf.float32), tf.zeros(shape=shape, dtype=tf.float32), tf.zeros(shape=shape, dtype=tf.float32)
     initial_state = NestedState(K=K0,
                                 V=V0,
@@ -364,15 +360,12 @@ class SMC_Transformer(tf.keras.Model):
     # reset decoding timestep of the cell to 1:
     self.cell.dec_timestep = 0
 
-    # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ----------------------------------------------------------
-
+    # ------------------ EXTRACTING OUTPUTS OF THE RNN LAYER ------------------------------------------------------------------------
     # outputs
-    outputs =[outputs[0]] + [tf.squeeze(out, axis=-2) for out in outputs[1:]]  # (B,S,P,D) for z,list_noises, (B,S,P,H,S) for attn_weights
-    # first output i_t: not reshaped.
     indices_matrix = outputs[0] # (B,S,P)
-    Z0_T = outputs[1] # (B,S,P,D)
-    list_noise_0_T = outputs[2] # (B,S,P,D) > for computing the loss function.
-    attn_weights_SMC_layer = outputs[3]  # shape (B,S,P,H,S)
+    w0_T = outputs[1] # (B,S,P,D)
+    list_noise_0_T = tf.squeeze(outputs[2], axis=-2) # (B,S,P,D)
+    attn_weights_SMC_layer = tf.squeeze(outputs[3] , axis=-2) # shape (B,S,P,H,S)
 
     # states
     K = new_states[0] # (B,P,S+1,D)
@@ -381,11 +374,9 @@ class SMC_Transformer(tf.keras.Model):
     V = V[:,:,1:,:] # (B,S,P,D)
     R = new_states[2] # (B,P,S+1,D)
     R = R[:,:,1:,:] # (B,P,S,D)
-    w_T = new_states[3]
 
     Y0_T = self.final_layer(R) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
 
-    w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
     indices_matrix = tf.transpose(indices_matrix, perm=[0,2,1]) # (B,P,S)
     list_noise_0_T = [tf.transpose(noise, perm=[0,2,1,3]) for noise in list_noise_0_T] # shape (B,P,S,D)
     self.noises_seq = list_noise_0_T # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
@@ -398,7 +389,7 @@ class SMC_Transformer(tf.keras.Model):
       attn_weights = attn_weights_enc
       attn_weights['SMC_layer_{}'.format(self.num_layers)] = attn_weights_SMC_layer
 
-    return (Y0_T, indices_matrix, w_T, (K,V,R)), attn_weights
+    return (Y0_T, w0_T, indices_matrix, (K,V,R)), attn_weights
 
 if __name__ == "__main__":
   num_particles = 10
@@ -411,7 +402,7 @@ if __name__ == "__main__":
   dff = 128
   maximum_position_encoding = seq_len
   sigma = 'learned'
-  omega = 0.25
+  omega = 0.5
   data_type = 'time_series_multi'
   task_type = 'regression'
   target_feature = 0
@@ -471,7 +462,7 @@ if __name__ == "__main__":
 
   mask = create_look_ahead_mask(seq_len)
 
-  (predictions, trajectories, weights, (K,V,U)), attn_weights = sample_transformer(inputs=inputs,
+  (predictions, weights, ind_matrix, (K,V,R)), attn_weights = sample_transformer(inputs=inputs,
                                                                                     training=True,
                                                                                     mask=mask)
   print('final predictions - one sample', predictions[0,:,:,:])
@@ -496,8 +487,3 @@ if __name__ == "__main__":
 
   inference_dec_timestep = tf.shape(K)[2]
   num_samples = 2
-  #preds, attn_params = sample_transformer.cell.inference_function(inputs=input,
-                                                                  #K=K,
-                                                                  #V=V,
-                                                                  #num_samples=num_samples,
-                                                                  #inf_timestep=inference_dec_timestep)
