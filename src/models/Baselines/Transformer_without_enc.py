@@ -19,37 +19,29 @@ def scaled_dot_product_attention(q, k, v, mask):
     output, attention_weights
   """
   matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
-
   # scale matmul_qk
   dk = tf.cast(tf.shape(k)[-1], tf.float32)
   scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
-
   # add the mask to the scaled tensor.
   if mask is not None:
     scaled_attention_logits += (mask * -1e9)
-
-    # softmax is normalized on the last axis (seq_len_k) so that the scores
-  # add up to 1.
+  # softmax is normalized on the last axis (seq_len_k) so that the scores add up to 1.
   attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
-
   output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
 
   return output, attention_weights
 
 class MultiHeadAttention(tf.keras.layers.Layer):
+
   def __init__(self, d_model, num_heads):
     super(MultiHeadAttention, self).__init__()
     self.num_heads = num_heads
     self.d_model = d_model
-
     assert d_model % self.num_heads == 0
-
     self.depth = d_model // self.num_heads
-
     self.wq = tf.keras.layers.Dense(d_model)
     self.wk = tf.keras.layers.Dense(d_model)
     self.wv = tf.keras.layers.Dense(d_model)
-
     self.dense = tf.keras.layers.Dense(d_model)
 
   def split_heads(self, x, batch_size):
@@ -113,12 +105,10 @@ class DecoderLayer(tf.keras.layers.Layer):
     # squeezing x if needed (needs to be of shape (B,S,D)
     if len(tf.shape(input))==4:
       input=tf.squeeze(input, axis=2)
-   # out1 = self.layernorm1(attn1 + input) # (B,S,D)
-    #ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
-    ffn_output = self.ffn(attn1)  # (batch_size, target_seq_len, d_model) #TODO: remove this line to come back to normal.
+    out1 = self.layernorm1(attn1 + input) # (B,S,D)
+    ffn_output = self.ffn(out1)  # (batch_size, target_seq_len, d_model)
     ffn_output = self.dropout3(ffn_output, training=training)
-    #out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
-    out3 = ffn_output #TODO: remove this line to go back to normal.
+    out3 = self.layernorm3(ffn_output + out1)  # (batch_size, target_seq_len, d_model)
 
     return out3, attn_weights
 
@@ -152,34 +142,29 @@ class Decoder(tf.keras.layers.Layer):
     self.data_type = data_type
 
   def call(self, inputs, training, look_ahead_mask):
+
     seq_len = tf.shape(inputs)[1]
     attention_weights = {}
-
     # adding an embedding only if x is a nlp dataset.
     if self.data_type=='nlp':
       inputs = self.embedding(inputs)  # (B,S,D) # CAUTION: target_vocab_size needs to be bigger than d_model...
-    # TODO: see if this needs to be added for time_series as well. Yes, I think!
     elif self.data_type == 'time_series_uni' or 'time_series_multi':
       inputs = self.input_dense_projection(inputs)
-
     inputs *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
 
     if self.maximum_position_encoding is not None:
       assert self.maximum_position_encoding >= seq_len
       inputs += self.pos_encoding[:, :seq_len, :]
-
     inputs = self.dropout(inputs, training=training)
 
     for i in range(self.num_layers):
       inputs, block = self.dec_layers[i](inputs=inputs, training=training,
                                          look_ahead_mask=look_ahead_mask)
-
       attention_weights['decoder_layer{}'.format(i + 1)] = block
 
     return inputs, attention_weights #(B,S,D), # (B,S,S)?
 
 """## Create the Transformer
-
 The transTransformer consists of the decoder and a final linear layer. 
 The output of the decoder is the input to the linear layer and its output is returned.
 """

@@ -5,13 +5,10 @@ import tensorflow_probability as tfp
 # additional imports
 from models.SMC_Transformer.self_attention_SMC import MultiHeadAttention_SMC
 from neural_toolbox.classic_layers import point_wise_feed_forward_network
-
 from models.SMC_Transformer.transformer_utils import positional_encoding_SMC
 from models.SMC_Transformer.transformer_utils import positional_encoding
 from models.SMC_Transformer.transformer_utils import resample
-from models.SMC_Transformer.transformer_utils import resample_old
 from models.SMC_Transformer.transformer_utils import resample_z
-from models.SMC_Transformer.transformer_utils import sample_and_keep_indices
 
 NestedInput = collections.namedtuple('NestedInput', ['r', 'x'])
 NestedState = collections.namedtuple('NestedState', ['K', 'V', 'R', 'w', 'I'])
@@ -85,9 +82,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     # internal states: K,V,w,I.
     self.state_size = NestedState(K=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
                                   V=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
-                                  R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]),
-                                  w=tf.TensorShape([self.num_particles, 1]),
-                                  I=tf.TensorShape([self.num_particles, self.seq_len]))
+                                  R=tf.TensorShape([self.num_particles, self.seq_len, self.d_model]))
 
     # outputs: z, r, epsilon and attention_weights (output of the last SMC layer) before softmax.
     self.output_size = (tf.TensorShape([self.num_particles]),  # i_t
@@ -143,22 +138,14 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       y = tf.expand_dims(y, axis=-1) # (B, P, 1)
 
     mu_t = y - predictions # (B,P,F)
-    #log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
-    #log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
-    log_w = tf.square(mu_t)
-    log_w = tf.squeeze(log_w, axis=-1)
-    bool1 = tf.math.is_inf(log_w)
-    has_inf1 = tf.reduce_any(bool1)
-    log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) # omega here is the stddev.
-    bool2= tf.math.is_inf(log_w)
-    has_inf2 = tf.reduce_any(bool2)
+    log_w = tf.matmul(mu_t, mu_t, transpose_b=True)  # (B,P,P)
+    log_w = tf.linalg.diag_part(log_w)  # take the diagonal.
+    log_w = tf.scalar_mul(-1/(2 * (self.omega)**2), log_w) # omega here is the stddev: shouldn't be too small to avoid nan values.
     log_w_min = tf.reduce_min(log_w, axis=-1, keepdims=True)
     log_w = log_w - log_w_min
-    bool3 = tf.math.is_inf(log_w)
-    has_inf3 = tf.reduce_any(bool3)
-    w = tf.math.exp(log_w) #TODO: understand why it outputs inf here...
+    w = tf.math.exp(log_w)
     # normalization
-    w = w / tf.reduce_sum(w, axis=1, keepdims=True) #TODO: then outputs nan with the denominator.
+    w = w / tf.reduce_sum(w, axis=1, keepdims=True)
 
     assert len(tf.shape(w)) == 2
 
@@ -260,18 +247,13 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     y = tf.cast(y, dtype=tf.float32)
     y = tf.squeeze(y, axis=-1) # (B,F) # y before selecting the target feature if needed.
     # getting states
-    K, V, R, w, I = states
-    I = tf.cast(I, dtype=tf.int32)
+    K, V, R = states
 
     if self.test:
       print('x', x[:,:,0])
       print('y', y)
 
     # ----------------------- resampling K,V,and z ------------------------------------------------------------------------------
-    # resampling of (K,V) to compute the new set of (z,K,V) - what was done before (resampling before propagation.)
-    #if self.resampling:
-      #K = resample_old(K, I)
-      #V = resample_old(V, I)
 
     # multi-head attention:
     input_mha = tf.expand_dims(x, axis=2)  # shape (B,P,1,D)
@@ -306,18 +288,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     if self.test:
       print('predictions', predictions)
 
-    # # computation of the new U:
-    # #TODO implement the multivariate case. (cf inference functions.)
-    # if self.target_feature is not None:
-    #   y = y[:, self.target_feature]
-    #   y = tf.expand_dims(y, axis=-1) # (B,1)
-    # y_tiled = tf.expand_dims(tf.expand_dims(y, axis=1), axis=1) # (B,1,1,F)
-    # y_tiled = tf.tile(y_tiled, multiples=[1,self.num_particles,1,1]) # (B,P,1,F)
-    # square_diff = tf.square(y_tiled - predictions) # (B,P,1,F) F=1
-    # U = U + 1/2 * ((self.omega)**2 - square_diff) # omega is the stddev, omega**2: variance.
-    # # adding a tf.stop_gradient on U.
-    # U = tf.stop_gradient(U)
-
     # ----------- sampling_weights computation > for classification case or regression case... ----------------------------------------------------------------
 
     if self.task_type == 'classification':
@@ -330,12 +300,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
     w_squeezed = tf.stop_gradient(w_squeezed)
 
     #-----------------end of weights computation--------------------------------------------------------------------
-
-    # update the genealogy indices matrix from the weights.
-    # TODO: remove this function & consider only the current indice i_t.
-    # i_t, I = sample_and_keep_indices(w_squeezed, I, self.num_particles, self.dec_timestep)
-    # # adding a tf.stop_gradient on I to avoid backpropagation on this set of parameters
-    # I = tf.stop_gradient(I)
     i_t = tf.random.categorical(w_squeezed, self.num_particles)  # (B,P,1)
     i_t = tf.stop_gradient(i_t)
 
@@ -344,7 +308,6 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
       K = resample(params=K, i_t=i_t, t=self.dec_timestep)
       V = resample(params=V, i_t=i_t, t=self.dec_timestep)
       R = resample(params=R, i_t=i_t, t=self.dec_timestep)
-      z = resample_z(z=z, curr_ind=i_t)  # if z is of shape (B,P,D). #TODO: actually useless.
 
     K_resampl = K[0,:,:,0]
     R_resampl = R[0,:,:,0]
@@ -366,14 +329,7 @@ class SMC_Transf_Cell(tf.keras.layers.Layer):
 
     output = [i_t, z, list_noise, attn_weights] # attn_weights > shape (B,P,H,1,D)
 
-    if len(tf.shape(w_squeezed)) == 2:
-      w = tf.expand_dims(w_squeezed, axis=-1)
-    elif len(tf.shape(w_squeezed)) == 3:
-      w = w_squeezed
-    else:
-      raise ValueError("w should be of shape (B,P) or shape (B,P,1)")
-
-    new_states = NestedState(K=K, V=V, R=R, w=w, I=I)
+    new_states = NestedState(K=K, V=V, R=R)
 
     self.dec_timestep += 1
 

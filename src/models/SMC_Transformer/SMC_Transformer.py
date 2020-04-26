@@ -205,8 +205,6 @@ class SMC_Transformer(tf.keras.Model):
     self.rate = rate
 
     self.data_type = data_type
-    #if data_type=='time_series_multi':
-      #assert target_feature is not None
     self.task_type = task_type
 
     self.seq_len = seq_len
@@ -251,71 +249,6 @@ class SMC_Transformer(tf.keras.Model):
 
     return tf.reshape(x, shape=[tf.shape(x)[0], tf.shape(x)[2], tf.shape(x)[1], tf.shape(x)[-1]])
 
-  def initialize_attn_SMC_parameters(self, batch_size, seq_length, initial_word_id):
-    ''' initialize the attention parameters of the Transformer:
-          -Args:
-            -batch_size
-            -seq_length: longueur of input sequence of words
-            -initial_word_tensor: 1D tensor of dim (batch_size, 1) with the initial words for each element of the batch.
-            Used to compute the initial set of weights
-          -Returns
-            -Z0, K0, V0 (dim (B,P,S,D)) w0 (dim (B,P,1)), initial indices matrix (dim (B, P, S))
-    '''
-    # initialize K0, V0, Z0 (=V0)
-    #K = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='K')
-    #V = tf.random.uniform(shape=(batch_size, self.num_particles, seq_length, self.d_model), maxval=1, name='V')
-    K = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
-    V = tf.zeros(shape=(batch_size, self.num_particles, seq_length, self.d_model))
-    z = V[:,:,0,:]
-    # compute the $\epsilon$ of the reparametrized noise.
-    if self.cell.noise:
-      gaussian_noise = tf.random.normal(shape=tf.shape(z), name='stddev')  # shape (B,P,1,D)
-    else:
-      gaussian_noise = tf.zeros(shape=tf.shape(z), dtype=tf.float32)
-    #TODO: check this with Sylvain.
-    if self.sigma !='learned':
-      z = z + tf.scalar_mul(self.sigma, gaussian_noise)
-
-    # initialize w0
-    #TODO: add the FFN layers after z before taking the final layer. (not essential. It is as if r was initializing equal to V finally).
-    logits_initial = self.final_layer(z)  # shape (B, P, S, V) #TODO add the noise.
-
-    # computing w0
-    if self.task_type == 'classification':
-      initial_word_id = tf.expand_dims(initial_word_id, axis=-1)
-      initial_word_id = tf.cast(initial_word_id, dtype=tf.int32)
-      initial_weights = self.cell.compute_w_classification(predictions=logits_initial, x=initial_word_id) # shape (B,P).
-
-    elif self.task_type == 'regression':
-      # TODO replace the tf.cast by an assert.
-      initial_word_id = tf.cast(initial_word_id, dtype=tf.float32) # shape (B,F)
-      if len(tf.shape(initial_word_id)) == 1:
-        initial_word_id = tf.expand_dims(initial_word_id, axis=-1)
-
-      initial_weights = self.cell.compute_w_regression(predictions=logits_initial, y=initial_word_id) # shape (B,P)
-
-    # call the initialization of the ancestor indices matrix - create an initial 'identity function' indices matrix.
-    ind_matrix_init = initialize_indices_matrix(batch_size, seq_length, self.num_particles) # (B,P,S)
-    # update it with i_o
-    i0 = tf.random.categorical(initial_weights, self.num_particles)  # (B,P)
-    i0 = tf.expand_dims(i0, axis=-1)
-    i0=tf.cast(i0, dtype=tf.int32)
-    ind_matrix_init = tf.concat([i0, ind_matrix_init[:,:,1:]], axis=-1)
-
-    self.initialize = True
-
-    initial_weights = tf.expand_dims(initial_weights, axis=-1)  # (B,P,1)
-
-    # adding a tf.stop_gradient on the weights and the ind_matrix_init to avoid backpropagation on this set of parameters:
-    initial_weights = tf.stop_gradient(initial_weights)
-    ind_matrix_init = tf.stop_gradient(ind_matrix_init)
-
-    # resample K & Z using i_0 (nned to be of shape (B,P)
-    # K = resample(params=K, i_t=tf.squeeze(i0, axis=-1), t=0)
-    # V = resample(params=V, i_t=tf.squeeze(i0, axis=-1), t=0)
-
-    return (K, V), initial_weights, ind_matrix_init
-
   def compute_SMC_log_likelihood(self, sampling_weights):
     '''
       -Args:
@@ -345,14 +278,12 @@ class SMC_Transformer(tf.keras.Model):
 
     # one-layer case.
     elif self.num_layers == 1:
-      #sigma=self.cell.mha_smc.sigma
       list_noises=self.noises_seq
 
       SMC_loss_tensor = compute_SMC_ll_one_layer(list_means=list_noises)
       # multiply by -1/2 to get the right formula.
       #TODO: refactor this: put the -1/2 in the compute_SMC_ll_one_layer.
       SMC_loss = tf.scalar_mul(-1/2, SMC_loss_tensor) # shape (B,P,S)
-
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over seq dim.
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # 'uniform' mean over particle dim. (w_final= 1/M)
       SMC_loss = tf.reduce_mean(SMC_loss, axis=-1) # mean over batch dim.
@@ -380,7 +311,6 @@ class SMC_Transformer(tf.keras.Model):
     batch_size = tf.shape(inputs)[0]
     seq_len_total = tf.shape(inputs)[1] # S+1
     assert self.seq_len == seq_len_total - 1
-    num_features = tf.shape(inputs)[-1]
 
     # splitting between input_data and targets(y)
     input_data = inputs[:,:-1,:] # (B,S,F)
@@ -413,28 +343,11 @@ class SMC_Transformer(tf.keras.Model):
       x = tf.transpose(x, perm=[0, 2, 1, 3])  # shape (B,S,P,D) so that it can be processed by the RNN_cell & RNN_layer.
 
     # 'dummy' initialization of cell's internal state for memory efficiency.
-    if self.target_feature is not None:
-      assert self.target_feature < tf.shape(inputs)[-1]
-      initial_word_id = input_data[:, 0, self.target_feature]
-    else:
-      initial_word_id = input_data[:, 0, :]
-
-    (K0, V0), w0, I0 = self.initialize_attn_SMC_parameters(batch_size=batch_size,
-                                                           seq_length=seq_len_total,
-                                                           initial_word_id=initial_word_id)
-
-    R0 = tf.zeros(shape=tf.shape(K0), dtype=tf.float32)
-
-    # if self.target_feature is None:
-    #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1, num_features), dtype=tf.float32)
-    # else:
-    #   U0 = tf.zeros(shape=(batch_size, self.num_particles, 1 , 1), dtype=tf.float32)
-
+    shape = (batch_size, self.num_particles, self.seq_len, self.depth)
+    K0, V0, R0 = tf.zeros(shape=shape, dtype=tf.float32), tf.zeros(shape=shape, dtype=tf.float32), tf.zeros(shape=shape, dtype=tf.float32)
     initial_state = NestedState(K=K0,
                                 V=V0,
-                                R=R0,
-                                w=w0,
-                                I=I0)
+                                R=R0)
 
     def step_function(inputs, states):
        return self.cell(inputs, states)
@@ -473,7 +386,6 @@ class SMC_Transformer(tf.keras.Model):
     Y0_T = self.final_layer(R) # (B,P,S,C) used to compute the categorical cross_entropy loss. # logits.
 
     w_T = tf.squeeze(w_T, axis=-1) # (B,P,1)
-    Z0_T = tf.transpose(Z0_T, perm=[0,2,1,3]) # (B,P,S,D)
     indices_matrix = tf.transpose(indices_matrix, perm=[0,2,1]) # (B,P,S)
     list_noise_0_T = [tf.transpose(noise, perm=[0,2,1,3]) for noise in list_noise_0_T] # shape (B,P,S,D)
     self.noises_seq = list_noise_0_T # stocking epsilon as an internal parameter of the SMC_Transformer class to use it the computation of the loss.
@@ -485,8 +397,6 @@ class SMC_Transformer(tf.keras.Model):
     else:
       attn_weights = attn_weights_enc
       attn_weights['SMC_layer_{}'.format(self.num_layers)] = attn_weights_SMC_layer
-
-    self.pass_forward = True
 
     return (Y0_T, indices_matrix, w_T, (K,V,R)), attn_weights
 
